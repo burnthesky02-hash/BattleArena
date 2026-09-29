@@ -1895,3 +1895,5 @@ myself.
   the real pygame window -- this sandbox still has no real art to render
   against, only logic verified against a fake pygame module and hand-
   checked geometry.
+#   B A  
+ 
