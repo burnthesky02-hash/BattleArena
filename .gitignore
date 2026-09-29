@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# PyInstaller build output
+build/
+dist/
+
+# Save files (per-player state, not source)
+saves/*.json
+
+# Editor / OS cruft
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

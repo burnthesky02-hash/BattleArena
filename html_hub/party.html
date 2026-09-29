@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Choose Your Party</title>
+<style>
+  :root {
+    --gold: #e8c766;
+    --panel-bg: rgba(18, 16, 28, 0.85);
+    --panel-border: rgba(232, 199, 102, 0.35);
+    --text: #f1ecdd;
+    --dim: #b9b2a0;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh; width: 100%;
+    font-family: "Segoe UI", Verdana, sans-serif; color: var(--text);
+    background: #0e0c14 radial-gradient(1200px 600px at 50% -10%, #241c3d 0%, #0e0c14 60%);
+  }
+  a { color: var(--gold); text-decoration: none; }
+  #topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 22px; border-bottom: 1px solid var(--panel-border);
+  }
+  #topbar h1 { margin: 0; font-size: 22px; }
+  #status { text-align: center; color: var(--dim); font-size: 13px; padding: 8px; min-height: 22px; }
+  .label { padding: 4px 22px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); }
+  #slots { display: flex; gap: 14px; padding: 8px 22px 16px 22px; flex-wrap: wrap; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; padding: 8px 22px 30px 22px; }
+
+  .card {
+    width: 130px; background: var(--panel-bg); border: 2px solid var(--panel-border);
+    border-radius: 12px; padding: 8px 6px 10px 6px; cursor: pointer; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 3px; transition: transform 0.1s ease;
+  }
+  #grid .card { width: auto; }
+  .card:hover { transform: translateY(-2px); }
+  .card.selected { box-shadow: 0 0 16px -2px var(--gold); }
+  .card.wounded { opacity: 0.5; cursor: not-allowed; }
+  .card .wound-badge { font-size: 10px; color: #ff8a8a; font-weight: 700; }
+  .card .pw { width: 84px; height: 84px; border-radius: 10px; overflow: hidden; background: rgba(255,255,255,0.06);
+    display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 26px; }
+  .card .pw img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+  .card .n { font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .card .s { font-size: 10px; color: var(--dim); }
+  .card .st { font-size: 10px; letter-spacing: 1px; }
+  .card .badge { font-size: 10px; color: var(--gold); font-weight: 700; }
+  .empty-slot {
+    width: 130px; min-height: 150px; border: 2px dashed var(--panel-border); border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--dim); font-size: 12px; gap: 4px;
+  }
+  .empty-slot .plus { font-size: 30px; }
+
+  .row-picker { display: flex; gap: 3px; margin-top: 3px; }
+  .row-btn {
+    flex: 1; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; padding: 3px 0;
+    border-radius: 5px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.05);
+    color: var(--dim); cursor: pointer;
+  }
+  .row-btn.active { background: var(--gold); color: #241a05; border-color: #fff3c8; }
+  .row-btn.full { opacity: 0.35; cursor: not-allowed; }
+
+  #layout { display: flex; align-items: flex-start; gap: 18px; padding: 0 22px 40px 22px; }
+  #main-col { flex: 1 1 auto; min-width: 0; }
+  #main-col #grid, #main-col #slots { padding-left: 0; padding-right: 0; }
+  #main-col .label { padding-left: 0; padding-right: 0; }
+  #preview-col {
+    flex: 0 0 380px; position: sticky; top: 16px;
+  }
+  #preview-col h2 { margin: 0 0 4px 0; font-size: 14px; letter-spacing: 0.05em; color: var(--gold); }
+  #preview-col .hint { font-size: 11px; color: var(--dim); margin-bottom: 10px; }
+
+  /* A full-size preview of the actual battle formation, using the real battle screen's own
+     background art. Rotated 90 degrees from a real battle's own left-right camera framing: instead
+     of depth rows stacked top-to-bottom, front/middle/rear are 3 columns left-to-right (front
+     nearest the enemy on the left, rear farthest back on the right), each with up to 2 stacked set
+     spots -- a lone occupant centered vertically in its column, two spreading symmetrically
+     up/down. Heroes are drawn as live idle-animated battle sprites (the same sprite-sheet slicing
+     technique the battle screen uses), mirrored to face left (toward the front/enemy side) exactly
+     as they will in the real fight, and absolutely positioned by JS rather than laid out with
+     flexbox -- this is meant to look and feel like a snapshot of the real battle, not a schematic. */
+  #formation-stage {
+    position: relative; width: 100%; height: 560px; border-radius: 14px; overflow: hidden;
+    background: #14101f url(/assets/Artwork/Background.webp) center/cover no-repeat;
+    border: 1px solid var(--panel-border); box-shadow: 0 0 40px rgba(0,0,0,0.4) inset;
+  }
+  #formation-stage::after {
+    /* Darkens the top/bottom edges a touch so the column labels and footer text stay readable over
+       whatever the background art happens to be behind them, without flattening the art itself. */
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 82%, rgba(0,0,0,0.4) 100%);
+  }
+  #formation-stage .stage-row-label {
+    position: absolute; top: 8px; width: 33.34%; text-align: center; font-size: 10px; font-weight: 800;
+    letter-spacing: 0.1em; color: rgba(241,236,221,0.75); text-shadow: 0 1px 3px rgba(0,0,0,0.9); pointer-events: none;
+  }
+  #formation-stage .stage-row-divider {
+    position: absolute; top: 0; bottom: 0; border-left: 1px dashed rgba(232,199,102,0.22); pointer-events: none;
+  }
+  #formation-stage .empty-note {
+    position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+    text-align: center; font-size: 13px; color: var(--text); text-shadow: 0 1px 3px rgba(0,0,0,0.9); font-style: italic;
+  }
+  #formation-stage .battle-line {
+    position: absolute; left: 8px; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl;
+    font-size: 9px; letter-spacing: 0.12em; color: rgba(232,199,102,0.55); text-transform: uppercase;
+  }
+  .stage-sprite-anchor {
+    position: absolute; transform: translate(-50%, -100%); transition: left 0.25s ease, top 0.25s ease;
+    display: flex; flex-direction: column; align-items: center; pointer-events: none;
+  }
+  .stage-sprite-mirror { transform: scaleX(-1); } /* party always faces left in battle, same as html_battle/index.html */
+  .stage-sprite {
+    background-repeat: no-repeat; image-rendering: pixelated; flex-shrink: 0;
+    filter: drop-shadow(0 6px 10px rgba(0,0,0,0.55));
+  }
+  .stage-sprite.stage-sprite-missing {
+    width: 40px; height: 40px; border-radius: 8px; background: rgba(255,255,255,0.06);
+    border: 2px solid var(--panel-border); display: flex; align-items: center; justify-content: center;
+    color: var(--dim); font-size: 16px;
+  }
+  .stage-sprite-name {
+    margin-top: 4px; white-space: nowrap; font-size: 10px; font-weight: 700; color: var(--text);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  }
+
+  @media (max-width: 860px) {
+    #layout { flex-direction: column; }
+    #preview-col { position: static; width: 100%; flex-basis: auto; }
+  }
+
+  #actions { padding: 6px 22px 40px 22px; display: flex; gap: 12px; }
+  button {
+    padding: 12px 24px; border-radius: 10px; border: 1px solid var(--panel-border); cursor: pointer;
+    font-weight: 800; font-size: 14px; color: var(--text); background: var(--panel-bg);
+  }
+  #confirm { background: linear-gradient(180deg, #e8c766, #b8892c); color: #241a05; border-color: #fff3c8; }
+  button:disabled { background: rgba(255,255,255,0.08); color: var(--dim); cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <h1>Choose Your Party</h1>
+  <a href="/">&larr; Back to Colosseum</a>
+</div>
+<div id="challenge-banner" style="display:none;margin:0 24px 8px;padding:8px 14px;border:1px solid #ff9a9a;border-radius:10px;background:rgba(160,30,40,0.35);font-weight:700;letter-spacing:0.04em;"></div>
+<div id="status"></div>
+<div id="layout">
+  <div id="main-col">
+    <div class="label" id="party-label">Your Party</div>
+    <div id="slots"></div>
+    <div class="label">All Heroes (click to add / remove)</div>
+    <div id="grid"></div>
+    <div id="actions">
+      <button id="confirm">Confirm &amp; Enter Battle</button>
+      <button id="back">Back</button>
+    </div>
+  </div>
+  <div id="preview-col">
+    <h2>Battle Formation Preview</h2>
+    <div class="hint">Front takes less damage. Mid deals more. Rear deals/takes less but heals more. Melee can't reach past an occupied enemy front row. Max 2 heroes per row. This is exactly how your party will line up when the fight starts.</div>
+    <div id="formation-stage">
+      <div class="stage-row-label" style="left: 0;">FRONT</div>
+      <div class="stage-row-divider" style="left: 33.34%;"></div>
+      <div class="stage-row-label" style="left: 33.34%;">MIDDLE</div>
+      <div class="stage-row-divider" style="left: 66.68%;"></div>
+      <div class="stage-row-label" style="left: 66.68%;">REAR</div>
+      <div class="battle-line">&larr; toward the enemy</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- Sound: fire-and-forget SFX + a single looping hub music track. ----
+  var SFX_VOLUME = 0.7, MUSIC_VOLUME = 0.35;
+  function playSfx(url, vol) {
+    if (!url) return;
+    try {
+      var a = new Audio(url);
+      a.volume = vol != null ? vol : SFX_VOLUME;
+      a.play()["catch"](function () {});
+    } catch (e) { /* best-effort */ }
+  }
+  var _musicEl = null, _musicUrl = null;
+  function playMusic(url, vol) {
+    if (_musicUrl === url && _musicEl && !_musicEl.paused) return;
+    stopMusic();
+    try {
+      _musicEl = new Audio(url);
+      _musicEl.loop = true;
+      _musicEl.volume = vol != null ? vol : MUSIC_VOLUME;
+      _musicUrl = url;
+      _musicEl.play()["catch"](function () {});
+    } catch (e) { /* best-effort */ }
+  }
+  function stopMusic() {
+    if (_musicEl) { try { _musicEl.pause(); } catch (e) {} }
+    _musicEl = null; _musicUrl = null;
+  }
+  var SFX = {
+    hover: "/assets/SFX/10_UI_Menu_SFX/001_Hover_01.wav",
+    confirm: "/assets/SFX/10_UI_Menu_SFX/013_Confirm_03.wav",
+    decline: "/assets/SFX/10_UI_Menu_SFX/029_Decline_09.wav",
+    denied: "/assets/SFX/10_UI_Menu_SFX/033_Denied_03.wav",
+  };
+  playMusic("/assets/Music/Main/Main.mp3");
+  var _lastHoverEl = null;
+  var HOVER_SEL = "button, .card";
+  document.addEventListener("mouseover", function (ev) {
+    var el = ev.target.closest(HOVER_SEL);
+    if (el && el !== _lastHoverEl && !el.disabled) { _lastHoverEl = el; playSfx(SFX.hover, 0.5); }
+  });
+  document.addEventListener("mouseout", function (ev) {
+    var el = ev.target.closest(HOVER_SEL);
+    if (el && el === _lastHoverEl) _lastHoverEl = null;
+  });
+
+  var data = null, selected = [], formations = {};
+  var ROWS = ["front", "middle", "rear"];
+  var ROW_LABEL = { front: "F", middle: "M", rear: "R" };
+  var ROW_TITLE = {
+    front: "FRONT — takes less damage",
+    middle: "MIDDLE — deals more damage",
+    rear: "REAR — deals/takes less, heals more",
+  };
+
+  // ---- Preview sprites: a minimal, self-contained idle-animation system that mirrors
+  // html_battle/index.html's sheet-loading + frame-slicing technique (loadSheet's Draven fallback
+  // chain, 6x6 frame sheets sliced via background-position), so the Party Select preview shows the
+  // same live battle sprites the hero will actually use, not static portraits. ----
+  var PREVIEW_FRAME_COLS = 6, PREVIEW_FRAME_ROWS = 6, PREVIEW_IDLE_FPS = 8;
+  var PREVIEW_DEFAULT_BATTLER = "Draven";
+  var previewSheetCache = new Map();
+  function previewSheetUrl(name) {
+    return "/assets/Battlers/" + encodeURIComponent(name) + "/" + encodeURIComponent(name) + "-Idle.png";
+  }
+  function loadPreviewSheet(name) {
+    if (previewSheetCache.has(name)) return previewSheetCache.get(name);
+    var promise = new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () {
+        if (name !== PREVIEW_DEFAULT_BATTLER) resolve(loadPreviewSheet(PREVIEW_DEFAULT_BATTLER));
+        else resolve(null); // truly nothing to show -- caller falls back to a plain box
+      };
+      img.src = previewSheetUrl(name);
+    });
+    previewSheetCache.set(name, promise);
+    return promise;
+  }
+
+  function PreviewSprite(name, heightPx) {
+    this.height = heightPx;
+    this.frame = 0;
+    this.lastTick = performance.now();
+    this.img = null;
+    this.frameW = 0; this.frameH = 0;
+
+    this.anchor = document.createElement("div");
+    this.anchor.className = "stage-sprite-anchor";
+    this.mirror = document.createElement("div");
+    this.mirror.className = "stage-sprite-mirror"; // party always faces left in the real battle
+    this.el = document.createElement("div");
+    this.el.className = "stage-sprite";
+    this.el.style.height = heightPx + "px";
+    this.el.style.width = heightPx + "px"; // placeholder box until the sheet loads and sets the real aspect ratio
+    this.mirror.appendChild(this.el);
+    this.anchor.appendChild(this.mirror);
+    this.nameEl = document.createElement("div");
+    this.nameEl.className = "stage-sprite-name";
+    this.nameEl.textContent = name;
+    this.anchor.appendChild(this.nameEl);
+
+    var self = this;
+    loadPreviewSheet(name).then(function (img) {
+      if (!img) {
+        self.el.classList.add("stage-sprite-missing");
+        self.el.textContent = "?";
+        return;
+      }
+      self.img = img;
+      self.frameW = img.naturalWidth / PREVIEW_FRAME_COLS;
+      self.frameH = img.naturalHeight / PREVIEW_FRAME_ROWS;
+      var w = heightPx * (self.frameW / self.frameH);
+      self.el.style.width = w + "px";
+      self.el.style.backgroundImage = "url(" + img.src + ")";
+      self.el.style.backgroundSize = (w * PREVIEW_FRAME_COLS) + "px " + (heightPx * PREVIEW_FRAME_ROWS) + "px";
+    });
+  }
+  PreviewSprite.prototype.tick = function (now) {
+    if (!this.img) return;
+    var msPerFrame = 1000 / PREVIEW_IDLE_FPS;
+    if (now - this.lastTick < msPerFrame) return;
+    this.lastTick = now;
+    var total = PREVIEW_FRAME_COLS * PREVIEW_FRAME_ROWS;
+    this.frame = (this.frame + 1) % total;
+    var w = this.height * (this.frameW / this.frameH);
+    var col = this.frame % PREVIEW_FRAME_COLS;
+    var row = Math.floor(this.frame / PREVIEW_FRAME_COLS);
+    this.el.style.backgroundPosition = "-" + (col * w) + "px -" + (row * this.height) + "px";
+  };
+
+  var activeSprites = [];
+  function tickPreviewSprites(now) {
+    for (var i = 0; i < activeSprites.length; i++) activeSprites[i].tick(now);
+    requestAnimationFrame(tickPreviewSprites);
+  }
+  requestAnimationFrame(tickPreviewSprites);
+
+  // Fixed 2x3 formation grid, rotated 90 degrees from the real battle screen's own left-right
+  // camera framing: front/middle/rear are 3 columns left-to-right (front nearest the enemy on the
+  // left, rear farthest back on the right) instead of depth rows top-to-bottom, each with up to 2
+  // stacked set spots -- a lone occupant centers vertically in its column, two spread symmetrically
+  // up/down. ROW_DISPLAY_ORDER is left-to-right on screen.
+  var ROW_DISPLAY_ORDER = ["front", "middle", "rear"];
+  var PREVIEW_BASELINE_Y_FRAC = 0.6; // vertical center line occupants spread up/down around
+  var PREVIEW_SLOT_GAP_FRAC = 0.16;  // vertical spacing between 2 stacked occupants, as a fraction of stage height
+  var PREVIEW_SPRITE_H = 92;
+
+  function setStatus(m) { document.getElementById("status").textContent = m || ""; }
+
+  function toggle(id) {
+    var h = (data.roster || []).find(function (x) { return x.id === id; });
+    if (h && h.is_wounded) { setStatus(h.name + " is wounded and can't fight yet."); return; }
+    var i = selected.indexOf(id);
+    if (i >= 0) { selected.splice(i, 1); setStatus(""); }
+    else if (selected.length >= data.max_size) { setStatus("Your party is already full (" + data.max_size + ")."); return; }
+    else {
+      selected.push(id);
+      if (!formations[id]) formations[id] = (h && h.formation) || "middle";
+      setStatus("");
+    }
+    render();
+  }
+
+  var ROW_CAPACITY = 2; // matches engine/formation.py's ROW_CAPACITY -- the battle grid is a fixed
+                         // 2x3 layout, so no row can ever hold more than 2 on either side.
+
+  // How many currently-selected heroes are in each row right now, excluding `excludeId` (pass a
+  // hero's own id when checking whether THEY can move into a row, so their own current slot
+  // doesn't count against themselves).
+  function rowCounts(excludeId) {
+    var counts = { front: 0, middle: 0, rear: 0 };
+    var byId = {};
+    (data.roster || []).forEach(function (h) { byId[h.id] = h; });
+    selected.forEach(function (id) {
+      if (id === excludeId) return;
+      var h = byId[id];
+      var row = formations[id] || (h && h.formation) || "middle";
+      if (counts[row] !== undefined) counts[row]++;
+    });
+    return counts;
+  }
+
+  function setRow(id, row) {
+    var counts = rowCounts(id);
+    if (counts[row] >= ROW_CAPACITY) {
+      setStatus(ROW_TITLE[row].split(" — ")[0] + " row is already full (" + ROW_CAPACITY + "/" + ROW_CAPACITY + ").");
+      return;
+    }
+    formations[id] = row;
+    setStatus("");
+    render();
+  }
+
+  function makeCard(h, inParty) {
+    var c = document.createElement("div");
+    c.className = "card" + (inParty ? " selected" : "") + (h.is_wounded ? " wounded" : "");
+    c.style.borderColor = h.is_wounded ? "#ff8a8a" : (inParty ? "var(--gold)" : h.rarity_color);
+    var pw = document.createElement("div");
+    pw.className = "pw";
+    var img = document.createElement("img");
+    img.src = h.portrait;
+    img.onerror = function () { pw.textContent = "?"; };
+    pw.appendChild(img);
+    c.appendChild(pw);
+    function add(cls, text, color) {
+      var d = document.createElement("div");
+      d.className = cls; d.textContent = text;
+      if (color) d.style.color = color;
+      c.appendChild(d);
+    }
+    add("n", h.name, h.rarity_color);
+    add("s", h.class_name + " - Lvl " + h.level);
+    add("st", h.stars_display, h.rarity_color);
+    if (h.is_wounded) add("wound-badge", "WOUNDED (" + h.wounded_runs_remaining + ")");
+    else add("s", "HP " + h.stats.max_hp + "  MP " + h.stats.max_mp);
+    if (inParty) add("badge", "IN PARTY");
+    c.onclick = function () { toggle(h.id); };
+    if (inParty) {
+      var picker = document.createElement("div");
+      picker.className = "row-picker";
+      var current = formations[h.id] || h.formation || "middle";
+      var counts = rowCounts(h.id);
+      ROWS.forEach(function (row) {
+        var full = counts[row] >= ROW_CAPACITY && row !== current;
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "row-btn" + (row === current ? " active" : "") + (full ? " full" : "");
+        b.textContent = ROW_LABEL[row];
+        b.title = full ? ROW_TITLE[row] + " (full)" : ROW_TITLE[row];
+        b.disabled = full;
+        b.onclick = function (ev) { ev.stopPropagation(); setRow(h.id, row); };
+        picker.appendChild(b);
+      });
+      c.appendChild(picker);
+    }
+    return c;
+  }
+
+  var previewSpritesById = {}; // hero id -> PreviewSprite, reused across renders so idle animation
+                                // doesn't restart/reflicker every time a selection or row changes
+
+  function renderPreview() {
+    // A genuine spatial preview: heroes are grouped by their assigned formation row into a fixed
+    // 2x3 grid -- front/middle/rear columns left-to-right, up to 2 set spots per column -- a lone
+    // occupant centered vertically, two spread symmetrically up/down, positioned by pixel
+    // coordinates and drawn as live idle-animated sprites rather than static portraits.
+    var stage = document.getElementById("formation-stage");
+    var byId = {};
+    data.roster.forEach(function (h) { byId[h.id] = h; });
+
+    var byRow = { front: [], middle: [], rear: [] };
+    var anySelected = false;
+    selected.forEach(function (id) {
+      var h = byId[id];
+      if (!h) return;
+      anySelected = true;
+      var assigned = formations[id] || h.formation || "middle";
+      if (!byRow[assigned]) assigned = "middle";
+      byRow[assigned].push(h);
+    });
+
+    // Remove/keep sprite instances to match current selection (reuse existing ones so idle
+    // animation keeps playing smoothly instead of restarting on every row/selection tweak).
+    var keepIds = {};
+    selected.forEach(function (id) { keepIds[id] = true; });
+    Object.keys(previewSpritesById).forEach(function (id) {
+      if (!keepIds[id]) {
+        var s = previewSpritesById[id];
+        if (s.anchor.parentNode) s.anchor.parentNode.removeChild(s.anchor);
+        delete previewSpritesById[id];
+      }
+    });
+
+    // Clear any leftover empty-note before laying sprites back out.
+    var oldNote = stage.querySelector(".empty-note");
+    if (oldNote) oldNote.parentNode.removeChild(oldNote);
+
+    if (!anySelected) {
+      var note = document.createElement("div");
+      note.className = "empty-note";
+      note.textContent = "-- select heroes to preview their formation --";
+      stage.appendChild(note);
+      activeSprites = [];
+      return;
+    }
+
+    var stageW = stage.clientWidth || 380;
+    var stageH = stage.clientHeight || 560;
+    var colW = stageW / ROW_DISPLAY_ORDER.length;
+    var baselineY = stageH * PREVIEW_BASELINE_Y_FRAC;
+    var slotGap = stageH * PREVIEW_SLOT_GAP_FRAC;
+    var newActive = [];
+
+    ROW_DISPLAY_ORDER.forEach(function (row, colIdx) {
+      var occupants = byRow[row];
+      var x = colW * colIdx + colW / 2; // horizontal center of this column
+      occupants.forEach(function (h, slotIdx) {
+        var spread = (slotIdx - (occupants.length - 1) / 2) * slotGap;
+        var y = baselineY + spread;
+        var sprite = previewSpritesById[h.id];
+        if (!sprite) {
+          sprite = new PreviewSprite(h.name, PREVIEW_SPRITE_H);
+          previewSpritesById[h.id] = sprite;
+        }
+        sprite.nameEl.style.color = h.rarity_color || "";
+        sprite.anchor.title = h.name + " — " + ROW_TITLE[row];
+        if (sprite.anchor.parentNode !== stage) stage.appendChild(sprite.anchor);
+        sprite.anchor.style.left = x + "px";
+        sprite.anchor.style.top = y + "px";
+        newActive.push(sprite);
+      });
+    });
+
+    activeSprites = newActive;
+  }
+
+  function render() {
+    var byId = {};
+    data.roster.forEach(function (h) { byId[h.id] = h; });
+    document.getElementById("party-label").textContent =
+      "Your Party (" + selected.length + "/" + data.max_size + ")";
+    var slots = document.getElementById("slots");
+    slots.innerHTML = "";
+    for (var i = 0; i < data.max_size; i++) {
+      var h = byId[selected[i]];
+      if (h) slots.appendChild(makeCard(h, true));
+      else {
+        var e = document.createElement("div");
+        e.className = "empty-slot";
+        e.innerHTML = '<div class="plus">+</div><div>Empty</div>';
+        slots.appendChild(e);
+      }
+    }
+    var grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    data.roster.forEach(function (h) { grid.appendChild(makeCard(h, selected.indexOf(h.id) >= 0)); });
+    document.getElementById("confirm").disabled = selected.length < data.min_size;
+    renderPreview();
+  }
+
+  document.getElementById("confirm").onclick = function () {
+    playSfx(SFX.confirm);
+    var sendFormations = {};
+    selected.forEach(function (id) { sendFormations[id] = formations[id] || "middle"; });
+    fetch("/api/party/confirm", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: selected, formations: sendFormations }) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.ok) window.location.href = "/battle";
+        else { playSfx(SFX.denied); setStatus(res.message); }
+      })
+      .catch(function () { playSfx(SFX.denied); setStatus("Could not reach the hub server."); });
+  };
+  document.getElementById("back").onclick = function () { playSfx(SFX.decline); window.location.href = "/"; };
+
+  // The preview panel drops to full page width below 860px (see the media query above), which
+  // changes #formation-stage's clientWidth -- recompute sprite positions when that happens.
+  window.addEventListener("resize", function () { if (data) renderPreview(); });
+
+  fetch("/api/party").then(function (r) { return r.json(); })
+    .then(function (d) {
+      data = d; selected = d.selected.slice();
+      var byId = {};
+      d.roster.forEach(function (h) { byId[h.id] = h; });
+      selected.forEach(function (id) { formations[id] = (byId[id] && byId[id].formation) || "middle"; });
+      render();
+      if (d.ladder) {
+        var lb = document.getElementById("challenge-banner");
+        lb.textContent = "LADDER MODE: cash out only after every 3rd win, and pick a perk after each victory. Flee = lose the pot.";
+        lb.style.display = "block"; lb.style.borderColor = "#ffe27a"; lb.style.background = "rgba(150,110,20,0.35)";
+        document.getElementById("confirm").textContent = "Confirm & Start Ladder Run";
+      }
+      if (d.challenge) {
+        var b = document.getElementById("challenge-banner");
+        b.textContent = "RANK CHALLENGE: " + d.challenge + " awaits. Choose your party wisely.";
+        b.style.display = "block";
+        document.getElementById("confirm").textContent = "Confirm & Face " + d.challenge;
+      }
+    })
+    .catch(function () { setStatus("Could not reach the hub server."); });
+})();
+</script>
+</body>
+</html>

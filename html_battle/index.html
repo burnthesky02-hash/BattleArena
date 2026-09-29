@@ -1,0 +1,2056 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Battle Arena -- Battle (HTML, real backend)</title>
+<style>
+  :root {
+    --panel-bg: rgba(18, 14, 28, 0.68);
+    --panel-border: rgba(255,255,255,0.10);
+    --text-main: #f0ecff;
+    --text-dim: #a79fc9;
+    --accent: #7c5cff;
+    --hp: #e0455a;
+    --mp: #4aa3e0;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: #060409;
+    color: var(--text-main);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  #viewport {
+    width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Fixed 1280x800 design canvas, scaled to fit the window -- same design
+     resolution the pygame build settled on, for a fair comparison. */
+  #stage {
+    position: relative;
+    width: 100vw; height: 100vh;
+    background: #14101f no-repeat center/cover;
+    transform-origin: center center;
+    overflow: hidden;
+    box-shadow: 0 0 60px rgba(0,0,0,0.6);
+  }
+
+  #auto-btn {
+    position: absolute; top: 6px; left: calc(50% + 80px); z-index: 20;
+    background: var(--panel-bg); color: var(--text-dim); border: 1px solid var(--panel-border);
+    border-radius: 999px; padding: 4px 14px; font-size: 13px; cursor: pointer;
+  }
+  #auto-btn.on { background: var(--accent); color: #fff; border-color: #fff8; }
+  #round-label {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    font-size: 13px; color: var(--text-dim);
+    background: var(--panel-bg); padding: 4px 14px; border-radius: 999px;
+    border: 1px solid var(--panel-border);
+  }
+
+  /* --- log panel, top-left, translucent --- */
+  #log-panel {
+    position: absolute; top: 36px; left: 16px; width: 420px; height: 96px;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    border-radius: 10px; padding: 8px 12px; font-size: 12px;
+    overflow-y: auto; line-height: 1.5; color: var(--text-dim);
+  }
+  #log-panel .line { color: var(--text-main); }
+  #log-panel .line.calc { color: #8fb4ff; font-family: Consolas, monospace; font-size: 11px; padding-left: 10px; }
+  #log-panel.dbg { resize: both; min-width: 300px; min-height: 60px; max-width: 95%; z-index: 6; }
+  #log-panel.dbg.expanded { width: 760px; height: 62vh; }
+  #log-toggle {
+    display: none; position: absolute; top: 38px; left: 442px; z-index: 7; padding: 2px 8px;
+    font-size: 11px; border-radius: 6px; cursor: pointer; border: 1px solid var(--panel-border);
+    background: var(--panel-bg); color: var(--text-main);
+  }
+  #log-toggle.on { left: 782px; }
+
+  /* --- AI thinking indicator, top-right --- */
+  #ai-panel {
+    position: absolute; top: 36px; right: 16px; width: 340px;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    border-radius: 10px; padding: 8px 12px; font-size: 12px;
+    color: var(--text-dim); display: none;
+  }
+  #ai-panel b { color: var(--text-main); }
+
+  /* --- sprites --- */
+  .sprite-anchor {
+    position: absolute;
+    transition: left 0.35s ease, top 0.35s ease;
+    cursor: pointer;
+  }
+  .sprite-anchor.not-targetable { cursor: default; }
+  /* transform-origin defaults to the element's own center (50% 50%), but .sprite-mirror wraps
+     .sprite-frame, which is ALREADY shifted onto the anchor point by its own translate(-50%,-100%)
+     (or, for a calibrated pose, a custom foot-based translate) -- scaleX(-1) around that default
+     center pivots around the middle of the frame's pre-shift box, not around the anchor itself, so
+     every mirrored (party-side, facing-left) sprite renders visibly offset from its own nameplate/
+     hit-box by roughly one sprite-width while every non-mirrored (enemy) sprite lines up fine. Since
+     .sprite-mirror's own box always starts exactly at the anchor position (it's an unpositioned,
+     zero-offset child of .sprite-anchor), pivoting at its own left edge (x: 0%) is pivoting at the
+     anchor itself -- which keeps the flip's fixed point (in the fixed-point-of-a-reflection sense)
+     exactly where the frame's own transform already put the character's feet, for every character
+     and every pose, calibrated or not. */
+  .sprite-mirror { transition: transform 0.1s linear; transform-origin: 0 0; }
+  .sprite-frame {
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    transform: translate(-50%, -100%); /* anchor = feet position */
+  }
+  .sprite-anchor.ko .sprite-mirror { opacity: 0.35; filter: grayscale(1); }
+  .sprite-anchor.targetable .sprite-frame { filter: drop-shadow(0 0 8px #ffe27acc); }
+  .sprite-anchor.targetable:hover .sprite-frame,
+  .sprite-anchor.hl .sprite-frame { filter: drop-shadow(0 0 14px #fff) drop-shadow(0 0 6px #ffe27a); }
+
+  /* --- nameplate above every sprite --- */
+  .nameplate {
+    position: absolute; left: 0; transform: translateX(-50%);
+    min-width: 70px; text-align: center; white-space: nowrap; pointer-events: none;
+    font-size: 12px; font-weight: 700; text-shadow: 0 1px 3px #000, 0 0 4px #000;
+  }
+
+  /* --- floating combat text + overhead status icons (Icons.png sprite sheet) --- */
+  .dmgfloat { position: absolute; transform: translateX(-50%); z-index: 450; pointer-events: none; white-space: nowrap; text-align: center;
+    font-weight: 900; font-size: 26px; line-height: 1; letter-spacing: 0.02em; color: var(--c, #fff);
+    -webkit-text-stroke: 1.5px #000; paint-order: stroke fill; text-shadow: 0 2px 4px #000, 0 0 10px var(--c, #fff);
+    animation: dmg-rise 1.15s cubic-bezier(.2,.8,.3,1) forwards; }
+  .dmgfloat.crit { font-size: 38px; animation-name: dmg-crit; }
+  .dmgfloat.heal, .dmgfloat.mp { font-size: 24px; }
+  .dmgfloat.status { font-size: 15px; letter-spacing: 0.04em; }
+  .dmgfloat small { display: block; font-size: 12px; letter-spacing: 0.1em; margin-bottom: 2px; }
+  .dmgfloat .ico { display: inline-block; vertical-align: middle; margin-right: 3px; }
+  @keyframes dmg-rise { 0% { opacity: 0; transform: translate(-50%, 8px) scale(0.6); } 12% { opacity: 1; transform: translate(-50%, -6px) scale(1.25); }
+    25% { transform: translate(-50%, -14px) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -64px) scale(0.95); } }
+  @keyframes dmg-crit { 0% { opacity: 0; transform: translate(-50%, 8px) scale(0.5); } 10% { opacity: 1; transform: translate(-50%, -8px) scale(1.5); }
+    22% { transform: translate(-50%, -16px) scale(1.15); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -70px) scale(1.05); } }
+  :root { --icons: url('/assets/Artwork/Icons.png'); }
+  .ico { background-image: var(--icons); background-repeat: no-repeat; image-rendering: pixelated; flex: none; }
+  .np-status { position: absolute; left: 50%; bottom: calc(100% + 3px); transform: translateX(-50%); display: flex; gap: 1px; pointer-events: none; }
+  .sprite-anchor.targetable .np-status { bottom: calc(100% + 22px); }
+  .sprite-anchor.ko .np-status { display: none; }
+  .np-status .ico { filter: drop-shadow(0 1px 2px #000); animation: ico-pop 0.25s ease-out; }
+  @keyframes ico-pop { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .nameplate.party .np-name { color: #8fe8d0; }
+  .nameplate.enemy .np-name { color: #ff9a9a; }
+  .nameplate .np-bar { height: 5px; margin: 2px auto 0; width: 64px; background: #000a; border-radius: 3px; overflow: hidden; }
+  .nameplate .np-fill { height: 100%; background: #56d06a; }
+  .nameplate.enemy .np-fill { background: #e0455a; }
+  .sprite-anchor.ko .nameplate { opacity: 0.5; }
+  .sprite-anchor.targetable .nameplate .np-name,
+  .sprite-anchor.hl .nameplate .np-name { color: #ffe27a; }
+  .sprite-anchor.targetable .nameplate::before {
+    content: "\25BC"; position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%);
+    color: #ffe27a; font-size: 14px; animation: np-bob 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes np-bob { from { margin-bottom: 0; } to { margin-bottom: 6px; } }
+
+  /* --- bottom command panel --- */
+  #command-panel {
+    position: absolute; left: 16px; bottom: 16px; width: 220px;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    border-radius: 10px; padding: 10px; display: none;
+  }
+  #command-panel .title { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  #command-panel button {
+    display: block; width: 100%; margin-bottom: 6px;
+    padding: 9px 10px; border-radius: 8px; border: none;
+    background: rgba(255,255,255,0.08); color: var(--text-main);
+    font-size: 13px; text-align: left; cursor: pointer;
+  }
+  #command-panel button:hover { background: var(--accent); }
+  #command-panel button:disabled { opacity: 0.35; cursor: not-allowed; background: rgba(255,255,255,0.05); }
+  #command-panel button.back { color: var(--text-dim); font-size: 12px; }
+
+  .tooltip {
+    display: none; position: fixed; z-index: 900; max-width: 260px;
+    background: rgba(10,8,18,0.97); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.45;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.55); pointer-events: none;
+  }
+  .tooltip .tt-title { font-weight: 700; color: var(--text-main); margin-bottom: 2px; }
+  .tooltip .tt-meta { color: var(--accent); font-size: 11px; letter-spacing: 0.02em; margin-bottom: 4px; }
+  .tooltip .tt-desc { color: var(--text-dim); }
+
+  /* --- party status panel, bottom-right --- */
+  #status-panel {
+    position: absolute; right: 16px; bottom: 16px; width: 260px;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    border-radius: 10px; padding: 10px;
+  }
+  .status-row { margin-bottom: 8px; font-size: 12px; }
+  .status-row:last-child { margin-bottom: 0; }
+  .status-row .name { display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .status-row .name.acting { color: #ffe27a; font-weight: 700; }
+  .bar-track { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); overflow: hidden; margin-bottom: 3px; }
+  .bar-fill { height: 100%; transition: width 0.4s ease; }
+  .bar-fill.hp { background: var(--hp); }
+  .bar-fill.mp { background: var(--mp); }
+  .status-row.ko { opacity: 0.45; }
+
+  /* --- boss: bar, dialogue, fx --- */
+  #boss-bar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); width: 360px; display: none; z-index: 4;
+    background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 10px; padding: 6px 12px; text-align: center; font-size: 12px; }
+  #boss-bar .bb-row + .bb-row { margin-top: 8px; }
+  #boss-bar .bb-track { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: 4px; position: relative; }
+  #boss-bar .bb-fill { height: 100%; background: linear-gradient(90deg, #b8322f, #e0455a); transition: width 0.5s ease; }
+  #boss-bar .bb-row.enraged .bb-fill { background: linear-gradient(90deg, #ff1a1a, #ff6a3a); }
+  #boss-bar .bb-row.enraged .bb-name { color: #ff6a6a; }
+  #boss-bar .bb-row.down { opacity: 0.45; }
+  #boss-bar .bb-shield { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: 3px; }
+  #boss-bar .bb-shield > div { height: 100%; background: linear-gradient(90deg, #9fd8ff, #ffffff); transition: width 0.3s ease; }
+  /* --- twin mechanics: floating callouts, shield bar, bloodlust glow --- */
+  .callout { position: absolute; transform: translateX(-50%); z-index: 400; pointer-events: none; white-space: nowrap;
+    font-weight: 900; font-size: 22px; letter-spacing: 0.06em; text-shadow: 0 2px 6px #000, 0 0 12px #000;
+    animation: callout-rise 1.3s ease-out forwards; }
+  @keyframes callout-rise { 0% { opacity: 0; margin-top: 14px; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; margin-top: -46px; } }
+  .nameplate .np-shield { height: 4px; margin: 2px auto 0; width: 64px; background: #000a; border-radius: 3px; overflow: hidden; display: none; }
+  .nameplate .np-shield > div { height: 100%; background: linear-gradient(90deg, #9fd8ff, #fff); }
+  .sprite-anchor.enraged .sprite-frame { animation: rage-glow 0.85s ease-in-out infinite alternate; }
+  @keyframes rage-glow {
+    from { filter: drop-shadow(0 0 6px #ff2020) drop-shadow(0 0 14px #b00000) saturate(1.35) brightness(1.0); }
+    to   { filter: drop-shadow(0 0 14px #ff3030) drop-shadow(0 0 34px #ff0000) saturate(1.7) brightness(1.12); } }
+  .sprite-anchor.enraged.targetable .sprite-frame, .sprite-anchor.enraged:hover.targetable .sprite-frame { animation: none;
+    filter: drop-shadow(0 0 14px #ff3030) drop-shadow(0 0 10px #ffe27a) saturate(1.6); }
+  .sprite-anchor.enraged .nameplate .np-name { color: #ff5a5a; }
+  /* --- twin mechanics, round two: mark, bulwark, dance, harmony --- */
+  .sprite-anchor.marked .sprite-frame { animation: mark-pulse 0.7s ease-in-out infinite alternate; }
+  @keyframes mark-pulse {
+    from { filter: drop-shadow(0 0 4px #ff2a4a) drop-shadow(0 0 10px #a00020) saturate(1.1); }
+    to   { filter: drop-shadow(0 0 12px #ff2a4a) drop-shadow(0 0 28px #ff0030) saturate(1.5) brightness(1.1); } }
+  .sprite-anchor.marked.targetable .sprite-frame { animation: none;
+    filter: drop-shadow(0 0 12px #ff2a4a) drop-shadow(0 0 10px #ffe27a); }
+  .nameplate .np-mark { display: none; margin: 2px auto 0; width: max-content; padding: 1px 8px; border-radius: 8px;
+    background: #b0102c; color: #fff; font-size: 11px; font-weight: 900; letter-spacing: 0.08em; animation: mark-blink 0.8s steps(2) infinite; }
+  .sprite-anchor.marked .nameplate .np-mark { display: block; }
+  @keyframes mark-blink { 50% { background: #ff3a5a; } }
+  .sprite-anchor.bulwark .sprite-frame { filter: drop-shadow(0 0 10px #5aa8ff) drop-shadow(0 0 22px #2f6cd6) brightness(1.08); }
+  .sprite-anchor.bulwark .nameplate .np-name { color: #8fc8ff; }
+  .sprite-anchor.dancing .sprite-frame { animation: dance-glow 0.5s ease-in-out infinite alternate; }
+  @keyframes dance-glow {
+    from { filter: drop-shadow(-8px 0 6px #ff3a7a88) drop-shadow(8px 0 6px #ff3a7a88) brightness(1.0); }
+    to   { filter: drop-shadow(-16px 0 10px #ff3a7acc) drop-shadow(16px 0 10px #ff3a7acc) brightness(1.15); } }
+  #boss-bar .bb-harmony { margin-top: 8px; }
+  #boss-bar .bb-harmony .bb-hlabel { font-size: 11px; letter-spacing: 0.1em; color: #ff9ad1; }
+  #boss-bar .bb-harmony .bb-htrack { height: 8px; border-radius: 5px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: 3px; }
+  #boss-bar .bb-harmony .bb-hfill { height: 100%; background: linear-gradient(90deg, #7a4bd6, #ff7ac0); transition: width 0.4s ease; }
+  #boss-bar .bb-harmony.full .bb-hfill { animation: harm-full 0.6s ease-in-out infinite alternate; }
+  #boss-bar .bb-harmony.full .bb-hlabel { color: #fff; font-weight: 800; }
+  @keyframes harm-full { from { filter: brightness(1); } to { filter: brightness(1.7) drop-shadow(0 0 6px #ff9ad1); } }
+  #boss-bar .bb-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; padding: 0 5px; margin-left: 4px; border-radius: 6px; }
+  #boss-bar .bb-tag.bulwark { background: #2a5fb0; color: #dcecff; }
+  #boss-bar .bb-tag.dance { background: #b0245a; color: #ffe0ee; }
+  #boss-bar .bb-tag.unyielding { background: #8a6a1a; color: #fff0c0; }
+  #boss-bar .bb-tag.chant { background: #4a5a80; color: #fff; }
+  #boss-bar .bb-tag.rage { background: #b01010; color: #fff; }
+  #dialogue { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(760px, 92%); z-index: 30; display: none;
+    background: rgba(10,8,18,0.95); border: 2px solid var(--panel-border); border-radius: 14px; padding: 16px 20px; cursor: pointer;
+    box-shadow: 0 0 40px rgba(0,0,0,0.7); }
+  #dialogue .dlg-row { display: flex; gap: 16px; align-items: flex-start; }
+  #dialogue .dlg-portrait { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; object-position: top center; display: none; flex: none; }
+  #dialogue .dlg-speaker { font-weight: 800; color: #ffe27a; font-size: 15px; margin-bottom: 6px; letter-spacing: 0.04em; }
+  #dialogue .dlg-text { font-size: 16px; line-height: 1.5; min-height: 48px; color: var(--text-main); }
+  #dialogue .dlg-hint { text-align: right; font-size: 11px; color: var(--text-dim); margin-top: 8px; }
+  #dim { position: absolute; inset: 0; background: rgba(0,0,0,0.35); display: none; z-index: 25; }
+  #announce { position: absolute; left: 0; right: 0; top: 34%; text-align: center; z-index: 28; pointer-events: none; display: none;
+    font-size: 40px; font-weight: 900; letter-spacing: 0.12em; color: #ffe27a; text-shadow: 0 0 24px #ff7a2a, 0 3px 0 #000; }
+  #announce.show { display: block; animation: ann 2.2s ease forwards; }
+  @keyframes ann { 0% { opacity: 0; transform: scale(1.4); } 12% { opacity: 1; transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+  #flash { position: absolute; inset: 0; z-index: 27; pointer-events: none; opacity: 0; }
+  #flash.go { animation: fl 0.6s ease-out; }
+  @keyframes fl { 0% { opacity: 0.75; } 100% { opacity: 0; } }
+  #stage.shake { animation: shk 0.5s linear; }
+  @keyframes shk { 0%,100% { transform: translate(0,0); } 15% { transform: translate(-9px,4px); } 30% { transform: translate(8px,-5px); }
+    45% { transform: translate(-7px,-3px); } 60% { transform: translate(6px,5px); } 80% { transform: translate(-3px,2px); } }
+
+  /* --- end overlay --- */
+  #end-overlay {
+    position: absolute; inset: 0; z-index: 1000; background: rgba(4,3,8,0.88);
+    display: none; align-items: center; justify-content: center; flex-direction: column;
+  }
+  #ladder-hud { position: absolute; top: 10px; right: 12px; z-index: 500; display: none; max-width: 330px; text-align: right;
+    font-size: 12px; font-weight: 700; color: #ffe27a; text-shadow: 0 1px 3px #000; pointer-events: none; }
+  #ladder-hud .perks { margin-top: 4px; display: flex; gap: 2px; justify-content: flex-end; flex-wrap: wrap; }
+  #ladder-hud .perk-chip { position: relative; }
+  #ladder-hud .perk-chip b { position: absolute; right: -2px; bottom: -3px; font-size: 10px; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+  #perk-choices { display: none; gap: 10px; margin: 8px 0; justify-content: center; }
+  #end-overlay .perk-card { width: 170px; min-height: 150px; padding: 12px 10px; margin: 0; border: 1px solid rgba(255,226,122,0.6); border-radius: 12px; cursor: pointer; text-align: center;
+    background: linear-gradient(180deg, rgba(60,48,20,0.92), rgba(24,20,34,0.95)); color: #fff; font-family: inherit; font-size: 12px; font-weight: 400; }
+  #end-overlay .perk-card:hover { transform: translateY(-3px); box-shadow: 0 6px 22px rgba(255,220,100,0.35); }
+  .perk-card .ico { display: block; margin: 0 auto 6px; }
+  .perk-card b { display: block; font-size: 14px; color: #ffe27a; margin-bottom: 4px; }
+  .perk-card span { font-size: 12px; color: #ddd; line-height: 1.3; }
+  #end-overlay h1 { font-size: 36px; margin: 0 0 8px; }
+  #end-overlay.victory h1 { color: #6fe3c8; }
+  #end-overlay.defeat h1 { color: #e0455a; }
+  #end-overlay.fled h1 { color: #ebaf3c; }
+  #end-overlay button {
+    margin-top: 18px; padding: 10px 28px; border-radius: 999px; border: none;
+    background: var(--accent); color: white; font-weight: 700; font-size: 14px; cursor: pointer;
+  }
+
+  #connect-banner {
+    position: absolute; top: 36px; left: 50%; transform: translateX(-50%);
+    background: rgba(224,69,90,0.85); padding: 8px 18px; border-radius: 8px;
+    font-size: 13px; display: none;
+  }
+
+  /* --- debug damage graphs (only shown when the server runs with --debug / DEBUG=1) --- */
+  .dbg-col { position: absolute; top: 150px; z-index: 5; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .dbg-col.left { left: 16px; } .dbg-col.right { right: 16px; }
+  .st-grid > div { white-space: nowrap; }
+  .dbg-panel.wide { width: 285px; max-height: 340px; overflow: hidden; font-size: 10px; line-height: 1.35; }
+  .st-block { margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid var(--panel-border); }
+  .st-block:last-child { border-bottom: 0; margin-bottom: 0; }
+  .st-name { display: flex; justify-content: space-between; font-weight: 700; font-size: 11px; }
+  .st-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 6px; }
+  .st-up { color: #7dff9a; font-weight: 700; } .st-down { color: #ff8a8a; font-weight: 700; }
+  .st-chip { display: inline-block; margin: 2px 3px 0 0; padding: 0 5px; border-radius: 6px; background: rgba(255,255,255,0.1); }
+  .st-res { color: var(--text-dim); }
+  .dbg-panel {
+    position: static; width: 220px; display: none;
+    background: rgba(10,8,18,0.78); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 8px; font-size: 11px; pointer-events: none;
+  }
+  .dbg-panel .dbg-title { color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; }
+  .dbg-row { margin-bottom: 5px; }
+  .dbg-row .dbg-l { display: flex; justify-content: space-between; }
+  .dbg-track { height: 7px; border-radius: 3px; background: rgba(255,255,255,0.1); overflow: hidden; }
+  .dbg-fill { height: 100%; transition: width 0.4s ease; background: #56d06a; }
+  #dbg-enemy .dbg-fill { background: #e0455a; }
+  .dbg-total { border-top: 1px solid var(--panel-border); padding-top: 5px; margin-top: 4px; font-weight: 700; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<div id="viewport">
+  <div id="stage">
+    <div id="round-label">Round --</div>
+    <button id="auto-btn" onclick="toggleAuto()">Auto: OFF</button>
+    <div id="connect-banner">Connecting to battle_server.py...</div>
+    <div id="log-panel"></div>
+    <button id="log-toggle" onclick="toggleLog()">Expand log</button>
+    <div id="ai-panel"></div>
+
+    <div id="sprite-layer"></div>
+
+    <div id="command-panel">
+      <div class="title" id="command-title">Choose an action</div>
+      <div id="command-buttons"></div>
+    </div>
+
+    <div id="status-panel"></div>
+    <div id="skill-tooltip" class="tooltip"></div>
+    <div class="dbg-col left"><div class="dbg-panel" id="dbg-enemy"></div><div class="dbg-panel wide" id="dbg-stats-enemy"></div></div>
+    <div class="dbg-col right"><div class="dbg-panel" id="dbg-party"></div><div class="dbg-panel wide" id="dbg-stats-party"></div></div>
+
+    <div id="boss-bar"></div>
+    <div id="flash"></div>
+    <div id="announce"></div>
+    <div id="dim"></div>
+    <div id="dialogue" onclick="advanceDialogue()">
+      <div class="dlg-row"><img class="dlg-portrait" id="dlg-portrait" alt="">
+        <div style="flex:1"><div class="dlg-speaker" id="dlg-speaker"></div><div class="dlg-text" id="dlg-text"></div></div></div>
+      <div class="dlg-hint">click or press Space to continue &#9654;</div>
+    </div>
+    <div id="ladder-hud"></div>
+    <div id="end-overlay">
+      <h1 id="end-title">Victory!</h1>
+      <div id="end-sub" style="color:var(--text-dim);font-size:13px;"></div>
+      <div id="end-renown" style="font-size:16px;font-weight:800;margin:6px 0;white-space:pre-line;text-align:center;"></div>
+      <button id="btn-hub" onclick="returnToHub()">Return to Colosseum</button>
+      <div id="end-ladder" style="font-size:14px;font-weight:800;color:#ffe27a;margin:4px 0;text-align:center;"></div>
+      <div id="perk-choices"></div>
+      <div id="end-reward" style="font-size:16px;margin:6px 0;"></div>
+      <button id="btn-next" onclick="nextBattle()" style="display:none;margin-top:8px;">Fight Next Battle</button>
+      <button id="btn-again" onclick="location.reload()" style="margin-top:8px;">Fight Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------
+   Layout constants -- a single staggered zigzag column per side (Andrew's
+   own sketch, 2026-09-23), replacing the earlier two-fixed-ranks formation:
+   position 0 stands nearest the camera (bottom of the playfield, drawn on
+   top), each further position steps up the screen and alternates a
+   horizontal offset toward the opposing side, so the column reads as a
+   staggered line rather than two flat rows.
+--------------------------------------------------------------------- */
+const HUB_URL = "http://127.0.0.1:8767/"; // hub_server.py's own fixed HTTP_PORT -- see its docstring
+// A wild overworld encounter (game/world.py) links here as "/battle?return=world" so the win/lose
+// screen's "Return to Colosseum" button sends the player back out into the overworld instead of the
+// Colosseum hub -- see returnToHub() below. Anything else (the hub's own "Enter Battle", a boss
+// challenge, the debug screen) omits this param and keeps the old behavior.
+const RETURN_TARGET = new URLSearchParams(window.location.search).get("return");
+
+/* ---------------------------------------------------------------------
+   Sound: fire-and-forget SFX one-shots + a single persistent looping music
+   element (so switching tracks stops the old one instead of stacking).
+   SFX_VOLUME/MUSIC_VOLUME below are the only tuning knobs -- no in-game
+   volume control yet. Autoplay-block rejections are swallowed on purpose:
+   sound is a nice-to-have, never worth breaking the battle over.
+--------------------------------------------------------------------- */
+const SFX_VOLUME = 0.7, MUSIC_VOLUME = 0.35;
+function playSfx(url, vol) {
+  if (!url) return;
+  try {
+    const a = new Audio(url);
+    a.volume = vol != null ? vol : SFX_VOLUME;
+    a.play().catch(() => {});
+  } catch (e) { /* best-effort */ }
+}
+let _musicEl = null, _musicUrl = null;
+function playMusic(url, vol) {
+  if (_musicUrl === url && _musicEl && !_musicEl.paused) return; // already the track we want
+  stopMusic();
+  try {
+    _musicEl = new Audio(url);
+    _musicEl.loop = true;
+    _musicEl.volume = vol != null ? vol : MUSIC_VOLUME;
+    _musicUrl = url;
+    _musicEl.play().catch(() => {});
+  } catch (e) { /* best-effort */ }
+}
+function stopMusic() {
+  if (_musicEl) { try { _musicEl.pause(); } catch (e) {} }
+  _musicEl = null; _musicUrl = null;
+}
+const SFX = {
+  slash:    "/assets/SFX/10_Battle_SFX/22_Slash_04.wav",       // melee impact (default for melee AND physical ranged)
+  koDeath:  "/assets/SFX/10_Battle_SFX/69_Enemy_death_01.wav", // either side's combatant falls
+  flee:     "/assets/SFX/10_Battle_SFX/51_Flee_02.wav",
+  encounter:"/assets/SFX/10_Battle_SFX/55_Encounter_02.wav",
+  block:    "/assets/SFX/10_Battle_SFX/39_Block_03.wav",       // played when Defend is chosen -- see finish()
+  fire:     "/assets/SFX/8_Atk_Magic_SFX/04_Fire_explosion_04_medium.wav",
+  ice:      "/assets/SFX/8_Atk_Magic_SFX/13_Ice_explosion_01.wav",
+  thunder:  "/assets/SFX/8_Atk_Magic_SFX/18_Thunder_02.wav",
+  charge:   "/assets/SFX/8_Atk_Magic_SFX/45_Charge_05.wav",    // magic cast windup stinger
+  heal:     "/assets/SFX/8_Buffs_Heals_SFX/02_Heal_02.wav",
+  revive:   "/assets/SFX/8_Buffs_Heals_SFX/30_Revive_03.wav",  // an ally goes KO'd -> alive again (holy_reset etc.)
+  atkUp:    "/assets/SFX/8_Buffs_Heals_SFX/16_Atk_buff_04.wav",
+  defUp:    "/assets/SFX/8_Buffs_Heals_SFX/17_Def_buff_01.wav",
+  debuff:   "/assets/SFX/8_Buffs_Heals_SFX/21_Debuff_01.wav",  // atk_down/def_down (weaken/sunder etc.)
+  sleep:    "/assets/SFX/8_Buffs_Heals_SFX/44_Sleep_01.wav",   // stunned
+  poison:   "/assets/SFX/8_Buffs_Heals_SFX/46_Poison_01.wav",
+  useItem:  "/assets/SFX/10_UI_Menu_SFX/051_use_item_01.wav",
+  hover:    "/assets/SFX/10_UI_Menu_SFX/001_Hover_01.wav",
+};
+// New-status-key -> SFX, consumed by emitCombatText()'s per-combatant diff below. Only the keys with
+// a clear matching sample are listed -- an unlisted status key (bulwark, counter, marked...) just
+// stays silent, same as before this pass.
+const STATUS_SFX = { poison: SFX.poison, stun: SFX.sleep, atk_up: SFX.atkUp, atk_down: SFX.debuff,
+  def_up: SFX.defUp, def_down: SFX.debuff };
+// Elemental magic impact stinger, played the instant the bolt lands (see playProjectileFx). holy/dark
+// have no matching explosion sample in the SFX pack, so they rely on the charge/cast stinger alone.
+const MAGIC_IMPACT_SFX = { fire: SFX.fire, ice: SFX.ice, thunder: SFX.thunder };
+const MUSIC = {
+  battle: "/assets/Music/Battle/Battle1.mp3",
+  boss:   "/assets/Music/Boss/Boss1.mp3",
+  main:   "/assets/Music/Main/Main.mp3",
+};
+let STAGE_W = 800;
+let STAGE_H = 600;
+const ENEMY_COL_X = 280;
+const GROUND_BOTTOM_MARGIN = 100;
+const SPRITE_H = 190;                    // fixed, never shrunk
+// Battle formations (engine/formation.py): fixed 2x3 grid -- 3 depth rows (front nearest the
+// enemy line, then middle, then rear farthest back) each with up to 2 stacked "set spots" --
+// matching the Party Select preview's own orientation (html_hub/party.html): depth runs
+// horizontally (front closest to the opposing side, rear pulled back from it), not vertically.
+// ROW_ORDER only controls draw order here; ROW_DEPTH_X is how far each row pushes toward (front,
+// positive) or away from (rear, negative) the opponent, and ROW_SLOT_GAP_Y is the vertical spacing
+// between the two spots in a row when it holds more than one occupant.
+const ROW_ORDER = ['front', 'middle', 'rear'];
+const ROW_DEPTH_X = { front: 170, middle: 0, rear: -170 };
+const ROW_SLOT_GAP_Y = 150;
+const IDLE_FPS = 8;
+const FRAME_COLS = 6, FRAME_ROWS = 6;
+
+//updates screen size dynamically
+window.addEventListener('resize', () => {
+  STAGE_H = window.innerHeight;
+  STAGE_W = window.innerWidth;
+
+});
+
+STAGE_H = window.innerHeight;
+STAGE_W = window.innerWidth;
+
+function columnLayout(combatants, anchorX, facingRight) {
+  // Returns [{x, y, z}], one per entry in `combatants` (in the same order). Fixed 2x3 formation
+  // grid, depth running horizontally: combatants are grouped by their formation row (front/middle/
+  // rear -- unrecognized or missing values fall back to middle), each row's line sits at a fixed X
+  // (front pushed toward the opposing side by ROW_DEPTH_X, rear pulled back from it), and occupants
+  // within a row are centered vertically on that line -- a lone occupant sits dead center, two
+  // spread symmetrically up/down by ROW_SLOT_GAP_Y (and it degrades gracefully if a row somehow
+  // ends up with more than two). z follows each sprite's own Y so a lower (nearer-camera) sprite
+  // draws in front of a higher one, same painter's-algorithm rule a flat side-view stage needs
+  // regardless of which row a sprite is in.
+  const inset = facingRight ? 1 : -1;
+  const finalX = anchorX + inset * STAGE_W * 0.15;
+  const baseY = STAGE_H - GROUND_BOTTOM_MARGIN;
+
+  const byRow = { front: [], middle: [], rear: [] };
+  combatants.forEach((c) => {
+    const row = Object.prototype.hasOwnProperty.call(byRow, c.formation) ? c.formation : 'middle';
+    byRow[row].push(c);
+  });
+
+  const slotsById = new Map();
+  ROW_ORDER.forEach((row) => {
+    const occupants = byRow[row];
+    const x = finalX + inset * ROW_DEPTH_X[row];
+    occupants.forEach((c, slotIdx) => {
+      const spread = (slotIdx - (occupants.length - 1) / 2) * ROW_SLOT_GAP_Y;
+      const y = baseY + spread;
+      slotsById.set(c, { x, y, z: Math.round(y) });
+    });
+  });
+
+  return combatants.map((c) => slotsById.get(c));
+}
+
+/* ---------------------------------------------------------------------
+   Sprite sheet loading -- mirrors ui/pygame_ui.py's fallback chain: a
+   combatant's own sheet for this pose, else Draven's sheet for this pose,
+   else Draven's own Idle. Cached globally per (name, pose) so repeats
+   don't refetch.
+--------------------------------------------------------------------- */
+const DEFAULT_BATTLER = "Draven";
+const sheetCache = new Map(); // "name/pose" -> {img, ready:Promise}
+
+function sheetUrl(name, pose) {
+  return `/assets/Battlers/${encodeURIComponent(name)}/${encodeURIComponent(name)}-${pose}.png`;
+}
+
+const urlSheetCache = new Map();
+function loadUrlSheet(url) {
+  if (urlSheetCache.has(url)) return urlSheetCache.get(url);
+  const p = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+  urlSheetCache.set(url, p);
+  return p;
+}
+
+/* Mythic hero battlers don't all name their non-Idle poses the same way (e.g. Kael and Yulia's
+   attack sheets are "-Attack.png", not "-Melee.png", and Sera's cast sheet is "-Cast.png" while
+   Lyra's is "-Casting.png") -- a tiny per-character alias table beats hardcoding one pose name and
+   silently falling back to Draven for anyone whose art doesn't match it. Unlisted characters use
+   the default guess for that animation kind, which still falls back through loadSheet()'s normal
+   Draven chain if no such sheet exists for them.
+--------------------------------------------------------------------- */
+const POSE_ALIAS = {
+  melee: { Kael: "Attack", Yulia: "Attack" },
+  cast:  { Sera: "Cast" },
+  heal:  { Sera: "Cast" },
+};
+const DEFAULT_POSE = { melee: "Melee", cast: "Casting", shoot: "Shoot", heal: "Heal" };
+function poseFor(kind, name) {
+  return (POSE_ALIAS[kind] && POSE_ALIAS[kind][name]) || DEFAULT_POSE[kind];
+}
+
+function loadSheet(name, pose) {
+  const key = `${name}/${pose}`;
+  if (sheetCache.has(key)) return sheetCache.get(key);
+  const promise = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      if (name !== DEFAULT_BATTLER) {
+        resolve(loadSheet(DEFAULT_BATTLER, pose));
+      } else if (pose !== "Idle") {
+        resolve(loadSheet(DEFAULT_BATTLER, "Idle"));
+      } else {
+        resolve(null); // truly nothing to show -- caller falls back to a plain box
+      }
+    };
+    img.src = sheetUrl(name, pose);
+  });
+  sheetCache.set(key, promise);
+  return promise;
+}
+
+// Per-character, per-pose calibration for the mythic heroes' new Attack/Shoot/Cast(ing) art, filling
+// the same role `poseCfg` plays for multi-pose bosses (see the `cfg.ref_h` branch in tick() below) --
+// two separate problems, both measured directly off the actual PNGs rather than guessed:
+//
+// SIZE: these sheets draw the character noticeably smaller within their 6x6 frame (more surrounding
+// canvas) than Idle/Run do, so at a fixed display height they render visibly smaller and don't quite
+// land on the ground. ref_h/foot are the character's actual pixel height and feet position within
+// that pose's own frame (bounding box of non-transparent pixels, frame-local coordinates) -- scaling
+// by H/ref_h and pinning at foot normalizes every pose to the same apparent size and ground contact.
+//
+// TIMING: Shoot/Casting/Cast are all-in-one 36-frame sheets (draw/charge -> release flash -> follow
+// -through), inspected frame-by-frame as a contact sheet: Rook holds the bow drawn until frame ~25
+// (the arrow-loosing flash), Lyra's/Sera's charge builds to a release burst around frame ~20. Played
+// at the same 8fps as Idle that's 2.5-3+ seconds before anything visibly happens, which is why waiting
+// a fixed few hundred ms just clipped the still-drawn hold -- there was no visible windup to see yet.
+// `fps`/`release` let these specific poses play faster (so the sequence still reads in under a
+// second) while `windupMs()` below derives the actual wait from release/fps instead of a flat guess,
+// so the projectile launches right as the release flash hits, whatever fps this ends up tuned to.
+// Idle/Run aren't listed here -- they already size and read correctly at the default 8fps.
+const NAMED_POSE_CFG = {
+  // Melee poses: animateMelee times its own swing/impact independently of fps -- fps/frames/loop are
+  // kept at the same values the old (calibration-less) default branch used, so only sizing changes.
+  Kael:  { Attack:  { ref_h: 370, foot: [251.5, 434], fps: IDLE_FPS, frames: [0, 35], loop: true } },
+  Yulia: { Attack:  { ref_h: 679, foot: [235.0, 695], fps: IDLE_FPS, frames: [0, 35], loop: true } },
+  // Ranged/magic windup poses: sped up so the draw/charge -> release sequence reads in under a
+  // second (see windupMs() below) instead of the 8fps default's 2.5-3+ second crawl to the release
+  // frame -- `release` is that frame's index, measured from the actual art.
+  Rook:  { Shoot:   { ref_h: 520, foot: [307.0, 522], fps: 30, frames: [0, 35], loop: true, release: 25 } },
+  Lyra:  { Casting: { ref_h: 517, foot: [196.0, 516], fps: 30, frames: [0, 35], loop: true, release: 20 } },
+  Sera:  { Cast:    { ref_h: 455, foot: [179.5, 489], fps: 30, frames: [0, 35], loop: true, release: 20 } },
+};
+// Fallback windup for a ranged/magic actor with no measured `release` frame above (e.g. a future
+// hero recruit whose art hasn't been calibrated yet) -- better than firing with zero windup at all.
+const WINDUP_MS_FALLBACK = { ranged: 500, magic: 700, heal: 600, status: 200 };
+function windupMs(actorSprite, kind) {
+  if (kind === "status") return WINDUP_MS_FALLBACK.status;   // plays on Idle -- no release frame to sync to
+  const poseName = kind === "ranged" ? "shoot" : kind === "heal" ? "heal" : "cast";
+  const pose = poseFor(poseName, actorSprite.name);
+  const ncfg = NAMED_POSE_CFG[actorSprite.name] && NAMED_POSE_CFG[actorSprite.name][pose];
+  if (ncfg && ncfg.release != null) return Math.round((ncfg.release / ncfg.fps) * 1000);
+  return WINDUP_MS_FALLBACK[kind] || 400;
+}
+
+/* ---------------------------------------------------------------------
+   One sprite: owns its DOM nodes, current pose/frame, and position.
+--------------------------------------------------------------------- */
+class SpriteView {
+  constructor(id, name, facingRight, bossCfg) {
+    this.bossCfg = bossCfg || null;   // {url, scale, native_left, idle_only} or {scale, poses{}} for scripted bosses
+    this.poseCfg = (this.bossCfg && this.bossCfg.poses) || null;   // multi-pose boss: pose -> {url, ref_h, foot, frames, fps, loop}
+    this.baseScale = this.bossCfg ? this.bossCfg.scale : 1;
+    this.hScale = this.baseScale;
+    this.hScaleTarget = this.baseScale;
+    this.castMode = null;             // null | "start" | "loop" | "broken" (Selene's revive chant)
+    this.hScale = this.baseScale;
+    this.id = id;
+    this.name = name;
+    this.facingRight = facingRight; // enemies face right (native sheet direction); party face left (mirrored)
+    this.pose = "Idle";
+    this.frame = 0;
+    this.lastFrameTime = performance.now();
+    this.homeX = 0; this.homeY = 0; this.z = 0;
+    this.x = 0; this.y = 0;
+    this.placed = false; // becomes true once setHome has actually applied a DOM position
+
+    this.anchor = document.createElement("div");
+    this.anchor.className = "sprite-anchor not-targetable";
+    this.mirror = document.createElement("div");
+    this.mirror.className = "sprite-mirror";
+    this.frameEl = document.createElement("div");
+    this.frameEl.className = "sprite-frame";
+    this.mirror.appendChild(this.frameEl);
+    this.anchor.appendChild(this.mirror);
+    this.nameplate = document.createElement("div");
+    this.nameplate.className = "nameplate " + (facingRight ? "enemy" : "party");
+    this.nameplate.style.top = `${-SPRITE_H * this.hScale - 30}px`;
+    this.nameplate.innerHTML = '<div class="np-name"></div><div class="np-bar"><div class="np-fill"></div></div><div class="np-shield"><div></div></div><div class="np-mark">MARKED</div><div class="np-status"></div>';
+    this.anchor.appendChild(this.nameplate);
+    this.anchor.addEventListener("click", () => window.onSpriteClicked?.(this.id));
+
+    this.sheets = {}; // pose -> {img}
+    this._ensurePose("Idle");
+  }
+
+  _resolvePose(pose) {
+    if (this.poseCfg) return this.poseCfg[pose] ? pose : "Idle";
+    return this.bossCfg ? "Idle" : pose;   // single-sheet bosses only have an idle sheet
+  }
+
+  async _ensurePose(pose) {
+    pose = this._resolvePose(pose);
+    if (this.sheets[pose] !== undefined) return this.sheets[pose];
+    const url = this.poseCfg ? this.poseCfg[pose].url : (this.bossCfg ? this.bossCfg.url : null);
+    const img = url ? await loadUrlSheet(url) : await loadSheet(this.name, pose);
+    this.sheets[pose] = img;
+    return img;
+  }
+
+  setPose(pose) {
+    pose = this._resolvePose(pose);
+    if (this.pose === pose) return;
+    this.pose = pose;
+    const cfg = this.poseCfg && this.poseCfg[pose];
+    this.frame = cfg ? cfg.frames[0] : 0;
+    this.poseDone = false;
+    this._ensurePose(pose);
+  }
+
+  /* How long (ms) this sprite's Melee pose plays, when it has its own frame range; else the old fixed 420. */
+  meleeMs() {
+    const cfg = this.poseCfg && this.poseCfg.Melee;
+    return cfg ? Math.round(((cfg.frames[1] - cfg.frames[0] + 1) / cfg.fps) * 1000) + 120 : 420;
+  }
+
+  /* Drive pose + look from the combatant's public state (Selene's chant, Ronan's bloodlust). */
+  setStatusIcons(keys) {
+    const sig = keys.join(",");
+    if (sig === this._statusSig) return;
+    this._statusSig = sig;
+    const box = this.nameplate.querySelector(".np-status");
+    box.innerHTML = "";
+    for (const k of keys.slice(0, 7)) {
+      const d = STATUS_VISUALS[k] || STATUS_VISUALS._unknown;
+      const el = makeIcon(d.cell, 26);
+      el.title = d.name || k;
+      box.appendChild(el);
+    }
+  }
+
+  applyState(c) {
+    this.setStatusIcons(statusKeysFor(c));
+    if (c.enraged !== undefined) {
+      const on = !!c.enraged;
+      this.anchor.classList.toggle("enraged", on);
+      this.hScaleTarget = this.baseScale * (on ? 1.12 : 1);
+    }
+    if (this.poseCfg && this.poseCfg.CastStart) {
+      const want = !c.alive || !c.channeling ? null : (c.shield > 0 ? "cast" : "broken");
+      if (want === "cast" && this.castMode === null) {
+        this.castMode = "start"; this.setPose("CastStart");
+      } else if (want === "broken" && this.castMode !== "broken") {
+        this.castMode = "broken"; this.setPose("CastBroken");
+      } else if (want === null && this.castMode !== null) {
+        this.castMode = null; this.setPose("Idle");
+      }
+    }
+    const st = c.statuses || [];
+    this.anchor.classList.toggle("marked", c.alive && st.includes("marked"));
+    this.anchor.classList.toggle("bulwark", c.alive && st.includes("bulwark"));
+    this.anchor.classList.toggle("dancing", !!c.alive && !!c.dancing);
+    const shieldBox = this.nameplate.querySelector(".np-shield");
+    if (shieldBox) {
+      const has = c.shield_max > 0 && c.shield > 0;
+      shieldBox.style.display = has ? "block" : "none";
+      if (has) shieldBox.firstChild.style.width = `${100 * c.shield / c.shield_max}%`;
+    }
+  }
+
+  setHome(x, y, z) {
+    this.homeX = x; this.homeY = y; this.z = z;
+    this.anchor.style.zIndex = z;
+    if (!this.placed) {
+      // First placement: actually write the DOM position, not just the
+      // tracking fields -- previously this branch set this.x/this.y to
+      // match the slot without ever touching anchor.style.left/top, so
+      // placeSprite's "already there" check (comparing this.x/this.y to
+      // the slot) came back true and never called setPosition() either.
+      // The sprite existed in the DOM with no left/top at all until some
+      // later tween (e.g. a melee run-in) called setPosition() directly --
+      // which is exactly why sprites were invisible until they attacked.
+      this.setPosition(x, y);
+      this.placed = true;
+    }
+  }
+
+  setPosition(x, y) {
+    this.x = x; this.y = y;
+    this.anchor.style.left = `${x}px`;
+    this.anchor.style.top = `${y}px`;
+  }
+
+  setInfo(c) {
+    this.nameplate.querySelector(".np-name").textContent = (c.level ? `Lv${c.level} ` : "") + c.name;
+    this.nameplate.querySelector(".np-fill").style.width = `${Math.max(0, (c.hp / c.max_hp) * 100)}%`;
+  }
+
+  setKO(isKO) {
+    this.anchor.classList.toggle("ko", isKO);
+  }
+
+  setTargetable(canTarget) {
+    this.anchor.classList.toggle("targetable", canTarget);
+    this.anchor.classList.toggle("not-targetable", !canTarget);
+  }
+
+  tick(now) {
+    const img = this.sheets[this.pose];
+    if (!img) return;
+    // Boss poseCfg (bossCfg) and the named-hero calibration table (heroCfg) both carry fps/frames/loop
+    // for the timing logic below, so either can drive that uniformly via `cfg`. Sizing is NOT uniform
+    // between them, though (see the two branches further down) -- a boss is genuinely meant to render
+    // bigger than its nameplate/hit-box footprint when its art has padding, but a hero pose isn't, so
+    // they're kept as separate variables rather than one merged cfg for the sizing decision.
+    const bossCfg = this.poseCfg && this.poseCfg[this.pose];
+    const heroCfg = NAMED_POSE_CFG[this.name] && NAMED_POSE_CFG[this.name][this.pose];
+    const cfg = bossCfg || heroCfg;
+    // ease toward the target scale (Ronan visibly swells when he enrages)
+    if (Math.abs(this.hScale - this.hScaleTarget) > 0.001) {
+      this.hScale += (this.hScaleTarget - this.hScale) * 0.06;
+      this.nameplate.style.top = `${-SPRITE_H * this.hScale - 30}px`;
+    }
+    const frameW = img.naturalWidth / FRAME_COLS;
+    const frameH = img.naturalHeight / FRAME_ROWS;
+    const H = SPRITE_H * this.hScale;
+    const fps = cfg ? cfg.fps : IDLE_FPS;
+    const first = cfg ? cfg.frames[0] : 0, last = cfg ? cfg.frames[1] : FRAME_COLS * FRAME_ROWS - 1;
+    if (now - this.lastFrameTime > 1000 / fps) {
+      this.lastFrameTime = now;
+      if (this.frame < first || this.frame > last) this.frame = first;
+      else if (this.frame >= last) {
+        if (!cfg || cfg.loop) this.frame = first;
+        else if (!this.poseDone) {          // one-shot pose: hold the last frame, then tell the owner once
+          this.poseDone = true;
+          if (this.pose === "CastStart" && this.castMode === "start") { this.castMode = "loop"; this.setPose("CastLoop"); }
+        }
+      } else this.frame += 1;
+    }
+    const col = this.frame % FRAME_COLS;
+    const row = Math.floor(this.frame / FRAME_COLS);
+
+    if (bossCfg && bossCfg.ref_h) {
+      // Boss sheet: every pose is scaled from the character's own measured height and pinned by its
+      // feet -- the whole frame (padding included) grows to match, which is fine/expected for a boss
+      // that's deliberately meant to loom larger than a normal hit-box footprint.
+      const k = H / bossCfg.ref_h;
+      const w = frameW * k, h = frameH * k;
+      this.frameEl.style.width = `${w}px`;
+      this.frameEl.style.height = `${h}px`;
+      this.frameEl.style.transform = `translate(${-bossCfg.foot[0] * k}px, ${-bossCfg.foot[1] * k}px)`;
+      this.frameEl.style.backgroundImage = `url(${img.src})`;
+      this.frameEl.style.backgroundSize = `${w * FRAME_COLS}px ${h * FRAME_ROWS}px`;
+      this.frameEl.style.backgroundPosition = `-${col * w}px -${row * h}px`;
+    } else if (heroCfg) {
+      // Named-hero pose with more padding than Idle/Run: unlike the boss branch above, the box here
+      // stays EXACTLY the same size as every other hero pose (matches Idle -- and matches the nameplate/
+      // hit-box, which are sized off that same H, not off this frame). What changes is a zoom: the
+      // background is scaled up by s = H/ref_h (so the character's own pixels read at true height H,
+      // same as Idle) and then cropped, via backgroundPosition, to a box centred horizontally on the
+      // character and grounded at its measured foot point -- so the extra canvas padding gets cropped
+      // away instead of inflating the box past what the hit-box/nameplate expect.
+      const s = H / heroCfg.ref_h;
+      const targetW = H * (frameW / frameH);
+      this.frameEl.style.width = `${targetW}px`;
+      this.frameEl.style.height = `${H}px`;
+      this.frameEl.style.backgroundImage = `url(${img.src})`;
+      this.frameEl.style.backgroundSize = `${frameW * FRAME_COLS * s}px ${frameH * FRAME_ROWS * s}px`;
+      const bgX = -(col * frameW * s) + (targetW / 2 - heroCfg.foot[0] * s);
+      const bgY = -(row * frameH * s) + (H - heroCfg.foot[1] * s);
+      this.frameEl.style.backgroundPosition = `${bgX}px ${bgY}px`;
+    } else {
+      const targetW = H * (frameW / frameH);
+      this.frameEl.style.width = `${targetW}px`;
+      this.frameEl.style.height = `${H}px`;
+      this.frameEl.style.backgroundImage = `url(${img.src})`;
+      this.frameEl.style.backgroundSize = `${targetW * FRAME_COLS}px ${H * FRAME_ROWS}px`;
+      this.frameEl.style.backgroundPosition = `-${col * targetW}px -${row * H}px`;
+    }
+    const flip = this.bossCfg && this.bossCfg.native_left;   // art drawn facing left
+    this.mirror.style.transform = (this.facingRight !== !!flip) ? "scaleX(1)" : "scaleX(-1)";
+  }
+}
+
+function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+function tweenPosition(sprite, toX, toY, durationMs) {
+  return new Promise((resolve) => {
+    const fromX = sprite.x, fromY = sprite.y, start = performance.now();
+    function step(now) {
+      const t = Math.min(1, (now - start) / durationMs);
+      sprite.setPosition(fromX + (toX - fromX) * t, fromY + (toY - fromY) * t);
+      if (t < 1) requestAnimationFrame(step);
+      else resolve();
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+async function animateMelee(actorSprite, targetSprite) {
+  if (!actorSprite || !targetSprite) return;
+  const dir = actorSprite.facingRight ? -1 : 1; // stop just short of the target, on the near side
+  const bigPad = (s) => (s.bossCfg ? 70 * (s.hScale - 1) + 60 : 0);   // stay clear of a big boss sprite
+  const engageX = targetSprite.homeX + dir * (90 + bigPad(targetSprite) + bigPad(actorSprite));
+  actorSprite.setPose("Run");
+  await tweenPosition(actorSprite, engageX, actorSprite.homeY, 320);
+  actorSprite.setPose(poseFor("melee", actorSprite.name));
+  // Resolve at the moment of impact so the damage numbers / HP change land with the blow; the rest of the
+  // swing and the run back continue in the background. The NEXT action (a counter-attack, the next
+  // combatant's turn...) waits on `returnDone` so it never starts until this attacker is back in place.
+  const swing = actorSprite.meleeMs(), impact = Math.round(swing * 0.45);
+  await wait(impact);
+  const hitPt = fxAnchor(targetSprite, 0.6);
+  playImpactFx(MELEE_IMPACT_FX, hitPt.x, hitPt.y, null, fxSize(targetSprite, 0.7));   // fire-and-forget: doesn't hold up the swing
+  playSfx(SFX.slash);
+  returnDone = (async () => {
+    await wait(swing - impact);
+    actorSprite.setPose("Run");
+    await tweenPosition(actorSprite, actorSprite.homeX, actorSprite.homeY, 320);
+    // don't stomp a pose the state machine owns (e.g. a chant that began mid-animation)
+    if (actorSprite.castMode === null) actorSprite.setPose("Idle");
+  })();
+}
+let returnDone = Promise.resolve();
+
+/* ---------------------------------------------------------------------
+   Battle state / UI wiring
+--------------------------------------------------------------------- */
+const spriteLayer = document.getElementById("sprite-layer");
+
+// ---- Icons.png: a 10x14 grid, 57px pitch, first cell at (23,23); sheet is 620x848 ----
+const ICON_URL = "/assets/Artwork/Icons.png", ICON_X0 = 23, ICON_Y0 = 23, ICON_PITCH = 57, ICON_W = 620, ICON_H = 848;
+// Icons.png has a flat teal backdrop instead of transparency: key it out once, in a canvas, and point every icon at the result.
+(function keyOutIconBackdrop() {
+  const img = new Image();
+  img.onload = () => {
+    try {
+      const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+      const g = cv.getContext("2d"); g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, cv.width, cv.height), px = d.data;
+      const br = px[0], bg = px[1], bb = px[2];
+      for (let i = 0; i < px.length; i += 4) {
+        if (Math.abs(px[i] - br) + Math.abs(px[i + 1] - bg) + Math.abs(px[i + 2] - bb) < 24) px[i + 3] = 0;
+      }
+      g.putImageData(d, 0, 0);
+      document.documentElement.style.setProperty("--icons", `url('${cv.toDataURL("image/png")}')`);
+    } catch (e) { /* keep the raw sheet */ }
+  };
+  img.src = ICON_URL;
+})();
+function makeIcon(cell, size) {
+  const k = size / ICON_PITCH, el = document.createElement("i");
+  el.className = "ico";
+  el.style.cssText = `width:${size}px;height:${size}px;` +
+    `background-size:${ICON_W * k}px ${ICON_H * k}px;background-position:${-(ICON_X0 + ICON_PITCH * cell[1]) * k}px ${-(ICON_Y0 + ICON_PITCH * cell[0]) * k}px`;
+  return el;
+}
+// status key -> icon cell [row, col], display name and floating-text colour. `good` = buff-ish.
+const STATUS_VISUALS = {
+  poison:     { cell: [9, 1],  name: "Poison",         color: "#9be04a" },
+  stun:       { cell: [7, 3],  name: "Stunned",        color: "#ffe27a" },
+  atk_up:     { cell: [12, 3], name: "Attack Up",      color: "#ff9a6a" },
+  atk_down:   { cell: [12, 2], name: "Attack Down",    color: "#c9a0ff" },
+  def_up:     { cell: [12, 5], name: "Defense Up",     color: "#8fc4ff" },
+  def_down:   { cell: [12, 4], name: "Defense Down",   color: "#d9a679" },
+  regen:      { cell: [7, 4],  name: "Regen",          color: "#66ff99" },
+  defending:  { cell: [11, 2], name: "Defending",      color: "#8fc4ff" },
+  counter:    { cell: [9, 6],  name: "Counter",        color: "#ffd166" },
+  bloodlust:  { cell: [9, 9],  name: "Bloodlust",      color: "#ff5a3c" },
+  marked:     { cell: [11, 9], name: "Marked for Death", color: "#ff4d6d" },
+  bulwark:    { cell: [12, 7], name: "Bulwark",        color: "#6fb1ff" },
+  unyielding: { cell: [9, 8],  name: "Unyielding",     color: "#f0c860" },
+  _unknown:   { cell: [13, 6], name: "Status",         color: "#dddddd" },
+};
+function statusKeysFor(c) {
+  const keys = (c.statuses || []).filter((k, i, a) => a.indexOf(k) === i);
+  if (c.defending && !keys.includes("defending")) keys.push("defending");
+  return keys;
+}
+
+// ---- Floating combat text ----
+const DMG_COLORS = { physical: "#ffffff", none: "#ffffff", fire: "#ff8a3d", ice: "#7fdcff", thunder: "#ffe94d", holy: "#fff2a0",
+  dark: "#c47bff", poison: "#9be04a", true: "#ff7a7a", heal: "#5dff8a", mp: "#6ab8ff", shield: "#bfe9ff" };
+let combatHint = null;                 // what the current action is (element etc.); consumed by the next state snapshot
+let prevSnap = new Map();              // combatant id -> {hp, mp, shield, statuses}
+const floatQueue = new Map();          // target id -> next free stagger slot (ms timestamp)
+
+function spawnFloat(id, html, cls, color, delay) {
+  const sp = sprites.get(id);
+  if (!sp) return;
+  const now = performance.now();
+  const slot = Math.max(now, floatQueue.get(id) || 0) + (delay || 0);
+  floatQueue.set(id, slot + 170);
+  const wait = Math.max(0, slot - now);
+  setTimeout(() => {
+    const el = document.createElement("div");
+    el.className = "dmgfloat " + cls;
+    el.style.setProperty("--c", color);
+    el.innerHTML = html;
+    el.style.left = `${sp.x + (Math.random() * 30 - 15)}px`;
+    el.style.top = `${sp.y - SPRITE_H * sp.hScale * (cls.includes("status") ? 0.85 : 0.6) + (Math.random() * 14 - 7)}px`;
+    spriteLayer.appendChild(el);
+    setTimeout(() => el.remove(), 1300);
+  }, wait);
+}
+
+function noteCombatLog(line) {
+  if (!combatHint || !latestState) return;
+  const crit = /critical/i.test(line), weak = /weak/i.test(line);
+  if (!crit && !weak) return;
+  const names = [...latestState.party, ...latestState.enemies].map((c) => [c.name, c.id]);
+  const m = line.match(/^\s*(.+?) takes \d+/) || line.match(/attacks (.+?) for \d+/);
+  if (!m) return;
+  const hit = names.find(([n]) => n === m[1].trim());
+  if (!hit) return;
+  if (crit) combatHint.crit.add(hit[1]);
+  if (weak) combatHint.weak.add(hit[1]);
+}
+
+function emitCombatText(state) {
+  const all = [...state.party, ...state.enemies];
+  const hint = combatHint; combatHint = null;
+  for (const c of all) {
+    const p = prevSnap.get(c.id);
+    if (p) {
+      const dHp = c.hp - p.hp;
+      if (dHp < 0) {
+        let type = hint ? (hint.element || "physical") : (p.statuses.includes("poison") ? "poison" : "true");
+        if (hint && hint.skill_kind === "heal") type = "true";
+        const crit = !!(hint && hint.crit.has(c.id)), weak = !!(hint && hint.weak.has(c.id));
+        const tag = crit ? "<small>CRITICAL</small>" : weak ? "<small>WEAK</small>" : "";
+        spawnFloat(c.id, `${tag}${-dHp}${crit ? "!" : ""}`, "dmg" + (crit ? " crit" : ""), DMG_COLORS[type] || "#fff");
+      } else if (dHp > 0) {
+        spawnFloat(c.id, `+${dHp}`, "heal", DMG_COLORS.heal);
+        // Revive (was KO'd, is alive again -- e.g. a phoenix item or holy_reset) gets its own stinger;
+        // any other HP gain from a heal skill/item just gets the plain heal chime.
+        if (!p.alive && c.alive) playSfx(SFX.revive);
+        else if (hint && hint.skill_kind === "heal") playSfx(SFX.heal);
+      }
+      // KO: either side's combatant crossing alive -> not alive, whatever dropped them there.
+      if (p.alive && !c.alive) playSfx(SFX.koDeath);
+      const dSh = (c.shield || 0) - (p.shield || 0);
+      if (dSh < 0) spawnFloat(c.id, `${-dSh}`, "dmg", DMG_COLORS.shield);
+      const dMp = c.mp - p.mp;
+      if (dMp > 0 && p.mp !== undefined && dMp >= 3) spawnFloat(c.id, `+${dMp} MP`, "mp", DMG_COLORS.mp);
+      for (const k of c.statuses || []) {
+        if (!p.statuses.includes(k)) {
+          const v = STATUS_VISUALS[k] || STATUS_VISUALS._unknown;
+          const ic = makeIcon(v.cell, 22).outerHTML;
+          spawnFloat(c.id, `${ic}${v.name}`, "status", v.color, 120);
+          playSfx(STATUS_SFX[k]);
+        }
+      }
+    }
+    prevSnap.set(c.id, { hp: c.hp, mp: c.mp, shield: c.shield || 0, statuses: [...(c.statuses || [])], alive: c.alive });
+  }
+}
+const sprites = new Map(); // combatant id -> SpriteView
+let latestState = null;
+let pendingTarget = null; // {resolve} while waiting for the player to click a target
+let socket = null;
+
+function classify(id) {
+  if (!latestState) return null;
+  return latestState.party.find((c) => c.id === id) || latestState.enemies.find((c) => c.id === id);
+}
+
+function layoutAllSprites() {
+  if (!latestState) return;
+  const liveIds = new Set([...latestState.enemies, ...latestState.party].map((c) => c.id));
+  for (const [id, sprite] of sprites) {
+    if (!liveIds.has(id)) { sprite.anchor.remove(); sprites.delete(id); }
+  }
+  const enemySlots = columnLayout(latestState.enemies, ENEMY_COL_X, true);
+  const partySlots = columnLayout(latestState.party, STAGE_W - ENEMY_COL_X, false);
+  latestState.enemies.forEach((c, i) => placeSprite(c, enemySlots[i], true));
+  latestState.party.forEach((c, i) => placeSprite(c, partySlots[i], false));
+}
+
+function placeSprite(c, slot, isEnemy) {
+  let sprite = sprites.get(c.id);
+  if (!sprite) {
+    sprite = new SpriteView(c.id, c.sprite_name, isEnemy, c.boss_sprite);
+    sprites.set(c.id, sprite);
+    spriteLayer.appendChild(sprite.anchor);
+  }
+  sprite.setHome(slot.x, slot.y, slot.z);
+  sprite.setKO(!c.alive);
+  sprite.setInfo(c);
+  sprite.applyState(c);
+}
+
+function renderStatusPanel(actingId) {
+  const panel = document.getElementById("status-panel");
+  panel.innerHTML = "";
+  for (const c of latestState.party) {
+    const row = document.createElement("div");
+    row.className = "status-row" + (c.alive ? "" : " ko");
+    const hpPct = Math.max(0, (c.hp / c.max_hp) * 100);
+    const mpPct = c.max_mp > 0 ? Math.max(0, (c.mp / c.max_mp) * 100) : 0;
+    row.innerHTML = `
+      <div class="name${c.id === actingId ? " acting" : ""}"><span>${c.name}</span><span>${c.hp}/${c.max_hp} HP</span></div>
+      <div class="bar-track"><div class="bar-fill hp" style="width:${hpPct}%"></div></div>
+      ${c.max_mp > 0 ? `<div class="bar-track"><div class="bar-fill mp" style="width:${mpPct}%"></div></div>` : ""}
+    `;
+    panel.appendChild(row);
+  }
+}
+
+let debugOn = false;
+function setDebugUi(on) {
+  if (on === debugOn) return;
+  debugOn = on;
+  document.getElementById("log-panel").classList.toggle("dbg", on);
+  document.getElementById("log-toggle").style.display = on ? "block" : "none";
+}
+function toggleLog() {
+  const p = document.getElementById("log-panel");
+  p.style.width = ""; p.style.height = "";  // drop any manual resize so the preset applies
+  const on = p.classList.toggle("expanded");
+  const b = document.getElementById("log-toggle");
+  b.classList.toggle("on", on);
+  b.textContent = on ? "Collapse log" : "Expand log";
+  p.scrollTop = p.scrollHeight;
+}
+
+function appendLog(message, isCalc) {
+  const panel = document.getElementById("log-panel");
+  const line = document.createElement("div");
+  line.className = "line" + (isCalc ? " calc" : "");
+  line.textContent = message;
+  if (!isCalc) noteCombatLog(message);
+  panel.appendChild(line);
+  while (panel.children.length > (debugOn ? 600 : 60)) panel.removeChild(panel.firstChild);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function pickTarget(candidateIds) {
+  return new Promise((resolve) => {
+    pendingTarget = { resolve };
+    candidateIds.forEach((id) => sprites.get(id)?.setTargetable(true));
+  });
+}
+
+window.onSpriteClicked = function (id) {
+  if (pendingTarget && sprites.get(id)?.anchor.classList.contains("targetable")) {
+    const resolve = pendingTarget.resolve;
+    clearTargeting();
+    resolve(id);
+  }
+};
+
+function clearTargeting() {
+  pendingTarget = null;
+  sprites.forEach((s) => { s.setTargetable(false); s.anchor.classList.remove("hl"); });
+}
+
+function send(msg) {
+  socket.send(JSON.stringify(msg));
+}
+
+// Battle formations (engine/formation.py's reachable_targets, mirrored here): which of a living
+// enemy list a single-target action from the current actor can actually reach. A ranged/magical
+// actor (state.actor_is_melee === false) always reaches anyone; a melee actor is blocked by an
+// occupied front row. `is_melee` is a property of the ACTOR (their class), not of any one skill --
+// see engine/formation.py's module docstring -- so this same filter applies to a plain Attack and
+// to any single_enemy skill alike, and doesn't need to know which one is being used.
+function reachableEnemies(state, aliveEnemies) {
+  if (state.actor_is_melee === false) return aliveEnemies;
+  const front = aliveEnemies.filter((c) => c.formation === "front");
+  return front.length ? front : aliveEnemies;
+}
+
+/* ---- Auto battle: simple heuristic that picks a party member's action ---- */
+let autoOn = false;
+let currentNeed = null; // {actorId, state} while the server is waiting on a party action
+
+// Per-fight caps on what auto-battle will spend, so it can't burn the whole inventory.
+let autoUsed = { potion: 0, revive: 0, ether: 0 };
+const AUTO_LIMITS = { potion: 2, revive: 1, ether: 1 };
+
+function autoDecide(state, actorId) {
+  const aliveEnemies = state.enemies.filter((c) => c.alive);
+  if (aliveEnemies.length === 0) return { action: "defend" };
+  const enemies = reachableEnemies(state, aliveEnemies);
+  const skills = state.available_skills || [];
+  const items = state.available_items || [];
+  const mp = state.actor_mp;
+  const ratio = (c) => c.hp / c.max_hp;
+  const weakest = (list) => list.reduce((a, b) => (ratio(b) < ratio(a) ? b : a));
+  const me = state.party.find((c) => c.id === actorId) || {};
+  const role = me.role || "melee_dps";
+  const alive = state.party.filter((c) => c.alive);
+
+  // Is another living healer (support) able to keep the party topped up?
+  const healerCovering = alive.some((c) => c.id !== actorId && c.role === "support" && c.mp >= 8);
+  const iAmHealer = role === "support";
+  const heals = skills.filter((s) => s.kind === "heal" && s.target === "single_ally" && s.mp_cost <= mp);
+  const prayer = skills.find((s) => s.id === "prayer" && s.mp_cost <= mp);
+
+  // 1) Healing (tuned in a headless simulation). A healer steps in at 75%; anyone else
+  //    with a single-target heal at 40%. Prayer when two or more allies are hurt; a big
+  //    heal for a big deficit, a cheap one for a small deficit.
+  const hurt = alive.filter((c) => ratio(c) < (iAmHealer ? 0.75 : 0.4));
+  if (hurt.length && (heals.length || prayer)) {
+    if (prayer && alive.filter((c) => ratio(c) < 0.65).length >= 2) {
+      return { action: "skill", skill_id: prayer.id, target_id: null };
+    }
+    if (heals.length) {
+      const t = weakest(hurt);
+      const s = heals.reduce((a, b) => ((1 - ratio(t) > 0.5) === (b.mp_cost > a.mp_cost) ? b : a));
+      return { action: "skill", skill_id: s.id, target_id: t.id };
+    }
+  }
+
+  // Only ONE ally ever spends turns on items: the tank (or whoever deals the least
+  // damage if there's no tank). Everyone else keeps attacking.
+  const order = ["tank", "melee_dps", "ranged_dps", "mage", "support"];
+  const itemUser = order.map((r) => alive.find((c) => c.role === r)).find(Boolean);
+  const iAmItemUser = itemUser && itemUser.id === actorId;
+
+  // 2) Potions: item user only, no healer covering, ally in real danger, capped per fight.
+  const critical = alive.filter((c) => ratio(c) < 0.3);
+  if (critical.length && iAmItemUser && !healerCovering && autoUsed.potion < AUTO_LIMITS.potion) {
+    const pot = ["hi_potion", "potion"].map((id) => items.find((i) => i.id === id)).find(Boolean);
+    if (pot) { autoUsed.potion++; return { action: "item", item_id: pot.id, target_id: weakest(critical).id }; }
+  }
+  // 3) Revive: item user only, only to bring back the healer (or if nearly wiped), once per fight.
+  const phoenix = items.find((i) => i.id === "phoenix_down");
+  if (phoenix && iAmItemUser && !healerCovering && autoUsed.revive < AUTO_LIMITS.revive) {
+    const downHealer = state.party.find((c) => !c.alive && c.role === "support");
+    const down = downHealer || (alive.length <= 1 ? state.party.find((c) => !c.alive) : null);
+    if (down) { autoUsed.revive++; return { action: "item", item_id: phoenix.id, target_id: down.id }; }
+  }
+  // 4) A mage or healer that's dry may drink one Ether per fight.
+  const ether = items.find((i) => i.id === "ether");
+  if (ether && autoUsed.ether < AUTO_LIMITS.ether && me.max_mp > 0 &&
+      (role === "mage" || role === "support") && mp < me.max_mp * 0.15) {
+    autoUsed.ether++;
+    return { action: "item", item_id: ether.id, target_id: actorId };
+  }
+  // 5) A tank about to fall with a healer nearby guards instead of trading blows.
+  if (role === "tank" && ratio(me) < 0.3 && healerCovering) return { action: "defend" };
+
+  // 6) Attack: focus the enemy closest to dying (among reachable targets -- see reachableEnemies),
+  //    and pick the skill that deals the most total damage (power x targets) rather than the one
+  //    that merely costs the most. All_enemies skills ignore the front-row block (see
+  //    engine/formation.py's reachable_targets, which only narrows single-target actions), so their
+  //    value is scored against every alive enemy, not just the reachable subset.
+  const target = enemies.reduce((a, b) => (b.hp < a.hp ? b : a));
+  const n = aliveEnemies.length;
+  const value = (s) => (s.power || 1) * (s.target === "all_enemies" ? n : 1);
+  const offense = skills
+    .filter((s) => (s.kind === "physical" || s.kind === "magical") && s.mp_cost <= mp &&
+                   (s.target === "single_enemy" || s.target === "all_enemies"))
+    .sort((a, b) => value(b) - value(a) || a.mp_cost - b.mp_cost);
+  let skillChance = { mage: 1, ranged_dps: 1, melee_dps: 1, tank: 0.8, support: 0.8 }[role] ?? 0.8;
+  // Healers keep MP in reserve for healing.
+  if (iAmHealer && mp < me.max_mp * 0.6) skillChance = 0;
+  if (offense.length && Math.random() < skillChance) {
+    const s = offense[0];
+    return { action: "skill", skill_id: s.id, target_id: s.target === "single_enemy" ? target.id : null };
+  }
+  return { action: "attack", target_id: target.id };
+}
+
+function autoAct() {
+  if (!autoOn || !currentNeed) return;
+  const { actorId, state } = currentNeed;
+  currentNeed = null;
+  clearTargeting();
+  document.getElementById("command-panel").style.display = "none";
+  send({ type: "action", actor_id: actorId, ...autoDecide(state, actorId) });
+}
+
+function toggleAuto() {
+  autoOn = !autoOn;
+  const btn = document.getElementById("auto-btn");
+  btn.textContent = autoOn ? "Auto: ON" : "Auto: OFF";
+  btn.classList.toggle("on", autoOn);
+  if (autoOn && currentNeed) autoAct(); // already waiting on a choice -- take it now
+  else if (!autoOn && currentNeed) handleNeedAction(currentNeed.actorId, currentNeed.state); // hand control back
+}
+
+const esc = (t) => String(t).replace(/[&<>]/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[ch]));
+
+// Hover tooltip for skill/item buttons in the command panel -- shows the description
+// text the server already sends (Skill.description / Item.description) so the player
+// doesn't have to remember what an ability does. Positioned next to whatever button is
+// hovered, flipped to the left side if it would run off the right edge of the screen.
+const tooltipEl = document.getElementById("skill-tooltip");
+function showTooltip(btn, html) {
+  tooltipEl.innerHTML = html;
+  tooltipEl.style.display = "block";
+  const r = btn.getBoundingClientRect();
+  const tw = tooltipEl.offsetWidth, th = tooltipEl.offsetHeight;
+  let x = r.right + 10;
+  if (x + tw > window.innerWidth - 8) x = r.left - tw - 10;
+  if (x < 8) x = 8;
+  let y = r.top;
+  if (y + th > window.innerHeight - 8) y = window.innerHeight - th - 8;
+  if (y < 8) y = 8;
+  tooltipEl.style.left = x + "px";
+  tooltipEl.style.top = y + "px";
+}
+function hideTooltip() { tooltipEl.style.display = "none"; }
+
+const SKILL_TARGET_LABEL = {
+  single_enemy: "1 Enemy", all_enemies: "All Enemies",
+  single_ally: "1 Ally", all_allies: "All Allies", self: "Self",
+};
+function skillTooltipHtml(s) {
+  const meta = [`${s.mp_cost} MP`, s.element && s.element !== "physical" ? s.element[0].toUpperCase() + s.element.slice(1) : null,
+    SKILL_TARGET_LABEL[s.target] || null].filter(Boolean).join(" &middot; ");
+  // rank/max_rank are new as of the skill-rank/talent-point system (engine/battle.py's build_state) --
+  // mp_cost/power above already reflect this actor's current rank, this just makes that visible.
+  const rankLine = (s.rank !== undefined && s.max_rank) ? `<div class="tt-meta">Rank ${s.rank} / ${s.max_rank}</div>` : "";
+  return `<div class="tt-title">${esc(s.name)}</div>${rankLine}<div class="tt-meta">${meta}</div>` +
+    (s.description ? `<div class="tt-desc">${esc(s.description)}</div>` : "");
+}
+function itemTooltipHtml(it) {
+  return `<div class="tt-title">${esc(it.name)}</div>` +
+    (it.description ? `<div class="tt-desc">${esc(it.description)}</div>` : "");
+}
+
+// need_action carries the engine's own snapshot, which lacks the fields hub_server adds to `state`
+// messages (level, sprite_name, boss_sprite, role). Carry those over so nameplates keep their level
+// and boss bars/sprites keep working between turns.
+function mergeStaticFields(state, prev) {
+  if (!prev) return state;
+  for (const side of ["party", "enemies"]) {
+    for (const c of state[side] || []) {
+      const old = (prev[side] || []).find((o) => o.id === c.id);
+      if (!old) continue;
+      for (const k of ["level", "sprite_name", "boss_sprite", "role", "stats", "status_detail", "resist"]) if (c[k] === undefined && old[k] !== undefined) c[k] = old[k];
+    }
+  }
+  return state;
+}
+
+async function handleNeedAction(actorId, state) {
+  state = mergeStaticFields(state, latestState);
+  latestState = state; // full snapshot -- includes actor-specific fields too
+  layoutAllSprites();
+  renderStatusPanel(actorId);
+  currentNeed = { actorId, state };
+  if (autoOn) {
+    const need = currentNeed;
+    setTimeout(() => { if (currentNeed === need) autoAct(); }, 500); // brief beat so the fight stays readable
+    return;
+  }
+
+  const panel = document.getElementById("command-panel");
+  const buttons = document.getElementById("command-buttons");
+  document.getElementById("command-title").textContent = `${state.actor_name}: choose an action`;
+  panel.style.display = "block";
+
+  async function chooseTargetFrom(pool, allowEmpty) {
+    const ids = pool.map((c) => c.id);
+    if (ids.length === 0) return null;
+    if (ids.length === 1 && !allowEmpty) return ids[0];
+    document.getElementById("command-title").textContent = "Choose a target (click a sprite or a name)";
+    buttons.innerHTML = "";
+    hideTooltip();
+    for (const c of pool) {
+      const btn = document.createElement("button");
+      btn.textContent = `${c.level ? "Lv" + c.level + " " : ""}${c.name}  ${c.hp}/${c.max_hp} HP${c.alive ? "" : " (KO)"}`;
+      btn.onclick = () => window.onSpriteClicked(c.id);
+      btn.onmouseenter = () => { sprites.get(c.id)?.anchor.classList.add("hl"); playSfx(SFX.hover, 0.5); };
+      btn.onmouseleave = () => sprites.get(c.id)?.anchor.classList.remove("hl");
+      buttons.appendChild(btn);
+    }
+    const cancel = document.createElement("button");
+    cancel.textContent = "< Cancel"; cancel.className = "back";
+    cancel.onclick = () => {
+      clearTargeting();
+      document.getElementById("command-title").textContent = `${state.actor_name}: choose an action`;
+      showMainMenu();
+    };
+    buttons.appendChild(cancel);
+    const id = await pickTarget(ids);
+    return id;
+  }
+
+  function showMenu(items) {
+    buttons.innerHTML = "";
+    hideTooltip();
+    for (const item of items) {
+      const btn = document.createElement("button");
+      btn.textContent = item.label;
+      btn.disabled = !!item.disabled;
+      btn.className = item.back ? "back" : "";
+      btn.onclick = item.onClick;
+      btn.onmouseenter = () => {
+        if (!item.disabled) playSfx(SFX.hover, 0.5);
+        if (item.tooltip) showTooltip(btn, item.tooltip);
+      };
+      if (item.tooltip) btn.onmouseleave = () => hideTooltip();
+      buttons.appendChild(btn);
+    }
+  }
+
+  function finish(actionMsg) {
+    currentNeed = null;
+    panel.style.display = "none";
+    hideTooltip();
+    clearTargeting();
+    if (actionMsg.action === "defend") playSfx(SFX.block);
+    else if (actionMsg.action === "flee") playSfx(SFX.flee);
+    else if (actionMsg.action === "item") playSfx(SFX.useItem);
+    send({ type: "action", actor_id: actorId, ...actionMsg });
+  }
+
+  function showMainMenu() {
+    showMenu([
+      { label: "Attack", onClick: async () => {
+          const targetId = await chooseTargetFrom(reachableEnemies(state, state.enemies.filter((c) => c.alive)));
+          finish({ action: "attack", target_id: targetId });
+        } },
+      { label: `Skill (${state.available_skills.length})`, onClick: showSkillMenu,
+        disabled: state.available_skills.length === 0 },
+      { label: `Item (${state.available_items.length})`, onClick: showItemMenu,
+        disabled: state.available_items.length === 0 },
+      { label: "Defend", onClick: () => finish({ action: "defend" }) },
+      { label: "Flee", onClick: () => finish({ action: "flee" }) },
+    ]);
+  }
+
+  function showSkillMenu() {
+    const items = state.available_skills.map((s) => ({
+      label: `${s.name}${s.rank > 1 ? ` Rk${s.rank}` : ""} (${s.mp_cost} MP)`,
+      disabled: state.actor_mp < s.mp_cost,
+      tooltip: skillTooltipHtml(s),
+      onClick: async () => {
+        let targetId = null;
+        hideTooltip();
+        if (s.target === "single_enemy") targetId = await chooseTargetFrom(reachableEnemies(state, state.enemies.filter((c) => c.alive)));
+        else if (s.target === "single_ally") targetId = await chooseTargetFrom(state.party.filter((c) => c.alive));
+        finish({ action: "skill", skill_id: s.id, target_id: targetId });
+      },
+    }));
+    items.push({ label: "< Back", back: true, onClick: showMainMenu });
+    showMenu(items);
+  }
+
+  function showItemMenu() {
+    const items = state.available_items.map((it) => ({
+      label: `${it.name} x${it.count}`,
+      tooltip: itemTooltipHtml(it),
+      onClick: async () => {
+        // All current items are single-ally targeted (see data/items_db.py);
+        // KO'd party members are included so revive items have someone to target.
+        hideTooltip();
+        const targetId = await chooseTargetFrom(state.party);
+        finish({ action: "item", item_id: it.id, target_id: targetId });
+      },
+    }));
+    items.push({ label: "< Back", back: true, onClick: showMainMenu });
+    showMenu(items);
+  }
+
+  showMainMenu();
+}
+
+function renderDebugGraphs(state) {
+  const on = !!state.debug;
+  const dmg = state.damage || {};
+  const esc = (t) => String(t).replace(/[&<>]/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[ch]));
+  const draw = (elId, title, list) => {
+    const el = document.getElementById(elId);
+    el.style.display = on ? "block" : "none";
+    if (!on) return;
+    const vals = list.map((c) => dmg[c.id] || 0);
+    const total = vals.reduce((a, b) => a + b, 0);
+    const max = Math.max(1, ...vals);
+    el.innerHTML = `<div class="dbg-title">${title} - damage dealt</div>` + list.map((c, i) =>
+      `<div class="dbg-row"><div class="dbg-l"><span>${esc(c.name)}</span><span>${vals[i]}${total ? " (" + Math.round(100 * vals[i] / total) + "%)" : ""}</span></div>` +
+      `<div class="dbg-track"><div class="dbg-fill" style="width:${100 * vals[i] / max}%"></div></div></div>`).join("") +
+      `<div class="dbg-total"><span>Team total</span><span>${total}</span></div>`;
+  };
+  draw("dbg-enemy", "Enemies", state.enemies);
+  draw("dbg-party", "Party", state.party);
+
+  // Live stats boxes: base value, and the effective value (green/red) when statuses are modifying it.
+  const STAT_LABEL = { atk: "ATK", def_: "DEF", mag: "MAG", res: "RES", spd: "SPD", luk: "LUK" };
+  const drawStats = (elId, title, list) => {
+    const el = document.getElementById(elId);
+    el.style.display = on ? "block" : "none";
+    if (!on) return;
+    el.innerHTML = `<div class="dbg-title">${title} - stats</div>` + list.map((c) => {
+      const st = c.stats || {};
+      const cells = Object.keys(STAT_LABEL).filter((k) => st[k]).map((k) => {
+        const b = st[k].base, e = st[k].eff, diff = Math.round((e - b) * 10) / 10;
+        const cls = diff > 0 ? "st-up" : diff < 0 ? "st-down" : "";
+        const val = diff === 0 ? `${b}` : `<span class="${cls}">${Math.round(e)}</span> <span class="st-res">(${b}${diff > 0 ? " +" : " "}${Math.round(diff)})</span>`;
+        return `<div>${STAT_LABEL[k]} ${val}</div>`;
+      }).join("");
+      const chips = (c.status_detail || []).map((s) => {
+        const mods = Object.entries(s.mods || {}).map(([k, m]) => `${STAT_LABEL[k] || k} x${m}`).join(" ");
+        return `<span class="st-chip" title="${esc(s.name)}">${esc(s.name)} ${s.duration < 0 ? "" : s.duration + "t"}${mods ? " " + mods : ""}</span>`;
+      }).join("") + (c.defending ? '<span class="st-chip">Defending</span>' : "");
+      const resist = Object.entries(c.resist || {}).filter(([, m]) => m !== 1)
+        .map(([e, m]) => `${e} ${m === 0 ? "immune" : "x" + m}`).join(", ");
+      return `<div class="st-block${c.alive ? "" : " ko"}"><div class="st-name"><span>${esc(c.name)}</span><span>HP ${c.hp}/${c.max_hp} &middot; MP ${c.mp}/${c.max_mp}</span></div>` +
+        `<div class="st-grid">${cells}</div>` + (chips ? `<div>${chips}</div>` : "") +
+        (resist ? `<div class="st-res">Resist: ${esc(resist)}</div>` : "") + `</div>`;
+    }).join("");
+  };
+  drawStats("dbg-stats-enemy", "Enemies", state.enemies);
+  drawStats("dbg-stats-party", "Party", state.party);
+}
+
+let battleAudioStarted = false;
+function handleState(state) {
+  latestState = state;
+  emitCombatText(state);
+  setDebugUi(!!state.debug);
+  const bosses = state.enemies.filter((c) => c.boss_sprite);
+  if (!battleAudioStarted) {
+    // First state snapshot of the fight: now we know whether it's a boss fight or not.
+    battleAudioStarted = true;
+    playMusic(bosses.length ? MUSIC.boss : MUSIC.battle);
+    playSfx(SFX.encounter);
+  }
+  const bb = document.getElementById("boss-bar");
+  if (bosses.length) {
+    bb.style.display = "block";
+    bb.innerHTML = bosses.map((b) => {
+      const shield = b.shield_max > 0 && b.shield > 0
+        ? `<div class="bb-shield"><div style="width:${100 * b.shield / b.shield_max}%"></div></div>` : "";
+      const cls = "bb-row" + (b.enraged ? " enraged" : "") + (b.alive ? "" : " down");
+      const sts = b.statuses || [];
+      let tags = "";
+      if (!b.alive) tags = '<span class="bb-tag chant">DOWN</span>';
+      else {
+        if (b.enraged) tags += '<span class="bb-tag rage">BLOODLUST</span>';
+        if (b.channeling) tags += '<span class="bb-tag chant">CHANTING</span>';
+        if (b.dancing) tags += '<span class="bb-tag dance">DANCE OF BLADES</span>';
+        if (sts.includes("bulwark")) tags += '<span class="bb-tag bulwark">BULWARK</span>';
+        if (sts.includes("unyielding")) tags += '<span class="bb-tag unyielding">UNYIELDING</span>';
+      }
+      return `<div class="${cls}"><div class="bb-name">${b.name}${tags}  -  ${b.hp} / ${b.max_hp}</div>` +
+             `<div class="bb-track"><div class="bb-fill" style="width:${Math.max(0, 100 * b.hp / b.max_hp)}%"></div></div>${shield}</div>`;
+    }).join("") + (() => {
+      const h = bosses.find((b) => b.harmony_max);
+      const both = bosses.filter((b) => b.alive && !b.enraged).length >= 2;
+      if (!h || !both) return "";
+      const pct = Math.max(0, Math.min(100, 100 * h.harmony / h.harmony_max));
+      const full = h.harmony >= h.harmony_max;
+      return `<div class="bb-harmony${full ? " full" : ""}"><div class="bb-hlabel">${full ? "IN SYNC - THE UNBROKEN PAIR STRIKES NEXT" : "TWIN HARMONY"}</div>` +
+             `<div class="bb-htrack"><div class="bb-hfill" style="width:${pct}%"></div></div></div>`;
+    })();
+  } else bb.style.display = "none";
+  renderDebugGraphs(state);
+  layoutAllSprites();
+  renderStatusPanel(null);
+  document.getElementById("round-label").textContent = `Round ${state.round}`;
+}
+
+let dlgQueue = [], dlgActive = false, dlgTyping = null;
+function showDialogue(lines) {
+  dlgQueue.push(...lines);
+  if (!dlgActive) nextDialogueLine();
+}
+function nextDialogueLine() {
+  const box = document.getElementById("dialogue");
+  if (!dlgQueue.length) {
+    dlgActive = false;
+    box.style.display = "none";
+    document.getElementById("dim").style.display = "none";
+    try { socket.send(JSON.stringify({type: "dialogue_done"})); } catch (e) {}
+    return;
+  }
+  dlgActive = true;
+  const line = dlgQueue.shift();
+  box.style.display = "block";
+  document.getElementById("dim").style.display = "block";
+  document.getElementById("dlg-speaker").textContent = line.speaker || "";
+  const pic = document.getElementById("dlg-portrait");
+  if (line.portrait) { pic.src = `/assets/Portraits/${encodeURIComponent(line.portrait)}.webp`; pic.style.display = "block"; }
+  else pic.style.display = "none";
+  const el = document.getElementById("dlg-text");
+  el.textContent = "";
+  let i = 0;
+  clearInterval(dlgTyping);
+  dlgTyping = setInterval(() => {
+    i += 2;
+    el.textContent = line.text.slice(0, i);
+    if (i >= line.text.length) { clearInterval(dlgTyping); dlgTyping = null; }
+  }, 22);
+  el._full = line.text;
+}
+function advanceDialogue() {
+  if (!dlgActive) return;
+  const el = document.getElementById("dlg-text");
+  if (dlgTyping) { clearInterval(dlgTyping); dlgTyping = null; el.textContent = el._full; return; }  // first click finishes the line
+  nextDialogueLine();
+}
+document.addEventListener("keydown", (e) => {
+  if (dlgActive && (e.code === "Space" || e.code === "Enter")) { e.preventDefault(); advanceDialogue(); }
+});
+
+function handleFx(msg) {
+  if (msg.kind === "shake") {
+    const st = document.getElementById("stage");
+    st.classList.remove("shake"); void st.offsetWidth; st.classList.add("shake");
+  } else if (msg.kind === "flash") {
+    const f = document.getElementById("flash");
+    f.style.background = msg.color || "#fff";
+    f.classList.remove("go"); void f.offsetWidth; f.classList.add("go");
+  } else if (msg.kind === "callout") {
+    const sp = sprites.get(msg.target_id);
+    if (sp) {
+      const el = document.createElement("div");
+      el.className = "callout";
+      el.textContent = msg.text || "";
+      el.style.color = msg.color || "#ffe27a";
+      el.style.left = `${sp.x}px`;
+      el.style.top = `${sp.y - SPRITE_H * sp.hScale - 8}px`;
+      el.style.zIndex = 400;
+      spriteLayer.appendChild(el);
+      setTimeout(() => el.remove(), 1400);
+    }
+  } else if (msg.kind === "announce") {
+    const a = document.getElementById("announce");
+    a.textContent = msg.text || "";
+    a.classList.remove("show"); void a.offsetWidth; a.classList.add("show");
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Skill/effect spritesheets -- data/Artwork/Effect_NAME/30fps/Spritesheets.
+   Unlike battler sheets these are NOT a fixed 6x6 grid: each effect's
+   frame size is baked into its filename ("..._WxHpx.png") and the sheet's
+   actual pixel dimensions divided by that gives its own cols x rows. This
+   is a separate, much simpler player than SpriteView -- it plays through
+   its grid once (or loops, for a held glow) as a small absolutely
+   positioned layer over the stage, then removes itself.
+--------------------------------------------------------------------- */
+const FX_BASE = "/assets/Artwork";
+function fxUrl(folder, file) { return `${FX_BASE}/${folder}/30fps/Spritesheets/${file}`; }
+
+// cols/rows are (sheet px size / frame px size, from the filename) -- precomputed here since the
+// filenames are fixed; FxPlayer re-derives them from the loaded image too, as a sanity fallback.
+const FX_DEFS = {
+  impact:        { folder: "Effect_Impact",        file: "Effect_Impact_1_291x301.png",       fw: 291, fh: 301, cols: 6, rows: 5 },
+  bigHit:        { folder: "Effect_BigHit",        file: "Effect_BigHit_1_557x553.png",       fw: 557, fh: 553, cols: 6, rows: 5 },
+  smallHit:      { folder: "Effect_SmallHit",      file: "Effect_SmallHit_1_532x528.png",     fw: 532, fh: 528, cols: 6, rows: 5 },
+  charged:       { folder: "Effect_Charged",       file: "Effect_Charged_1_321x371.png",      fw: 321, fh: 371, cols: 7, rows: 6 },
+  anima:         { folder: "Effect_Anima",         file: "Effect_Anima_1_437x437.png",        fw: 437, fh: 437, cols: 6, rows: 5 },
+  hyperspeed:    { folder: "Effect_Hyperspeed",    file: "Effect_Hyperspeed_1_517x515.png",   fw: 517, fh: 515, cols: 6, rows: 5 },
+  explosion2:    { folder: "Effect_Explosion2",    file: "Effect_Explosion2_1_355x355.png",   fw: 355, fh: 355, cols: 6, rows: 5 },
+  theVortex:     { folder: "Effect_TheVortex",     file: "Effect_TheVortex_1_427x431.png",    fw: 427, fh: 431, cols: 6, rows: 5 },
+  tentacles:     { folder: "Effect_Tentacles",     file: "Effect_Tentacles_1_453x337.png",    fw: 453, fh: 337, cols: 6, rows: 5 },
+  eldenRing:     { folder: "Effect_EldenRing",     file: "Effect_EldenRing_1_421x425.png",    fw: 421, fh: 425, cols: 6, rows: 5 },
+  puffAndStars:  { folder: "Effect_PuffAndStars",  file: "Effect_PuffAndStars_1_120x109.png", fw: 120, fh: 109, cols: 7, rows: 6 },
+  constellation: { folder: "Effect_Constellation", file: "Effect_Constellation_1_299x313.png", fw: 299, fh: 313, cols: 6, rows: 5 },
+};
+
+const fxImgCache = new Map();
+function loadFxImage(def) {
+  const url = fxUrl(def.folder, def.file);
+  if (fxImgCache.has(url)) return fxImgCache.get(url);
+  const p = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+  fxImgCache.set(url, p);
+  return p;
+}
+
+// Most of these sheets are already coloured art (not the grayscale Effect_Impact); the filter is a
+// cheap, deliberately-not-pixel-perfect way to push a shared sheet (mainly Hyperspeed, reused as the
+// generic "travelling bolt" for every element) toward each element's colour, plus a matching glow.
+const FX_TINTS = {
+  fire:     "hue-rotate(-25deg) saturate(2.2) brightness(1.15) drop-shadow(0 0 10px #ff6a2acc)",
+  ice:      "hue-rotate(140deg) saturate(1.5) brightness(1.15) drop-shadow(0 0 10px #7fe0ffcc)",
+  thunder:  "hue-rotate(50deg) saturate(2.2) brightness(1.3) drop-shadow(0 0 10px #ffe27acc)",
+  holy:     "grayscale(0.5) sepia(0.6) saturate(2.4) brightness(1.5) drop-shadow(0 0 12px #fff6c8cc)",
+  dark:     "hue-rotate(220deg) saturate(2.2) brightness(0.75) drop-shadow(0 0 10px #7a3affcc)",
+  neutral:  "saturate(0.7) brightness(1.05) drop-shadow(0 0 6px #ffffffaa)",
+};
+
+class FxPlayer {
+  /* x/y are stage-space coordinates (same space as SpriteView.x/y) that the effect is centred on. */
+  constructor(defKey, x, y, opts) {
+    opts = opts || {};
+    this.def = FX_DEFS[defKey];
+    this.fps = opts.fps || 24;
+    this.loop = !!opts.loop;
+    this.size = opts.size || 150;
+    this.done = false;
+    this.el = document.createElement("div");
+    this.el.style.position = "absolute";
+    this.el.style.pointerEvents = "none";
+    this.el.style.zIndex = String(opts.z || 350);
+    this.el.style.transform = "translate(-50%, -50%)";
+    this.el.style.imageRendering = "pixelated";
+    if (opts.tint) this.el.style.filter = opts.tint;
+    this.setPos(x, y);
+    spriteLayer.appendChild(this.el);
+    loadFxImage(this.def).then((img) => { this.img = img; if (img && !this.done) this._start(); else if (!img) this._finish(); });
+  }
+  setPos(x, y) { this._x = x; this._y = y; this.el.style.left = `${x}px`; this.el.style.top = `${y}px`; }
+  _start() {
+    const { fw, fh, cols, rows } = this.def;
+    const w = this.size * (fw / fh), h = this.size;
+    this.el.style.width = `${w}px`;
+    this.el.style.height = `${h}px`;
+    this.el.style.backgroundImage = `url(${this.img.src})`;
+    this.el.style.backgroundRepeat = "no-repeat";
+    this.el.style.backgroundSize = `${w * cols}px ${h * rows}px`;
+    const total = cols * rows, startAt = performance.now();
+    const step = (now) => {
+      if (this.done) return;
+      let idx = Math.floor((now - startAt) / (1000 / this.fps));
+      if (idx >= total) {
+        if (this.loop) idx %= total;
+        else { this._finish(); return; }
+      }
+      const col = idx % cols, row = Math.floor(idx / cols);
+      this.el.style.backgroundPosition = `-${col * w}px -${row * h}px`;
+      this._raf = requestAnimationFrame(step);
+    };
+    this._raf = requestAnimationFrame(step);
+  }
+  _finish() {
+    if (this.done) return;
+    this.done = true;
+    if (this._raf) cancelAnimationFrame(this._raf);
+    this.el.remove();
+    if (this._resolveDone) this._resolveDone();
+  }
+  stop() { this._finish(); }
+  /* Resolves once the one-shot animation finishes (never, for a looping effect -- call stop() instead). */
+  waitDone() {
+    if (this.done) return Promise.resolve();
+    if (!this._donePromise) this._donePromise = new Promise((res) => { this._resolveDone = res; });
+    return this._donePromise;
+  }
+  /* Moves the effect's on-screen position from wherever it is to (tx,ty) over durationMs -- the
+     "projectile" half of a ranged/magic attack, independent of which frame its own loop is on. */
+  flyTo(tx, ty, durationMs) {
+    return new Promise((resolve) => {
+      const fromX = this._x, fromY = this._y, start = performance.now();
+      const step = (now) => {
+        if (this.done) { resolve(); return; }
+        const t = Math.min(1, (now - start) / durationMs);
+        this.setPos(fromX + (tx - fromX) * t, fromY + (ty - fromY) * t);
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      };
+      requestAnimationFrame(step);
+    });
+  }
+}
+
+// Per-element look for a ranged/magic attack: `travel` plays (looping) while the shot is in flight,
+// `impact` plays once where it lands. "physical"/"none" (basic ranged attacks, piercing_shot,
+// poison_dart -- any physical skill with no element) share a neutral steel-grey bolt.
+const ELEMENT_FX = {
+  physical: { travel: "hyperspeed", impact: "smallHit",   tint: "neutral" },
+  none:     { travel: "hyperspeed", impact: "smallHit",   tint: "neutral" },
+  fire:     { travel: "hyperspeed", impact: "explosion2", tint: "fire" },
+  ice:      { travel: "hyperspeed", impact: "anima",      tint: "ice" },
+  thunder:  { travel: "hyperspeed", impact: "charged",    tint: "thunder" },
+  holy:     { travel: "hyperspeed", impact: "eldenRing",  tint: "holy" },
+  dark:     { travel: "theVortex",  impact: "tentacles",  tint: "dark" },
+};
+const MELEE_IMPACT_FX = "bigHit";
+const HEAL_FX = "puffAndStars";
+const STATUS_FX = "constellation";
+
+// Chest-height anchor point for a sprite, in stage-space -- SpriteView.x/y is the FEET position.
+function fxAnchor(sprite, frac) {
+  return { x: sprite.x, y: sprite.y - SPRITE_H * sprite.hScale * (frac === undefined ? 0.5 : frac) };
+}
+
+// FX are sized as a fraction of the SPECIFIC sprite they're playing on/at, not a flat pixel guess --
+// so an effect reads at the right proportion whether it's on a normal hero or a scaled-up boss.
+function fxSize(sprite, frac) {
+  return SPRITE_H * sprite.hScale * frac;
+}
+
+async function playImpactFx(defKey, x, y, tintKey, size) {
+  const fx = new FxPlayer(defKey, x, y, { tint: FX_TINTS[tintKey] || null, size: size || 150, fps: 26 });
+  await fx.waitDone();
+}
+
+async function playProjectileFx(fromPt, toPt, elementCfg, boltSize, impactSize, impactSfx) {
+  const fx = new FxPlayer(elementCfg.travel, fromPt.x, fromPt.y,
+    { tint: FX_TINTS[elementCfg.tint], size: boltSize || 110, fps: 30, loop: true });
+  await fx.flyTo(toPt.x, toPt.y, 380);
+  fx.stop();
+  playSfx(impactSfx);   // fire-and-forget, timed to land with the visual impact below
+  await playImpactFx(elementCfg.impact, toPt.x, toPt.y, elementCfg.tint, impactSize || 170);
+}
+
+async function handleActionEvent(msg) {
+  await returnDone;            // one action finishes (attacker back home) before the next begins
+  combatHint = { element: msg.element || "physical", skill_kind: msg.skill_kind, crit: new Set(), weak: new Set() };
+  const actor = sprites.get(msg.actor_id);
+  const animKind = msg.anim_kind || (msg.is_melee ? "melee" : null);
+  if (!actor || !animKind) return;   // unknown actor, or a message from an older server build
+
+  const targetIds = (msg.target_ids && msg.target_ids.length) ? msg.target_ids
+                   : (msg.target_id ? [msg.target_id] : []);
+  const targets = targetIds.map((id) => sprites.get(id)).filter(Boolean);
+
+  if (animKind === "melee") {
+    await animateMelee(actor, targets[0] || null);
+    return;
+  }
+
+  if (animKind === "status") {
+    // Self buff/debuff application (warcry, iron_stance, weaken, sunder...): no run-in, no
+    // projectile -- just a small sparkle on whoever's acting, once the idle pose has settled.
+    actor.setPose("Idle");
+    await wait(windupMs(actor, "status"));
+    await playImpactFx(STATUS_FX, fxAnchor(actor).x, fxAnchor(actor).y, null, fxSize(actor, 0.55));
+    return;
+  }
+
+  if (animKind === "heal") {
+    actor.setPose(poseFor("heal", actor.name));
+    await wait(windupMs(actor, "heal"));   // let the cast/heal pose actually reach its release flash
+    const pts = targets.length ? targets.map((t) => fxAnchor(t)) : [fxAnchor(actor)];
+    await Promise.all(pts.map((p, i) => playImpactFx(HEAL_FX, p.x, p.y, "holy", fxSize(targets[i] || actor, 0.8))));
+    if (actor.castMode === null) actor.setPose("Idle");
+    return;
+  }
+
+  if (animKind === "ranged" || animKind === "magic") {
+    actor.setPose(poseFor(animKind === "ranged" ? "shoot" : "cast", actor.name));
+    await wait(windupMs(actor, animKind));   // wait for the actual release-flash frame, not a guess
+    const fromPt = fxAnchor(actor);
+    const el = msg.element === "none" ? "physical" : (msg.element || "physical");
+    const cfg = ELEMENT_FX[el] || ELEMENT_FX.physical;
+    const impactSfx = animKind === "magic" ? MAGIC_IMPACT_SFX[el] : SFX.slash;
+    const dests = targets.length ? targets.map((t) => fxAnchor(t)) : [fromPt];
+    await Promise.all(dests.map((toPt, i) =>
+      playProjectileFx(fromPt, toPt, cfg, fxSize(actor, 0.6), fxSize(targets[i] || actor, 0.9), impactSfx)));
+    if (actor.castMode === null) actor.setPose("Idle");
+    return;
+  }
+}
+
+let aiPanelTimer = null;
+function handleAiEvent(rec) {
+  const panel = document.getElementById("ai-panel");
+  if (rec.phase === "start") {
+    panel.style.display = "block";
+    panel.innerHTML = `<b>${rec.combatant_name}</b> is deciding...`;
+  } else if (rec.phase === "thinking_chunk") {
+    panel.innerHTML = `<b>${rec.combatant_name}</b> is deciding: ${rec.text_so_far}`;
+  } else if (rec.phase === "done") {
+    panel.innerHTML = `<b>${rec.combatant_name}</b>: ${rec.reason || (rec.used_fallback ? "(scripted fallback)" : "")}`;
+    clearTimeout(aiPanelTimer);
+    aiPanelTimer = setTimeout(() => { panel.style.display = "none"; }, 2500);
+  }
+}
+
+function fmtReward(r) { return `${r.money} gold, ${r.gems} gems, ${r.xp} XP`; }
+
+let cashingOut = false;
+let debugBattle = false;
+function handleBattleEnd(msg) {
+  const result = msg.result;
+  playMusic(MUSIC.main);   // swap straight back to hub music for the results screen (simple cut, no crossfade)
+  document.getElementById("command-panel").style.display = "none";
+  const overlay = document.getElementById("end-overlay");
+  overlay.className = result; // victory | defeat | fled
+  document.getElementById("end-title").textContent =
+    result === "victory" ? "Victory!" : result === "fled" ? "Fled" : "Defeat";
+  const rw = document.getElementById("end-reward");
+  const sub = document.getElementById("end-sub");
+  const hubBtn = document.getElementById("btn-hub");
+  // "Return to Colosseum" is only accurate for a hub-started fight; a from_world fight (or any page
+  // opened with ?return=world) actually sends the player back to /world -- see returnToHub() below.
+  const returnLabel = (msg.from_world || RETURN_TARGET === "world") ? "Return to the Overworld" : "Return to Colosseum";
+  if (result === "victory") {
+    let t = `This win: ${fmtReward(msg)}`;
+    if (msg.multiplier > 1) t += ` (x${msg.multiplier} streak bonus)`;
+    rw.textContent = t + `\nCurrent reward: ${fmtReward(msg.pot)}`;
+    sub.textContent = msg.can_continue
+      ? `HP/MP carry over. Next win pays x${msg.next_multiplier}. If you are defeated you lose the whole reward.` : "";
+    hubBtn.textContent = msg.can_continue ? "Cash Out & Return to Colosseum" : returnLabel;
+  } else if (result === "defeat") {
+    rw.textContent = msg.forfeited && (msg.forfeited.money || msg.forfeited.gems || msg.forfeited.xp)
+      ? `Rewards lost: ${fmtReward(msg.forfeited)}` : "No rewards earned.";
+    sub.textContent = "";
+    hubBtn.textContent = returnLabel;
+  } else {
+    rw.textContent = msg.paid ? `Escaped with: ${fmtReward(msg.paid)}` : "";
+    sub.textContent = "";
+    hubBtn.textContent = returnLabel;
+  }
+  if (msg.boss && result === "victory") {
+    const r = msg.rewards_paid ? msg.paid : msg;
+    rw.textContent = (msg.first_clear ? "FIRST CLEAR BONUS!\n" : "Rematch reward\n") + fmtReward(r)
+      + (msg.rewards_paid ? "" : "\n(debug fight - not granted)");
+    sub.textContent = "";
+  }
+  if (msg.debug) {
+    if (!msg.boss || result !== "victory") rw.textContent = msg.boss && msg.rewards_paid === false ? "Debug boss fight - no rewards" : "Debug battle - no rewards";
+    hubBtn.textContent = "Back to Debug Menu";
+  }
+  const rn = document.getElementById("end-renown");
+  rn.textContent = ""; rn.style.color = "";
+  const r = msg.renown;
+  if (r && !msg.debug) {
+    if (r.rank_up) {
+      rn.style.color = "#ffe27a";
+      rn.textContent = `RANK UP!  You are now Rank ${r.rank} - ${r.rank_name}` +
+        (r.next_boss ? `\nNext challenger: ${r.next_boss}` : "\nNo challengers remain... for now.");
+    } else if (r.delta > 0) {
+      rn.style.color = "#8fe8a0";
+      rn.textContent = `+${r.delta} Renown` + (r.gate ? `  (${r.total} / ${r.gate})` : "") +
+        (r.can_challenge ? "\nA boss challenge awaits in the Colosseum!" : "");
+    } else if (r.delta < 0) {
+      rn.style.color = "#ff8a8a";
+      rn.textContent = `${r.delta} Renown` + (r.gate ? `  (${r.total} / ${r.gate})` : "");
+    }
+  }
+  debugBattle = !!msg.debug;
+  const el = document.getElementById("end-ladder");
+  el.textContent = ""; document.getElementById("perk-choices").style.display = "none";
+  document.getElementById("btn-hub").style.display = "";
+  const L = msg.ladder;
+  if (L && L.active) {
+    renderLadderHud(L);
+    if (result === "victory" && L.perk_choices) {
+      el.textContent = `LADDER: win #${L.wins}` + (L.can_cash_out ? " - you may cash out after picking a perk." : ` - ${L.until_cash_out} more until you can cash out.`);
+      showPerkChoices(L);
+    } else if (result !== "victory") {
+      el.textContent = "The ladder run is over.";
+      document.getElementById("ladder-hud").style.display = "none";
+    }
+  }
+  rw.style.whiteSpace = "pre-line";
+  const tk = (o) => Object.entries(o || {}).filter(([, n]) => n > 0).map(([k, n]) => `+${n} ${k === "premium" ? "Premium" : "Common"} Ticket${n > 1 ? "s" : ""}`).join(", ");
+  const won = tk(msg.tickets_won), potT = tk(msg.pot_tickets), lost = tk(msg.forfeited && msg.forfeited.tickets);
+  if (result === "victory" && won && !msg.debug) rw.textContent += `\nTickets found: ${won}` + (msg.boss ? "" : ` (held in the pot: ${potT})`);
+  if (msg.paid && msg.paid.tickets && tk(msg.paid.tickets)) rw.textContent += `\nTickets received: ${tk(msg.paid.tickets)}`;
+  if (lost) rw.textContent += `\nTickets lost: ${lost}`;
+  document.getElementById("btn-next").style.display = (msg.can_continue && !(L && L.perk_choices)) ? "" : "none";
+  // A from_world fight (a wild overworld encounter or the dungeon guardian -- see hub_server.py's
+  // run_battle) never offers "Continue", but it also shouldn't offer "Fight Again": reloading the
+  // page would just start an unrelated fresh fight instead of returning to /world, which isn't what
+  // "one battle, then back to the world" means. "Return to Colosseum" (relabeled to /world by
+  // RETURN_TARGET below) stays the only way out.
+  document.getElementById("btn-again").style.display = (msg.can_continue || msg.from_world) ? "none" : "";
+  cashingOut = msg.can_continue;
+  overlay.style.display = "flex";
+}
+
+// ---- Ladder Mode ----
+let ladderActive = false, ladderCanCashOut = false;
+function renderLadderHud(l) {
+  const hud = document.getElementById("ladder-hud");
+  ladderActive = !!l.active;
+  if (!l.active) { hud.style.display = "none"; return; }
+  ladderCanCashOut = !!l.can_cash_out;
+  hud.style.display = "block";
+  hud.innerHTML = `LADDER MODE &nbsp;&middot;&nbsp; Wins ${l.wins}<br>` +
+    (l.can_cash_out ? "Cash-out available!" : `Cash out in ${l.until_cash_out} win${l.until_cash_out === 1 ? "" : "s"}`) +
+    `<div class="perks"></div>`;
+  const box = hud.querySelector(".perks");
+  for (const p of l.perks || []) {
+    const chip = document.createElement("span"); chip.className = "perk-chip"; chip.title = p.name + ": " + p.desc;
+    chip.appendChild(makeIcon(p.icon, 26));
+    if (p.count > 1) { const n = document.createElement("b"); n.textContent = "x" + p.count; chip.appendChild(n); }
+    box.appendChild(chip);
+  }
+}
+function showPerkChoices(l) {
+  const box = document.getElementById("perk-choices");
+  box.innerHTML = ""; box.style.display = "flex";
+  for (const p of l.perk_choices) {
+    const card = document.createElement("button"); card.className = "perk-card";
+    card.appendChild(makeIcon(p.icon, 44));
+    card.insertAdjacentHTML("beforeend", `<b>${p.name}</b><span>${p.desc}</span>`);
+    card.onclick = () => { for (const c of box.children) c.disabled = true; socket.send(JSON.stringify({type: "perk", id: p.id})); };
+    box.appendChild(card);
+  }
+  document.getElementById("btn-next").style.display = "none";
+  document.getElementById("btn-hub").style.display = "none";
+}
+function handlePerkApplied(msg) {
+  document.getElementById("perk-choices").style.display = "none";
+  document.getElementById("end-ladder").textContent = msg.message || "";
+  renderLadderHud(msg);
+  if (msg.state) { try { handleState(msg.state); } catch (e) {} }
+  document.getElementById("btn-next").style.display = "";
+  const hb = document.getElementById("btn-hub");
+  hb.style.display = ladderCanCashOut ? "" : "none";
+  hb.textContent = "Cash Out & Return to Colosseum";
+}
+
+function nextBattle() {
+  autoUsed = { potion: 0, revive: 0, ether: 0 };
+  document.getElementById("end-overlay").style.display = "none";
+  document.getElementById("command-panel").style.display = "";
+  // handleBattleEnd cut the music to Main.mp3 for the results screen and battleAudioStarted latched
+  // true after the first fight's opening state message -- without resetting it here, the next state
+  // message (this new fight) would be silently ignored by that one-shot guard and Main.mp3 would just
+  // keep playing through the whole next battle. Resetting it makes the next handleState() re-detect
+  // boss-vs-regular and switch the music (and re-fire the encounter stinger) same as a fresh fight.
+  battleAudioStarted = false;
+  socket.send(JSON.stringify({type: "continue"}));
+}
+
+function returnToHub() {
+  if (cashingOut) {
+    // Wait for the server to confirm the payout is saved before leaving.
+    try { socket.send(JSON.stringify({type: "leave"})); } catch (e) {}
+    document.getElementById("btn-hub").disabled = true;
+    return;
+  }
+  window.location.href = debugBattle ? HUB_URL + "debug" : (RETURN_TARGET === "world" ? HUB_URL + "world" : HUB_URL);
+}
+
+function connect() {
+  socket = new WebSocket("ws://127.0.0.1:8766/");
+  const banner = document.getElementById("connect-banner");
+  socket.onopen = () => { banner.style.display = "none"; };
+  socket.onclose = () => { banner.textContent = "Disconnected from battle_server.py."; banner.style.display = "block"; };
+  socket.onerror = () => { banner.textContent = "Couldn't reach battle_server.py -- is it running?"; banner.style.display = "block"; };
+  // Server messages are played back strictly in order: a melee action holds the queue until the attacker
+  // has reached its target, and the next action waits for it to get back (see returnDone).
+  socket.onmessage = (event) => {
+    msgQueue.push(JSON.parse(event.data));
+    pumpMessages();
+  };
+}
+
+const msgQueue = [];
+let pumping = false;
+async function pumpMessages() {
+  if (pumping) return;
+  pumping = true;
+  while (msgQueue.length) {
+    const msg = msgQueue.shift();
+    try { await dispatchMessage(msg); } catch (e) { console.error("message handler failed", msg.type, e); }
+  }
+  pumping = false;
+}
+async function dispatchMessage(msg) {
+  switch (msg.type) {
+    case "state": handleState(msg.state); break;
+    case "log": appendLog(msg.message, msg.debug); break;
+    case "action_event": await handleActionEvent(msg); break;
+    case "dialogue": await returnDone; showDialogue(msg.lines || []); break;
+    case "fx": handleFx(msg); if (msg.kind === "pause") await wait(msg.ms || 0); break;
+    case "need_action": await returnDone; handleNeedAction(msg.actor_id, msg.state); break;
+    case "ai_event": handleAiEvent(msg); break;
+    case "battle_end": await returnDone; handleBattleEnd(msg); break;
+    case "ladder_status": renderLadderHud(msg); break;
+    case "perk_applied": handlePerkApplied(msg); break;
+    case "cashed_out": window.location.href = HUB_URL; break;
+  }
+}
+
+function animationLoop(now) {
+  sprites.forEach((s) => s.tick(now));
+  requestAnimationFrame(animationLoop);
+}
+
+function fitStage() {
+  const stage = document.getElementById("stage");
+  const scale = Math.min(window.innerWidth , window.innerHeight , 1);
+  stage.style.transform = `scale(${scale})`;
+}
+window.addEventListener("resize", fitStage);
+fitStage();
+
+document.getElementById("stage").style.backgroundImage = "url(/assets/Artwork/Background.webp)";
+
+requestAnimationFrame(animationLoop);
+connect();
+</script>
+
+</body>
+</html>

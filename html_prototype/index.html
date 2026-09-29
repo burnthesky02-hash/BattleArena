@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Battle Arena -- Summon (HTML prototype)</title>
+<style>
+  :root {
+    --bg-deep: #0e0b16;
+    --bg-panel: rgba(28, 24, 42, 0.72);
+    --text-main: #f0ecff;
+    --text-dim: #a79fc9;
+    --accent: #7c5cff;
+
+    /* Matches data/hero_rarity.py's HERO_RARITY_COLOR exactly. */
+    --common: #bebec3;
+    --rare: #5aaae6;
+    --epic: #b96ee6;
+    --legendary: #ebaf3c;
+    --mythic: #e63c5a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    color: var(--text-main);
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #241c3d 0%, var(--bg-deep) 60%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 60px;
+  }
+
+  header {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  h1 { font-size: 20px; font-weight: 600; margin: 0; color: var(--text-main); }
+
+  #gems {
+    background: var(--bg-panel);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  #gems .icon { color: #6fe3c8; margin-right: 6px; }
+
+  #status {
+    max-width: 900px;
+    width: 100%;
+    min-height: 20px;
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  /* --- Banner rail --- */
+  .banner-rail {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    max-width: 900px;
+    margin-bottom: 20px;
+  }
+
+  .banner {
+    flex: 1;
+    border-radius: 16px;
+    padding: 20px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    background: var(--bg-panel);
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .banner::before {
+    content: "";
+    position: absolute; inset: 0;
+    opacity: 0.35;
+    background: linear-gradient(135deg, var(--tint, var(--accent)), transparent 70%);
+    pointer-events: none;
+  }
+  .banner:hover { transform: translateY(-3px); }
+  .banner.selected {
+    border-color: var(--tint, var(--accent));
+    box-shadow: 0 0 24px -4px var(--tint, var(--accent));
+  }
+  .banner h2 { margin: 0 0 6px; font-size: 17px; }
+  .banner p { margin: 0; color: var(--text-dim); font-size: 13px; }
+  .banner .odds { margin-top: 10px; font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+  .banner .odds b { color: var(--text-main); }
+
+  #banner-character { --tint: var(--epic); }
+  #banner-equipment { --tint: var(--legendary); }
+
+  /* --- Pull bar --- */
+  .pull-bar {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 900px;
+    margin-bottom: 28px;
+  }
+  .pull-btn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), #4b32b3);
+    color: white;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: transform 0.1s ease, opacity 0.15s ease;
+  }
+  .pull-btn:hover { transform: translateY(-2px); }
+  .pull-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .pull-btn small { display: block; font-weight: 400; opacity: 0.85; font-size: 12px; margin-top: 2px; }
+
+  /* --- Reveal overlay --- */
+  #reveal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(6, 4, 12, 0.82);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 10;
+    padding: 24px;
+  }
+  #reveal-overlay.open { display: flex; }
+
+  #reveal-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 140px);
+    gap: 16px;
+    max-width: 900px;
+    justify-content: center;
+    perspective: 1000px;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    width: 140px;
+    height: 180px;
+    position: relative;
+    cursor: pointer;
+  }
+  .card-inner {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(.2,.8,.3,1.2);
+  }
+  .card.flipped .card-inner { transform: rotateY(180deg); }
+
+  .card-face {
+    position: absolute; inset: 0;
+    border-radius: 12px;
+    backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 10px;
+  }
+  .card-front {
+    background: linear-gradient(160deg, #362a5c, #1c1630);
+    border: 2px solid rgba(255,255,255,0.12);
+    font-size: 40px;
+    color: rgba(255,255,255,0.25);
+  }
+  .card-back {
+    transform: rotateY(180deg);
+    border: 2px solid var(--tint, var(--common));
+    background: linear-gradient(165deg, color-mix(in srgb, var(--tint, var(--common)) 28%, #1a1626), #14101f);
+    box-shadow: 0 0 22px -4px var(--tint, var(--common));
+  }
+  .card-back .rarity-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--tint, var(--common));
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .card-back .name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .card-back .tag {
+    margin-top: 8px;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    color: var(--text-dim);
+  }
+  .card-back.new .tag { background: #2fae7a33; color: #6fe3c8; }
+
+  .reveal-actions { display: flex; gap: 12px; }
+  .reveal-actions button {
+    padding: 10px 22px;
+    border-radius: 999px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #reveal-all-btn { background: var(--accent); color: white; }
+  #continue-btn { background: rgba(255,255,255,0.1); color: var(--text-main); display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Summon</h1>
+  <div id="gems"><span class="icon">&#9670;</span><span id="gems-value">--</span></div>
+</header>
+
+<div id="status">Connecting to summon_server.py...</div>
+
+<div class="banner-rail">
+  <div class="banner selected" id="banner-character" onclick="selectBanner('character')">
+    <h2>Recruit a Hero</h2>
+    <p>Pull a class-matched hero at a rolled rarity.</p>
+    <div class="odds" id="character-costs"></div>
+  </div>
+  <div class="banner" id="banner-equipment" onclick="selectBanner('equipment')">
+    <h2>Premium Gear</h2>
+    <p>Epic or legendary equipment for the stash.</p>
+    <div class="odds" id="equipment-costs"></div>
+  </div>
+</div>
+
+<div class="pull-bar">
+  <button class="pull-btn" id="pull-1x" onclick="pull(1)">Pull x1 <small id="pull-1x-cost"></small></button>
+  <button class="pull-btn" id="pull-10x" onclick="pull(10)">Pull x10 <small id="pull-10x-cost"></small></button>
+</div>
+
+<div id="reveal-overlay">
+  <div id="reveal-grid"></div>
+  <div class="reveal-actions">
+    <button id="reveal-all-btn" onclick="revealAll()">Reveal All</button>
+    <button id="continue-btn" onclick="closeReveal()">Continue</button>
+  </div>
+</div>
+
+<script>
+  const API = ""; // same-origin: this page is served BY summon_server.py, so no base URL/CORS needed.
+  let selected = "character";
+  let costs = null;
+  let cards = []; // {el, revealed}
+
+  async function fetchState() {
+    try {
+      const res = await fetch(API + "/state");
+      const data = await res.json();
+      costs = data.costs;
+      document.getElementById("gems-value").textContent = data.gems;
+      document.getElementById("character-costs").innerHTML =
+        `<b>x1</b> ${costs.character_1x} gems &nbsp; <b>x10</b> ${costs.character_10x} gems`;
+      document.getElementById("equipment-costs").innerHTML =
+        `<b>x1</b> ${costs.equipment_1x} gems &nbsp; <b>x10</b> ${costs.equipment_10x} gems`;
+      updatePullCosts();
+      document.getElementById("status").textContent = "";
+    } catch (e) {
+      document.getElementById("status").textContent =
+        "Couldn't reach summon_server.py -- is it running? (" + e + ")";
+    }
+  }
+
+  function updatePullCosts() {
+    if (!costs) return;
+    document.getElementById("pull-1x-cost").textContent =
+      selected === "character" ? `(${costs.character_1x} gems)` : `(${costs.equipment_1x} gems)`;
+    document.getElementById("pull-10x-cost").textContent =
+      selected === "character" ? `(${costs.character_10x} gems)` : `(${costs.equipment_10x} gems)`;
+  }
+
+  function selectBanner(type) {
+    selected = type;
+    document.getElementById("banner-character").classList.toggle("selected", type === "character");
+    document.getElementById("banner-equipment").classList.toggle("selected", type === "equipment");
+    updatePullCosts();
+  }
+
+  async function pull(count) {
+    document.getElementById("pull-1x").disabled = true;
+    document.getElementById("pull-10x").disabled = true;
+    const route = selected === "character" ? "/summon/character" : "/summon/equipment";
+    try {
+      const res = await fetch(API + route, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count }),
+      });
+      const data = await res.json();
+      document.getElementById("gems-value").textContent = data.gems;
+      document.getElementById("status").textContent = data.message || "";
+      if (data.ok) {
+        openReveal(data.results);
+      }
+    } catch (e) {
+      document.getElementById("status").textContent = "Pull failed: " + e;
+    } finally {
+      document.getElementById("pull-1x").disabled = false;
+      document.getElementById("pull-10x").disabled = false;
+    }
+  }
+
+  function openReveal(results) {
+    const grid = document.getElementById("reveal-grid");
+    grid.innerHTML = "";
+    cards = [];
+
+    for (const r of results) {
+      const isCharacter = "class_id" in r;
+      const name = isCharacter ? r.name : r.name;
+      const sub = isCharacter ? r.class_id : r.slot;
+      const tag = isCharacter ? (r.is_duplicate ? `+${r.shards_gained} shards` : "NEW!") : sub;
+      const isNew = isCharacter && !r.is_duplicate;
+
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="card-inner">
+          <div class="card-face card-front">?</div>
+          <div class="card-face card-back ${isNew ? "new" : ""}" style="--tint: var(--${r.rarity})">
+            <div class="rarity-label">${r.rarity}</div>
+            <div class="name">${name}</div>
+            <div class="tag">${tag}</div>
+          </div>
+        </div>
+      `;
+      card.addEventListener("click", () => flipCard(card));
+      grid.appendChild(card);
+      cards.push(card);
+    }
+
+    document.getElementById("reveal-overlay").classList.add("open");
+    document.getElementById("reveal-all-btn").style.display = "inline-block";
+    document.getElementById("continue-btn").style.display = "none";
+  }
+
+  function flipCard(card) {
+    card.classList.add("flipped");
+    maybeShowContinue();
+  }
+
+  function revealAll() {
+    cards.forEach((card, i) => {
+      setTimeout(() => flipCard(card), i * 120);
+    });
+  }
+
+  function maybeShowContinue() {
+    if (cards.every((c) => c.classList.contains("flipped"))) {
+      document.getElementById("continue-btn").style.display = "inline-block";
+    }
+  }
+
+  function closeReveal() {
+    document.getElementById("reveal-overlay").classList.remove("open");
+    fetchState();
+  }
+
+  fetchState();
+</script>
+
+</body>
+</html>

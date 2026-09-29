@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Colosseum</title>
+<style>
+  :root {
+    --gold: #e8c766;
+    --gem: #7fd8e8;
+    --panel-bg: rgba(18, 16, 28, 0.72);
+    --panel-border: rgba(232, 199, 102, 0.35);
+    --text: #f1ecdd;
+    --dim: #b9b2a0;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    font-family: "Segoe UI", Verdana, sans-serif;
+    color: var(--text);
+    background: #0e0c14;
+    overflow: hidden;
+  }
+  #scene {
+    position: relative;
+    height: 100vh; width: 100vw;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  #scene::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(10,9,16,0.75) 0%, rgba(10,9,16,0.25) 30%, rgba(10,9,16,0.35) 70%, rgba(10,9,16,0.85) 100%);
+    pointer-events: none;
+  }
+
+  /* ---------- Top bar: title + currencies (Mobile-Legends-Adventure-style
+     top bar layout, real currencies underneath) ---------- */
+  #topbar {
+    position: relative; z-index: 2;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 18px 22px 0 22px;
+  }
+  #title-block h1 {
+    margin: 0; font-size: 26px; letter-spacing: 1px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+  }
+  #title-block .sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
+  #currencies { display: flex; gap: 10px; }
+  .currency-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    border-radius: 999px; padding: 6px 16px 6px 8px;
+    font-weight: 600; font-size: 15px;
+    backdrop-filter: blur(2px);
+  }
+  .currency-icon {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; color: #1a1408;
+  }
+  .currency-icon.money { background: var(--gold); }
+  .currency-icon.gems { background: var(--gem); }
+
+  /* ---------- Side icon rails, borrowed layout only (no fake shrines --
+     these are your real Shop/Summon/Heroes options) ---------- */
+  .rail {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    z-index: 2; display: flex; flex-direction: column; gap: 14px;
+  }
+  #rail-left { left: 18px; }
+  #rail-right { right: 18px; }
+  .rail-btn {
+    position: relative;
+    width: 74px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    border-radius: 14px; padding: 10px 6px;
+    cursor: pointer; user-select: none;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+  /* A hero somewhere in the roster has a star-upgrade ready or a better item in the stash --
+     see hub_server.py's _any_hero_needs_attention (drives s.heroes_need_attention). */
+  .alert-dot {
+    display: none; position: absolute; top: 6px; right: 6px;
+    width: 11px; height: 11px; border-radius: 50%; background: #e0455a;
+    border: 2px solid #14101f; box-shadow: 0 0 6px rgba(224,69,90,0.75);
+  }
+  .alert-dot.show { display: block; }
+  .rail-btn:hover { transform: translateY(-2px); border-color: var(--gold); }
+  .rail-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: rgba(255,255,255,0.06);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .rail-label { font-size: 11px; color: var(--dim); text-align: center; }
+
+  /* ---------- Center: real active party, as a horizontal card row ---------- */
+  #party-row {
+    position: relative; z-index: 2;
+    display: flex; justify-content: center; align-items: flex-end;
+    gap: 16px; padding: 0 120px 8px 120px;
+    flex: 1;
+  }
+  .hero-card {
+    width: 108px;
+    background: var(--panel-bg); border: 2px solid var(--panel-border);
+    border-radius: 12px; padding: 8px 6px 10px 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    text-align: center;
+  }
+  .hero-card .portrait-wrap {
+    width: 84px; height: 84px; border-radius: 10px; overflow: hidden;
+    background: rgba(255,255,255,0.06);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hero-card .portrait-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+  .hero-card .portrait-fallback { font-size: 28px; color: var(--dim); }
+  .hero-card .hname { font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .hero-card .hclass { font-size: 10px; color: var(--dim); }
+  .hero-card .hlevel { font-size: 10px; color: var(--gold); }
+  .hero-card .hstars { font-size: 10px; letter-spacing: 1px; }
+  .hero-card .hgear { font-size: 9px; color: var(--dim); }
+
+  #party-empty {
+    color: var(--dim); font-size: 13px; align-self: center;
+  }
+  #bench-note {
+    position: relative; z-index: 2; text-align: center;
+    font-size: 11px; color: var(--dim); padding-bottom: 4px;
+  }
+
+  /* ---------- Bottom nav bar: same 5 real hub options as the pygame
+     build, laid out as a nav bar instead of a stacked button list ---------- */
+  #navbar {
+    position: relative; z-index: 2;
+    display: flex; align-items: flex-end; justify-content: center; gap: 14px;
+    padding: 0 20px 22px 20px;
+  }
+  .nav-btn {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    border-radius: 14px; padding: 10px 18px;
+    cursor: pointer; user-select: none;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+    min-width: 84px;
+  }
+  .nav-btn:hover { transform: translateY(-3px); border-color: var(--gold); }
+  .nav-btn .nav-icon { font-size: 20px; }
+  .nav-btn .nav-label { font-size: 12px; color: var(--dim); }
+  #btn-battle {
+    background: linear-gradient(180deg, #e8c766, #b8892c);
+    border: 2px solid #fff3c8;
+    color: #241a05; min-width: 130px; padding: 14px 26px;
+    box-shadow: 0 4px 18px rgba(232,199,102,0.35);
+  }
+  #btn-battle .nav-icon { font-size: 26px; }
+  #btn-battle .nav-label { color: #241a05; font-weight: 800; font-size: 14px; }
+  #btn-battle:hover { transform: translateY(-4px) scale(1.03); border-color: #fff3c8; }
+
+
+  /* ---------- Ladder: rank, renown meter, and the next boss (locked until you are renowned enough) ---------- */
+  #ladder {
+    position: absolute; z-index: 3; top: 88px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 20px; align-items: stretch;
+    background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 16px;
+    padding: 14px 20px 14px 14px; backdrop-filter: blur(3px); width: 560px; max-width: calc(100vw - 260px);
+  }
+  #boss-art {
+    position: relative; width: 150px; height: 190px; flex: none; border-radius: 12px; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 30%, rgba(120,60,90,0.55), rgba(20,14,30,0.9));
+    border: 2px solid rgba(232,199,102,0.35);
+  }
+  #boss-art img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; transition: filter 0.4s ease; }
+  #boss-art.locked img { filter: grayscale(1) brightness(0.55) contrast(1.05); }
+  #boss-art .lock {
+    position: absolute; top: 8px; right: 8px; display: none; align-items: center; gap: 4px;
+    padding: 3px 9px 3px 7px; border-radius: 999px; background: rgba(10,8,16,0.78); border: 1px solid rgba(255,140,140,0.5);
+    font-size: 13px; text-shadow: 0 1px 4px #000;
+  }
+  #boss-art .lock small { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; color: #ffd9d9; }
+  #boss-art.locked .lock { display: flex; }
+  #boss-art.unlocked { border-color: #ffe27a; animation: boss-ready 1.1s ease-in-out infinite alternate; }
+  @keyframes boss-ready { from { box-shadow: 0 0 6px rgba(255,226,122,0.4); } to { box-shadow: 0 0 22px rgba(255,226,122,0.95); } }
+  #ladder-info { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; min-width: 0; }
+  #rank-line { font-size: 13px; letter-spacing: 0.14em; color: var(--gold); font-weight: 800; }
+  #next-line { font-size: 12px; color: var(--dim); }
+  #next-line b { color: var(--text); font-size: 17px; display: block; margin-top: 2px; letter-spacing: 0.02em; }
+  #renown-track { position: relative; height: 18px; border-radius: 9px; background: rgba(255,255,255,0.1); overflow: hidden; }
+  #renown-fill { height: 100%; width: 0; background: linear-gradient(90deg, #8a6a1a, #e8c766); transition: width 0.5s ease; }
+  #renown-fill.full { background: linear-gradient(90deg, #d8a020, #fff0a0); }
+  #renown-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; text-shadow: 0 1px 3px #000; }
+  #challenge-btn {
+    border: 2px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 10px 16px; font-size: 14px; font-weight: 800;
+    letter-spacing: 0.06em; cursor: not-allowed; background: rgba(255,255,255,0.08); color: var(--dim);
+  }
+  #challenge-btn.ready { cursor: pointer; background: linear-gradient(180deg, #ff6a5a, #b81f2f); color: #fff; border-color: #ffd0c8;
+    box-shadow: 0 4px 18px rgba(255,80,70,0.4); }
+  #challenge-btn.ready:hover { transform: translateY(-2px) scale(1.02); }
+  #pool-note { font-size: 10px; color: var(--dim); }
+
+  /* ---------- Tutorial: a short first-visit overview, reopenable any time via #help-btn.
+     localStorage-gated (see BA_TUTORIAL_KEY in the script) -- purely a "have they clicked through
+     it on this machine/browser before" flag, not part of the save file. ---------- */
+  #help-btn {
+    position: absolute; z-index: 3; bottom: 12px; right: 12px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; cursor: pointer; color: var(--gold);
+  }
+  #help-btn:hover { border-color: var(--gold); }
+  #tut-overlay {
+    position: fixed; inset: 0; z-index: 30; background: rgba(6,5,10,0.82);
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  #tut-overlay.open { display: flex; }
+  #tut-modal {
+    width: min(460px, 100%); background: #17141f; border: 1px solid var(--panel-border);
+    border-radius: 16px; padding: 22px 24px 18px 24px; position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  #tut-skip {
+    position: absolute; top: 14px; right: 16px; font-size: 11px; letter-spacing: 0.06em;
+    color: var(--dim); background: none; border: none; cursor: pointer; text-transform: uppercase;
+  }
+  #tut-skip:hover { color: var(--text); }
+  #tut-icon { font-size: 30px; margin-bottom: 6px; }
+  #tut-title { font-size: 18px; font-weight: 800; color: var(--gold); margin: 0 0 10px 0; padding-right: 50px; }
+  #tut-body { font-size: 13px; line-height: 1.55; color: var(--text); min-height: 84px; }
+  #tut-dots { display: flex; gap: 6px; justify-content: center; margin: 16px 0 4px 0; }
+  #tut-dots span {
+    width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.18);
+  }
+  #tut-dots span.on { background: var(--gold); }
+  #tut-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; gap: 10px; }
+  #tut-nav button {
+    padding: 9px 18px; border-radius: 10px; border: 1px solid var(--panel-border); cursor: pointer;
+    font-weight: 800; font-size: 12px; color: var(--text); background: rgba(255,255,255,0.05);
+  }
+  #tut-back:disabled { opacity: 0.3; cursor: not-allowed; }
+  #tut-next { background: linear-gradient(180deg, #e8c766, #b8892c); color: #241a05; border-color: #fff3c8; }
+
+  #debug-btn {
+    position: absolute; z-index: 3; bottom: 12px; left: 12px;
+    background: rgba(200,40,40,0.75); border: 1px solid rgba(255,120,120,0.6);
+    border-radius: 8px; padding: 6px 10px; font-size: 11px; cursor: pointer;
+  }
+
+  #debug-battle-btn {
+    position: absolute; z-index: 3; bottom: 12px; left: 108px;
+    background: rgba(200,40,40,0.75); border: 1px solid rgba(255,120,120,0.6);
+    border-radius: 8px; padding: 6px 10px; font-size: 11px; cursor: pointer;
+  }
+
+
+  #dbg-modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; }
+  #dbg-modal.open { display: flex; }
+  #dbg-box { width: min(760px, 94vw); max-height: 88vh; overflow: auto; background: #17141f; border: 1px solid rgba(255,120,120,0.6);
+    border-radius: 12px; padding: 14px 16px; font-size: 12px; }
+  #dbg-box h3 { margin: 0 0 8px; font-size: 14px; color: #ff9b9b; display: flex; justify-content: space-between; }
+  #dbg-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .dbg-tab { padding: 4px 10px; border-radius: 6px; background: rgba(255,255,255,0.08); cursor: pointer; }
+  .dbg-tab.on { background: rgba(200,40,40,0.8); }
+  .dbg-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+  .dbg-row label { color: var(--dim); min-width: 70px; }
+  #dbg-box select, #dbg-box input { background: #241f30; color: inherit; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 3px 6px; font-size: 12px; }
+  #dbg-box input[type=number] { width: 80px; }
+  .dbg-btn { background: rgba(200,40,40,0.75); border: 1px solid rgba(255,120,120,0.6); border-radius: 6px; padding: 4px 10px; cursor: pointer; color: inherit; font-size: 12px; }
+  .dbg-btn.warn { background: #8a1020; }
+  .dbg-hero { display: flex; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .dbg-hero span.n { flex: 1; }
+  .dbg-sec { margin-top: 10px; color: #ff9b9b; font-weight: bold; }
+
+  #toast {
+    position: fixed; z-index: 10; top: 24px; left: 50%; transform: translateX(-50%) translateY(-20px);
+    background: rgba(20,18,28,0.95); border: 1px solid var(--panel-border);
+    padding: 10px 20px; border-radius: 10px; font-size: 13px;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="scene">
+  <div id="topbar">
+    <div id="title-block">
+      <h1>The Colosseum</h1>
+      <div class="sub" id="roster-sub">Loading...</div>
+    </div>
+    <div id="currencies">
+      <div class="currency-pill"><span class="currency-icon money">$</span><span id="money-val">--</span></div>
+      <div class="currency-pill"><span class="currency-icon gems">G</span><span id="gems-val">--</span></div>
+      <div class="currency-pill" title="Common / Premium summon tickets"><span class="currency-icon" style="background:#c9a0ff;">T</span><span id="tickets-val">--</span></div>
+      <div class="currency-pill" title="Equipment shards -- salvage gear on the Heroes page or win them in battle, spend on Equipment Summons"><span class="currency-icon" style="background:#ebaf3c;">S</span><span id="shards-val">--</span></div>
+    </div>
+  </div>
+
+  <div id="ladder">
+    <div id="boss-art" class="locked">
+      <img id="boss-img" alt="" />
+      <div class="lock"><span>&#128274;</span><small>LOCKED</small></div>
+    </div>
+    <div id="ladder-info">
+      <div id="rank-line">RANK 1</div>
+      <div id="next-line">Next challenger<b id="boss-name">...</b></div>
+      <div id="renown-track"><div id="renown-fill"></div><div id="renown-text"></div></div>
+      <button id="challenge-btn" disabled>Locked</button>
+      <div id="pool-note"></div>
+    </div>
+  </div>
+
+  <div id="rail-left" class="rail">
+    <div class="rail-btn" data-action="shop">
+      <div class="rail-icon">🛒</div>
+      <div class="rail-label">Shop</div>
+    </div>
+  </div>
+
+  <div id="rail-right" class="rail">
+    <div class="rail-btn" data-action="summon">
+      <div class="rail-icon">✦</div>
+      <div class="rail-label">Summon</div>
+    </div>
+    <div class="rail-btn" data-action="heroes">
+      <span class="alert-dot" id="heroes-alert-rail"></span>
+      <div class="rail-icon">☰</div>
+      <div class="rail-label">Heroes</div>
+    </div>
+  </div>
+
+  <div id="party-row"></div>
+  <div id="bench-note"></div>
+
+  <div id="navbar">
+    <div class="nav-btn" data-action="world">
+      <div class="nav-icon">🗺</div>
+      <div class="nav-label">World Map</div>
+    </div>
+    <div class="nav-btn" data-action="shop">
+      <div class="nav-icon">🛒</div>
+      <div class="nav-label">Shop</div>
+    </div>
+    <div class="nav-btn" data-action="summon">
+      <div class="nav-icon">✦</div>
+      <div class="nav-label">Summon</div>
+    </div>
+    <div class="nav-btn" id="btn-battle" data-action="battle">
+      <div class="nav-icon">⚔</div>
+      <div class="nav-label">Enter Battle</div>
+    </div>
+    <div class="nav-btn" id="btn-ladder" data-action="ladder">
+      <div class="nav-icon">&#127942;</div>
+      <div class="nav-label">Ladder Mode</div>
+    </div>
+    <div class="nav-btn" data-action="heroes">
+      <span class="alert-dot" id="heroes-alert-nav"></span>
+      <div class="nav-icon">☰</div>
+      <div class="nav-label">Heroes</div>
+    </div>
+    <div class="nav-btn" data-action="save_and_quit">
+      <div class="nav-icon">💾</div>
+      <div class="nav-label">Save</div>
+    </div>
+  </div>
+
+  <div id="debug-btn" style="display:none;">Debug Menu</div>
+  <div id="debug-battle-btn" style="display:none;">Battle Debug</div>
+  <div id="help-btn" title="How to play">?</div>
+</div>
+<div id="dbg-modal"><div id="dbg-box"></div></div>
+<div id="tut-overlay">
+  <div id="tut-modal">
+    <button id="tut-skip" type="button">Skip</button>
+    <div id="tut-icon"></div>
+    <div id="tut-title"></div>
+    <div id="tut-body"></div>
+    <div id="tut-dots"></div>
+    <div id="tut-nav">
+      <button id="tut-back" type="button">Back</button>
+      <button id="tut-next" type="button">Next</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- Sound: fire-and-forget SFX + a single looping hub music track. SFX_VOLUME/MUSIC_VOLUME
+  // are the only tuning knobs for now -- no in-game volume control yet. ----
+  var SFX_VOLUME = 0.7, MUSIC_VOLUME = 0.35;
+  function playSfx(url, vol) {
+    if (!url) return;
+    try {
+      var a = new Audio(url);
+      a.volume = vol != null ? vol : SFX_VOLUME;
+      a.play()["catch"](function () {});
+    } catch (e) { /* best-effort */ }
+  }
+  var _musicEl = null, _musicUrl = null;
+  function playMusic(url, vol) {
+    if (_musicUrl === url && _musicEl && !_musicEl.paused) return;
+    stopMusic();
+    try {
+      _musicEl = new Audio(url);
+      _musicEl.loop = true;
+      _musicEl.volume = vol != null ? vol : MUSIC_VOLUME;
+      _musicUrl = url;
+      _musicEl.play()["catch"](function () {});
+    } catch (e) { /* best-effort */ }
+  }
+  function stopMusic() {
+    if (_musicEl) { try { _musicEl.pause(); } catch (e) {} }
+    _musicEl = null; _musicUrl = null;
+  }
+  var SFX = {
+    hover: "/assets/SFX/10_UI_Menu_SFX/001_Hover_01.wav",
+    confirm: "/assets/SFX/10_UI_Menu_SFX/013_Confirm_03.wav",
+    decline: "/assets/SFX/10_UI_Menu_SFX/029_Decline_09.wav",
+    denied: "/assets/SFX/10_UI_Menu_SFX/033_Denied_03.wav",
+  };
+  var MUSIC_MAIN = "/assets/Music/Main/Main.mp3";
+  playMusic(MUSIC_MAIN);
+  // Generic hover SFX for any clickable control, delegated so it also covers buttons/rows built
+  // later by render()/drawDbg() -- mouseover+closest avoids needing a listener per element.
+  var _lastHoverEl = null;
+  var HOVER_SEL = "[data-action], button, .tab, .dbg-btn, .rail-btn, .nav-btn";
+  document.addEventListener("mouseover", function (ev) {
+    var el = ev.target.closest(HOVER_SEL);
+    if (el && el !== _lastHoverEl && !el.disabled) { _lastHoverEl = el; playSfx(SFX.hover, 0.5); }
+  });
+  document.addEventListener("mouseout", function (ev) {
+    var el = ev.target.closest(HOVER_SEL);
+    if (el && el === _lastHoverEl) _lastHoverEl = null;
+  });
+
+  var state = null;
+
+  function showToast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { t.classList.remove("show"); }, 2200);
+  }
+
+  function renderParty(party, benchCount, rosterCount) {
+    var row = document.getElementById("party-row");
+    row.innerHTML = "";
+    if (!party.length) {
+      var empty = document.createElement("div");
+      empty.id = "party-empty";
+      empty.textContent = "No party selected yet -- Enter Battle to pick one.";
+      row.appendChild(empty);
+    } else {
+      party.forEach(function (c) {
+        var card = document.createElement("div");
+        card.className = "hero-card";
+        card.style.borderColor = c.rarity_color;
+
+        var portraitWrap = document.createElement("div");
+        portraitWrap.className = "portrait-wrap";
+        var img = document.createElement("img");
+        img.src = c.portrait;
+        img.alt = c.name;
+        img.onerror = function () {
+          portraitWrap.innerHTML = '<div class="portrait-fallback">?</div>';
+        };
+        portraitWrap.appendChild(img);
+        card.appendChild(portraitWrap);
+
+        var name = document.createElement("div");
+        name.className = "hname";
+        name.style.color = c.rarity_color;
+        name.textContent = c.name;
+        card.appendChild(name);
+
+        var klass = document.createElement("div");
+        klass.className = "hclass";
+        klass.textContent = c.class_name;
+        card.appendChild(klass);
+
+        var level = document.createElement("div");
+        level.className = "hlevel";
+        level.textContent = "Lvl " + c.level;
+        card.appendChild(level);
+
+        var stars = document.createElement("div");
+        stars.className = "hstars";
+        stars.style.color = c.rarity_color;
+        stars.textContent = c.stars_display;
+        card.appendChild(stars);
+
+        var gear = document.createElement("div");
+        gear.className = "hgear";
+        gear.textContent = c.gear_equipped + "/" + c.gear_total + " gear";
+        card.appendChild(gear);
+
+        row.appendChild(card);
+      });
+    }
+
+    var sub = document.getElementById("roster-sub");
+    sub.textContent = "Party: " + party.length + (benchCount > 0 ? "  |  +" + benchCount + " in reserve" : "");
+
+    var benchNote = document.getElementById("bench-note");
+    benchNote.textContent = benchCount > 0
+      ? "Full roster: " + rosterCount + " heroes -- see Heroes to manage your bench."
+      : "";
+  }
+
+
+  function renderLadder(l) {
+    if (!l) return;
+    document.getElementById("rank-line").textContent = "RANK " + l.rank + "  \u00b7  " + l.rank_name.toUpperCase();
+    var art = document.getElementById("boss-art");
+    var img = document.getElementById("boss-img");
+    var btn = document.getElementById("challenge-btn");
+    var fill = document.getElementById("renown-fill");
+    var text = document.getElementById("renown-text");
+    var pool = document.getElementById("pool-note");
+    pool.textContent = l.pool && l.pool.length ? "Defeated challengers now roam the arena: " + l.pool.join(", ") : "";
+    if (!l.next_boss) {
+      art.className = "unlocked";
+      img.removeAttribute("src");
+      document.getElementById("boss-name").textContent = "No challengers remain";
+      fill.style.width = "100%"; fill.className = "full";
+      text.textContent = l.renown + " Renown";
+      btn.className = ""; btn.disabled = true; btn.textContent = "More challengers soon...";
+      return;
+    }
+    if (img.getAttribute("src") !== l.next_boss.portrait) img.src = l.next_boss.portrait || "";
+    document.getElementById("boss-name").textContent = l.next_boss.name;
+    var pct = Math.max(0, Math.min(100, 100 * l.renown / l.gate));
+    fill.style.width = pct + "%";
+    fill.className = l.unlocked ? "full" : "";
+    text.textContent = l.renown + " / " + l.gate + " Renown";
+    art.className = l.unlocked ? "unlocked" : "locked";
+    if (l.unlocked) {
+      btn.className = "ready"; btn.disabled = false; btn.textContent = "CHALLENGE " + l.next_boss.name.toUpperCase();
+    } else {
+      btn.className = ""; btn.disabled = true;
+      btn.textContent = "Locked \u2014 need " + (l.gate - l.renown) + " more renown";
+    }
+  }
+
+  function render(s) {
+    state = s;
+    document.getElementById("money-val").textContent = s.money;
+    document.getElementById("gems-val").textContent = s.gems;
+    document.getElementById("tickets-val").textContent = ((s.tickets || {}).common || 0) + " / " + ((s.tickets || {}).premium || 0);
+    document.getElementById("shards-val").textContent = s.equipment_shards || 0;
+    renderParty(s.party, s.bench_count, s.roster_count);
+    renderLadder(s.ladder);
+    var heroesAlert = !!s.heroes_need_attention;
+    ["heroes-alert-rail", "heroes-alert-nav"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle("show", heroesAlert);
+    });
+    document.getElementById("debug-btn").style.display = s.debug ? "block" : "none";
+    document.getElementById("debug-battle-btn").style.display = s.debug ? "block" : "none";
+  }
+
+  function fetchState() {
+    fetch("/api/state")
+      .then(function (r) { return r.json(); })
+      .then(render)
+      .catch(function () { showToast("Could not reach the hub server."); });
+  }
+
+  function postAction(action) {
+    return fetch("/api/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: action }),
+    }).then(function (r) { return r.json(); });
+  }
+
+  document.addEventListener("click", function (ev) {
+    var el = ev.target.closest("[data-action]");
+    if (!el) return;
+    var action = el.getAttribute("data-action");
+    playSfx(SFX.confirm);   // every data-action here is a navigation/confirm click
+
+    if (action === "battle") {
+      if (state && state.battle_url) window.location.href = state.battle_url;
+      return;
+    }
+    if (action === "world") {
+      window.location.href = (state && state.world_url) || "/world";
+      return;
+    }
+    if (action === "ladder") {
+      fetch("/api/ladder/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then(function (r) { return r.json(); })
+        .then(function (res) { if (res.ok) window.location.href = res.url; else { playSfx(SFX.denied); showToast(res.message || "Not yet."); } })
+        .catch(function () { playSfx(SFX.denied); showToast("Could not reach the hub server."); });
+      return;
+    }
+    if (action === "heroes") {
+      window.location.href = "/heroes";
+      return;
+    }
+    if (action === "summon") {
+      window.location.href = "/summon";
+      return;
+    }
+    if (action === "shop") {
+      window.location.href = "/shop";
+      return;
+    }
+    if (action === "save_and_quit") {
+      postAction("save_and_quit").then(function (s) {
+        render(s);
+        showToast("Saved.");
+      });
+      return;
+    }
+  });
+
+  document.getElementById("challenge-btn").addEventListener("click", function () {
+    if (!state || !state.ladder || !state.ladder.unlocked) return;
+    fetch("/api/boss/challenge", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.ok) window.location.href = res.url;
+        else { playSfx(SFX.denied); showToast(res.message || "Not yet."); }
+      })
+      .catch(function () { playSfx(SFX.denied); showToast("Could not reach the hub server."); });
+  });
+
+  document.getElementById("debug-battle-btn").addEventListener("click", function () { window.location.href = "/debug"; });
+  // ---- Debug menu (only shown when the server runs with --debug) ----
+  var dbg = { menu: null, tab: "Economy" };
+  var TABS = ["Economy", "Heroes", "Gear", "Items", "Ladder", "Reset"];
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function opts(list, val, lab) { return list.map(function (x) { return '<option value="' + esc(val(x)) + '">' + esc(lab(x)) + '</option>'; }).join(""); }
+  function dbgAct(msg) {
+    return fetch("/api/debug/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(msg) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        dbg.menu = res.menu; if (res.hub) render(res.hub);
+        playSfx(res.ok ? SFX.confirm : SFX.denied);
+        showToast(res.message || (res.ok ? "Done." : "Failed."));
+        drawDbg();
+      });
+  }
+  function val(id) { var e = document.getElementById(id); return e ? e.value : ""; }
+  function drawDbg() {
+    var m = dbg.menu, h = '<h3><span>Debug Menu</span><span class="dbg-btn" id="dbg-close">Close</span></h3><div id="dbg-tabs">';
+    TABS.forEach(function (t) { h += '<div class="dbg-tab' + (t === dbg.tab ? " on" : "") + '" data-tab="' + t + '">' + t + '</div>'; });
+    h += "</div>";
+    if (dbg.tab === "Economy") {
+      h += '<div class="dbg-row"><label>Gold</label><input type="number" id="d-gold" value="1000"><button class="dbg-btn" data-a="add_money" data-f="d-gold:amount">Add</button></div>' +
+           '<div class="dbg-row"><label>Gems</label><input type="number" id="d-gems" value="100"><button class="dbg-btn" data-a="add_gems" data-f="d-gems:amount">Add</button></div>' +
+           '<div class="dbg-row"><label>Tickets</label><select id="d-tk"><option value="common">Common</option><option value="premium">Premium</option></select>' +
+           '<input type="number" id="d-tkn" value="10"><button class="dbg-btn" data-a="add_tickets" data-f="d-tk:kind,d-tkn:count">Add</button></div>' +
+           '<div class="dbg-row"><label>Eq. Shards</label><input type="number" id="d-shards" value="50">' +
+           '<button class="dbg-btn" data-a="add_equipment_shards" data-f="d-shards:amount">Add</button></div>';
+    } else if (dbg.tab === "Heroes") {
+      h += '<div class="dbg-sec">Add a recruitable hero</div><div class="dbg-row"><label>Hero</label><select id="d-hname">' +
+           opts(m.heroes, function (x) { return x.name; }, function (x) { return x.name + " (" + x.class_id + ", " + x.rarity + ")"; }) + '</select>' +
+           '<label style="min-width:0">Lv</label><input type="number" id="d-hlv" value="1" min="1" max="' + m.max_level + '">' +
+           '<label style="min-width:0">Stars</label><input type="number" id="d-hst" value="1" min="1" max="' + m.max_stars + '">' +
+           '<button class="dbg-btn" data-a="add_hero" data-f="d-hname:name,d-hlv:level,d-hst:stars">Add</button></div>' +
+           '<div class="dbg-sec">Or a custom hero</div><div class="dbg-row"><label>Name</label><input id="d-cname" placeholder="optional">' +
+           '<select id="d-ccls">' + opts(m.classes, function (x) { return x.id; }, function (x) { return x.name; }) + '</select>' +
+           '<select id="d-crar">' + opts(m.rarities, function (x) { return x; }, function (x) { return x; }) + '</select>' +
+           '<input type="number" id="d-clv" value="1" min="1" max="' + m.max_level + '">' +
+           '<button class="dbg-btn" data-a="add_hero" data-f="d-cname:name,d-ccls:class_id,d-crar:rarity,d-clv:level">Add</button></div>' +
+           '<div class="dbg-row"><label>Everyone Lv</label><input type="number" id="d-all" value="' + m.max_level + '"><button class="dbg-btn" data-a="level_all" data-f="d-all:level">Set</button></div>' +
+           '<div class="dbg-sec">Roster</div>';
+      m.roster.forEach(function (c) {
+        h += '<div class="dbg-hero"><span class="n">' + esc(c.name) + ' <small>' + esc(c.class) + ' / ' + c.rarity + '</small></span>' +
+             'Lv <input type="number" id="hl-' + c.id + '" value="' + c.level + '" min="1" max="' + m.max_level + '"> ' +
+             '&#9733; <input type="number" id="hs-' + c.id + '" value="' + c.stars + '" min="1" max="' + m.max_stars + '"> ' +
+             'Shards <input type="number" id="hh-' + c.id + '" value="' + c.shards + '" min="0"> ' +
+             '<button class="dbg-btn" data-a="set_hero" data-id="' + c.id + '" data-f="hl-' + c.id + ':level,hs-' + c.id + ':stars,hh-' + c.id + ':shards">Apply</button>' +
+             '<button class="dbg-btn warn" data-a="remove_hero" data-id="' + c.id + '">Remove</button></div>';
+      });
+    } else if (dbg.tab === "Gear") {
+      h += '<div class="dbg-row"><label>Equipment</label><select id="d-eq">' +
+           opts(m.equipment, function (x) { return x.id; }, function (x) { return x.name + " (" + x.slot + ", " + x.rarity + ")"; }) + '</select>' +
+           '<input type="number" id="d-eqn" value="1" min="1" max="99"><button class="dbg-btn" data-a="add_equipment" data-f="d-eq:id,d-eqn:count">Add</button></div>' +
+           '<div class="dbg-row"><button class="dbg-btn" data-a="add_all_equipment">Add 1 of EVERYTHING</button>' +
+           '<button class="dbg-btn warn" data-a="clear_stash">Empty stash</button></div>';
+    } else if (dbg.tab === "Items") {
+      h += '<div class="dbg-row"><label>Item</label><select id="d-it">' +
+           opts(m.items, function (x) { return x.id; }, function (x) { return x.name; }) + '</select>' +
+           '<input type="number" id="d-itn" value="5" min="1" max="99"><button class="dbg-btn" data-a="add_item" data-f="d-it:id,d-itn:count">Add</button></div>' +
+           '<div class="dbg-row"><button class="dbg-btn" data-a="max_items">All consumables to 99</button>' +
+           '<button class="dbg-btn warn" data-a="reset_items">Reset to starting stock</button></div>';
+    } else if (dbg.tab === "Ladder") {
+      h += '<div class="dbg-row">Rank ' + m.rank + ', renown ' + m.renown + (m.gate ? ' / ' + m.gate : '') + '</div>' +
+           '<div class="dbg-row"><label>Rank</label><input type="number" id="d-rk" value="' + m.rank + '" min="1" max="' + m.max_rank + '"><button class="dbg-btn" data-a="set_rank" data-f="d-rk:rank">Set (clears earlier bosses)</button></div>' +
+           '<div class="dbg-row"><label>Renown</label><input type="number" id="d-rn" value="' + m.renown + '" min="0"><button class="dbg-btn" data-a="set_renown" data-f="d-rn:renown">Set</button>' +
+           '<button class="dbg-btn" data-a="unlock_boss">Unlock boss challenge</button></div>' +
+           '<div class="dbg-row"><button class="dbg-btn warn" data-a="reset_boss_clears">Re-arm first-clear bonuses</button></div>';
+    } else {
+      h += '<div class="dbg-row"><button class="dbg-btn warn" id="d-reset">RESET GAME (wipes the save)</button></div>' +
+           '<div class="dbg-row"><a class="dbg-btn" href="/debug" style="text-decoration:none">Open Battle Debug</a></div>';
+    }
+    document.getElementById("dbg-box").innerHTML = h;
+  }
+  function openDbg() {
+    fetch("/api/debug/menu").then(function (r) { return r.json(); }).then(function (m) {
+      dbg.menu = m; drawDbg(); document.getElementById("dbg-modal").classList.add("open");
+    });
+  }
+  document.getElementById("dbg-box").addEventListener("click", function (ev) {
+    var t = ev.target;
+    if (t.id === "dbg-close") { playSfx(SFX.decline); document.getElementById("dbg-modal").classList.remove("open"); return; }
+    if (t.dataset.tab) { playSfx(SFX.hover, 0.5); dbg.tab = t.dataset.tab; drawDbg(); return; }
+    if (t.id === "d-reset") {
+      if (t.dataset.armed) { dbgAct({ action: "reset_game" }); return; }
+      t.dataset.armed = "1"; t.textContent = "Click again to confirm RESET"; return;
+    }
+    if (t.dataset.a) {
+      var msg = { action: t.dataset.a };
+      if (t.dataset.id) msg.id = t.dataset.id;
+      (t.dataset.f || "").split(",").forEach(function (p) { if (p) { var kv = p.split(":"); msg[kv[1]] = val(kv[0]); } });
+      dbgAct(msg);
+    }
+  });
+  document.getElementById("dbg-modal").addEventListener("click", function (ev) { if (ev.target.id === "dbg-modal") ev.target.classList.remove("open"); });
+  document.getElementById("debug-btn").addEventListener("click", openDbg);
+
+  document.getElementById("scene").style.backgroundImage =
+    "url('/assets/Artwork/Background.webp')";
+
+  // ---- First-visit tutorial: a quick, skippable overview of the loop. Gated by localStorage, not
+  // the save file -- this is "has this browser/install seen it", not game progress, so it reopens
+  // (via #help-btn) exactly the same way every time regardless of how far the player has gotten. ----
+  var BA_TUTORIAL_KEY = "ba_tutorial_seen_v1";
+  var TUT_STEPS = [
+    { icon: "⚔️", title: "Welcome to the Colosseum", body:
+      "Recruit heroes, gear them up, and fight your way up the ranks. Every opponent here is piloted by its own AI, so outplaying it matters as much as outstatting it." },
+    { icon: "🛡️", title: "Build your party", body:
+      "Enter Battle to pick up to 4 heroes and set each one's row — front, middle, or rear (max 2 heroes per row). Front takes less damage, middle deals more, rear deals and takes less but heals for more. Melee attackers can't reach past an enemy's occupied front row." },
+    { icon: "⭐", title: "Heroes & growth", body:
+      "On the Heroes page, level up, spend talent points on skill ranks, and equip gear across 6 slots. A hero downed in battle isn't lost — they're just wounded and rest a couple of runs (or you can pay gold to heal them right away)." },
+    { icon: "💎", title: "Legacies", body:
+      "Once a hero reaches their rarity's level cap, you can retire them for a permanent Legacy item. It's a deliberate trade you choose to make, not a penalty for losing a fight." },
+    { icon: "🛍️", title: "Shop & Summon", body:
+      "Spend gold and gems in the Shop for gear and consumables. Use tickets, gems, or equipment shards in Summon to pull new heroes and equipment." },
+    { icon: "🏆", title: "Climb the ladder", body:
+      "Win battles to build Renown and rank up, unlocking tougher bosses. Ladder Mode strings fights together for bigger rewards — cash out every 3 wins, but fleeing forfeits the pot." },
+    { icon: "✅", title: "That's the gist", body:
+      "You're ready to fight. Tap the ? in the corner any time you want to see this again." },
+  ];
+  var tutStep = 0;
+  function renderTutStep() {
+    var s = TUT_STEPS[tutStep];
+    document.getElementById("tut-icon").textContent = s.icon;
+    document.getElementById("tut-title").textContent = s.title;
+    document.getElementById("tut-body").textContent = s.body;
+    var dots = document.getElementById("tut-dots");
+    dots.innerHTML = "";
+    TUT_STEPS.forEach(function (_, i) {
+      var d = document.createElement("span");
+      d.className = i === tutStep ? "on" : "";
+      dots.appendChild(d);
+    });
+    document.getElementById("tut-back").disabled = tutStep === 0;
+    document.getElementById("tut-next").textContent = tutStep === TUT_STEPS.length - 1 ? "Got it" : "Next";
+  }
+  function openTutorial() {
+    tutStep = 0;
+    renderTutStep();
+    document.getElementById("tut-overlay").classList.add("open");
+  }
+  function closeTutorial() {
+    document.getElementById("tut-overlay").classList.remove("open");
+    try { localStorage.setItem(BA_TUTORIAL_KEY, "1"); } catch (e) { /* best-effort */ }
+  }
+  document.getElementById("tut-next").addEventListener("click", function () {
+    playSfx(SFX.confirm);
+    if (tutStep < TUT_STEPS.length - 1) { tutStep++; renderTutStep(); }
+    else closeTutorial();
+  });
+  document.getElementById("tut-back").addEventListener("click", function () {
+    if (tutStep === 0) return;
+    playSfx(SFX.hover, 0.5);
+    tutStep--; renderTutStep();
+  });
+  document.getElementById("tut-skip").addEventListener("click", function () {
+    playSfx(SFX.decline);
+    closeTutorial();
+  });
+  document.getElementById("tut-overlay").addEventListener("click", function (ev) {
+    if (ev.target.id === "tut-overlay") closeTutorial();
+  });
+  document.getElementById("help-btn").addEventListener("click", function () {
+    playSfx(SFX.confirm);
+    openTutorial();
+  });
+  var _seenTutorial = false;
+  try { _seenTutorial = localStorage.getItem(BA_TUTORIAL_KEY) === "1"; } catch (e) { /* best-effort */ }
+  if (!_seenTutorial) openTutorial();
+
+  fetchState();
+})();
+</script>
+</body>
+</html>

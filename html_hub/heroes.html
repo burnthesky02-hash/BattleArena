@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Heroes</title>
+<style>
+  :root {
+    --gold: #e8c766;
+    --panel-bg: rgba(18, 16, 28, 0.85);
+    --panel-border: rgba(232, 199, 102, 0.35);
+    --text: #f1ecdd;
+    --dim: #b9b2a0;
+    --common: #bebec3; --rare: #5aaae6; --epic: #b96ee6; --legendary: #ebaf3c; --mythic: #e63c5a;
+    --icons: url('/assets/Artwork/Icons.png');
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Verdana, sans-serif;
+    color: var(--text);
+    background: #0e0c14 radial-gradient(1200px 600px at 50% -10%, #241c3d 0%, #0e0c14 60%);
+  }
+  a { color: var(--gold); text-decoration: none; }
+  .ico { display: inline-block; background-repeat: no-repeat; image-rendering: pixelated; vertical-align: middle; flex: none; }
+
+  #app { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
+
+  #topbar {
+    flex: none; display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; border-bottom: 1px solid var(--panel-border);
+  }
+  #topbar h1 { margin: 0; font-size: 22px; }
+  #topbar .back { font-size: 13px; }
+  #status { flex: none; text-align: center; color: var(--dim); font-size: 12px; padding: 4px; min-height: 16px; }
+
+  #main { flex: 1 1 auto; min-height: 0; position: relative; }
+
+  /* ---------------- Roster view: class rail + card grid, fills all remaining space ---------------- */
+  #roster-view { position: absolute; inset: 0; display: flex; }
+  #class-rail {
+    flex: 0 0 108px; overflow-y: auto; padding: 16px 10px; display: flex; flex-direction: column; gap: 6px;
+    border-right: 1px solid var(--panel-border); background: rgba(0,0,0,0.15);
+  }
+  .rail-btn {
+    background: transparent; border: 1px solid transparent; border-radius: 10px; color: var(--dim);
+    padding: 10px 4px 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    cursor: pointer; font-size: 11px; font-family: inherit;
+  }
+  .rail-btn:hover { background: rgba(255,255,255,0.06); }
+  .rail-btn.active { color: var(--gold); border-color: var(--panel-border); background: rgba(232,199,102,0.10); }
+  .rail-btn .ico { width: 26px; height: 26px; }
+  .rail-btn .rail-all-mark { width: 26px; height: 26px; border-radius: 50%; border: 2px solid currentColor; }
+
+  #roster-grid {
+    flex: 1 1 auto; overflow-y: auto; padding: 20px 24px 40px 24px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px;
+    align-content: start;
+  }
+  .hero-card {
+    position: relative;
+    background: var(--panel-bg); border: 2px solid var(--panel-border);
+    border-radius: 14px; padding: 12px 10px 14px 10px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  /* A hero has a star-upgrade ready or a better item sitting unused in the stash. */
+  .alert-dot {
+    width: 12px; height: 12px; border-radius: 50%; background: #e0455a;
+    border: 2px solid #14101f; box-shadow: 0 0 6px rgba(224,69,90,0.75); flex: none;
+  }
+  .hero-card .card-alert { position: absolute; top: 8px; right: 8px; }
+  .hero-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px -10px rgba(0,0,0,0.6); }
+  .hero-card .portrait-wrap {
+    width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; overflow: hidden;
+    background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center;
+  }
+  .hero-card .portrait-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+  .hero-card .portrait-fallback { font-size: 32px; color: var(--dim); }
+  .hero-card .hname { font-size: 16px; font-weight: 800; margin-top: 2px; }
+  .hero-card .hsub { font-size: 12px; color: var(--dim); }
+  .hero-card .hstars { font-size: 13px; letter-spacing: 2px; }
+  .hero-card.wounded { opacity: 0.5; }
+  .hero-card .wound-badge { font-size: 10px; font-weight: 800; color: var(--mythic); letter-spacing: 0.03em; }
+  .hero-card .maxed-badge { font-size: 10px; font-weight: 800; color: var(--gold); letter-spacing: 0.03em; }
+  #roster-empty { color: var(--dim); font-size: 13px; grid-column: 1 / -1; text-align: center; padding: 40px 0; }
+
+  /* ---------------- Detail "page": its own full screen while a hero is open, not just an overlay --
+     a solid, always-visible header (back button + prev/next + position) pinned above a scrolling body,
+     so the way back is never scrolled out of view. ---------------- */
+  #detail-view {
+    position: absolute; inset: 0; display: none; flex-direction: column;
+    background: #0e0c14 radial-gradient(1200px 600px at 50% -10%, #241c3d 0%, #0e0c14 60%);
+    z-index: 5;
+  }
+  #detail-view.open { display: flex; }
+  #detail-header {
+    flex: none; display: flex; align-items: center; gap: 14px; padding: 14px 24px;
+    border-bottom: 1px solid var(--panel-border); background: rgba(10,8,16,0.92);
+  }
+  #detail-back {
+    background: transparent; border: 1px solid var(--panel-border); color: var(--text);
+    border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+    flex: none;
+  }
+  #detail-back:hover { background: rgba(255,255,255,0.1); }
+  #detail-header .dhead-name { font-size: 16px; font-weight: 800; }
+  #detail-header .dhead-pos { color: var(--dim); font-size: 12px; margin-left: auto; flex: none; }
+  #detail-scroll { flex: 1 1 auto; overflow-y: auto; }
+  #detail-body { padding: 24px 24px 50px 24px; display: flex; gap: 28px; align-items: flex-start; max-width: 1180px; margin: 0 auto; }
+
+  .dportrait-col { flex: 0 0 300px; }
+  .dportrait { width: 100%; aspect-ratio: 3 / 4; border-radius: 16px; overflow: hidden; position: relative;
+    background: rgba(255,255,255,0.06); border: 2px solid var(--panel-border);
+  }
+  .dportrait img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+  .dstars-overlay {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 10px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.75), transparent); font-size: 16px; letter-spacing: 3px; text-align: center;
+  }
+  .dnav-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+    width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--panel-border);
+    background: rgba(10,8,16,0.72); color: var(--text); font-size: 20px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-family: inherit;
+  }
+  .dnav-arrow:hover { background: rgba(232,199,102,0.25); border-color: var(--gold); }
+  .dnav-arrow.prev { left: -18px; }
+  .dnav-arrow.next { right: -18px; }
+  #upgrade-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  #upgrade-btn {
+    flex: 1; padding: 11px; border-radius: 10px; border: 1px solid var(--panel-border);
+    background: linear-gradient(180deg, #e8c766, #b8892c); color: #241a05; font-weight: 800;
+    cursor: pointer; font-size: 13px; font-family: inherit;
+  }
+  #upgrade-btn:disabled { background: rgba(255,255,255,0.08); color: var(--dim); cursor: not-allowed; border-color: rgba(255,255,255,0.1); }
+  #shard-note { font-size: 11px; color: var(--dim); margin-top: 6px; text-align: center; }
+
+  .dinfo-col { flex: 1 1 auto; min-width: 0; }
+  .dname { font-size: 26px; font-weight: 900; }
+  .dsub { font-size: 14px; color: var(--dim); margin-top: 2px; margin-bottom: 16px; }
+
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim); margin: 20px 0 8px 0; }
+  .section-label:first-child { margin-top: 0; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+  .stat-badge {
+    display: flex; align-items: center; gap: 9px; background: rgba(255,255,255,0.05);
+    border: 1px solid var(--panel-border); border-radius: 10px; padding: 8px 10px;
+  }
+  .stat-badge .ico { width: 26px; height: 26px; }
+  .stat-badge .sval { font-weight: 800; font-size: 16px; line-height: 1; }
+  .stat-badge .slabel { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .skill-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .skill-slot {
+    width: 68px; height: 68px; border-radius: 14px; background: rgba(255,255,255,0.06);
+    border: 2px solid var(--panel-border); display: flex; align-items: center; justify-content: center;
+    position: relative; cursor: default;
+  }
+  .skill-slot.shared { border-color: var(--gold); }
+  .skill-slot .ico { width: 42px; height: 42px; }
+  .skill-slot .skill-tag {
+    position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+    font-size: 9px; color: var(--gold); background: #14101fcc; padding: 1px 5px; border-radius: 6px;
+  }
+  .skill-slot .rank-badge {
+    position: absolute; top: -6px; left: -6px; font-size: 10px; font-weight: 700; color: var(--text);
+    background: #2a2340; border: 1px solid var(--panel-border); border-radius: 999px; padding: 1px 6px;
+    line-height: 1.3;
+  }
+  .skill-slot .rank-badge.maxed { color: var(--legendary); border-color: var(--legendary); }
+  .skill-slot .rank-up-btn {
+    position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 999px;
+    background: var(--legendary); color: #1a1626; border: none; font-size: 13px; font-weight: 800;
+    line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .skill-slot .rank-up-btn:hover { filter: brightness(1.12); }
+  .talent-note {
+    font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 8px; margin: -4px 0 8px;
+  }
+  .talent-note b { color: var(--legendary); }
+
+  .lore-box {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--panel-border); border-radius: 12px;
+    padding: 14px 16px; font-size: 13px; line-height: 1.55; color: var(--dim); font-style: italic;
+  }
+
+  .wound-banner {
+    background: rgba(230,60,90,0.12); border: 1px solid var(--mythic); border-radius: 10px;
+    padding: 10px 12px; font-size: 12px; margin: 4px 0 10px; display: flex; align-items: center;
+    justify-content: space-between; gap: 10px;
+  }
+  .wound-banner button {
+    flex: none; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--mythic);
+    background: transparent; color: var(--text); font-weight: 700; cursor: pointer; font-size: 11px; font-family: inherit;
+  }
+  .wound-banner button:hover { background: rgba(230,60,90,0.2); }
+  .wound-banner button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #sacrifice-row { margin-top: 14px; }
+  #sacrifice-btn {
+    width: 100%; padding: 11px; border-radius: 10px; border: 1px solid var(--mythic);
+    background: rgba(230,60,90,0.14); color: #ffb3bd; font-weight: 800; cursor: pointer; font-size: 13px; font-family: inherit;
+  }
+  #sacrifice-btn:hover { background: rgba(230,60,90,0.26); }
+  #sacrifice-note { font-size: 11px; color: var(--dim); margin-top: 6px; text-align: center; }
+
+  .slot-row {
+    display: flex; align-items: center; gap: 10px; justify-content: space-between;
+    background: rgba(255,255,255,0.05); border-radius: 8px; padding: 9px 11px; margin-bottom: 6px; cursor: pointer;
+    font-size: 12px;
+  }
+  .slot-row:hover { background: rgba(255,255,255,0.09); }
+  .slot-row .slot-left { display: flex; align-items: center; gap: 9px; }
+  .slot-row .ico { width: 22px; height: 22px; }
+  .slot-row .slot-name { color: var(--dim); text-transform: capitalize; }
+  .slot-row .slot-item { font-weight: 600; }
+  .slot-row .slot-item.empty { color: var(--dim); font-weight: 400; }
+  .slot-row .slot-item .subtype { color: var(--dim); font-weight: 400; text-transform: capitalize; }
+
+  /* ---------------- Hover tooltip for ability icons ---------------- */
+  .tooltip {
+    display: none; position: fixed; z-index: 900; max-width: 270px;
+    background: rgba(10,8,18,0.97); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 9px 11px; font-size: 12px; line-height: 1.45;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.55); pointer-events: none;
+  }
+  .tooltip .tt-title { font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .tooltip .tt-shared { color: var(--gold); font-weight: 400; font-size: 11px; }
+  .tooltip .tt-meta { color: var(--gold); font-size: 11px; letter-spacing: 0.02em; margin-bottom: 4px; }
+  .tooltip .tt-desc { color: var(--dim); }
+  .tooltip .tt-status { color: #9be04a; font-size: 11px; margin-top: 3px; }
+
+  #picker-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(8,6,12,0.72);
+    align-items: center; justify-content: center; z-index: 20; padding: 20px;
+  }
+  #picker-overlay.open { display: flex; }
+  #legacy-picker-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(8,6,12,0.72);
+    align-items: center; justify-content: center; z-index: 20; padding: 20px;
+  }
+  #legacy-picker-overlay.open { display: flex; }
+  #legacy-picker-list { overflow-y: auto; padding: 8px; }
+  #picker-panel {
+    background: #1a1626; border: 1px solid var(--panel-border); border-radius: 14px;
+    width: 100%; max-width: 380px; max-height: 80vh; display: flex; flex-direction: column;
+    box-shadow: 0 12px 40px -8px rgba(0,0,0,0.6);
+  }
+  #picker-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--panel-border); font-weight: 700; font-size: 14px;
+  }
+  #picker-header .close { cursor: pointer; color: var(--dim); font-size: 18px; line-height: 1; }
+  #picker-list { overflow-y: auto; padding: 8px; }
+  .picker-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; margin-bottom: 4px;
+  }
+  .picker-row:hover { background: rgba(255,255,255,0.08); }
+  .picker-row.equipped { background: rgba(232,199,102,0.12); }
+  .picker-row.unequip-row { color: var(--dim); font-style: italic; }
+  .picker-row .sname { font-weight: 600; }
+  .picker-row .sbonus { color: var(--dim); font-size: 10px; }
+  .picker-row.blocked { cursor: not-allowed; opacity: 0.4; }
+  .picker-row .salvage-btn {
+    flex: 0 0 auto; margin-left: 8px; padding: 3px 8px; border-radius: 999px; font-size: 10px;
+    font-weight: 600; color: var(--legendary); border: 1px solid rgba(235,175,60,0.4);
+    background: rgba(235,175,60,0.1); cursor: pointer; white-space: nowrap;
+  }
+  .picker-row .salvage-btn:hover { background: rgba(235,175,60,0.25); }
+  #picker-shards {
+    padding: 6px 16px; border-top: 1px solid var(--panel-border); font-size: 11px; color: var(--dim);
+  }
+  .picker-row.blocked:hover { background: none; }
+  .picker-empty { color: var(--dim); font-size: 12px; padding: 16px 10px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <h1>Heroes</h1>
+    <a class="back" href="/">&larr; Back to Colosseum</a>
+  </div>
+  <div id="status"></div>
+  <div id="main">
+    <div id="roster-view">
+      <div id="class-rail"></div>
+      <div id="roster-grid"></div>
+    </div>
+    <div id="detail-view">
+      <div id="detail-header">
+        <button id="detail-back">&larr; Back to Roster</button>
+        <span class="dhead-name" id="dhead-name"></span>
+        <span class="dhead-pos" id="dhead-pos"></span>
+      </div>
+      <div id="detail-scroll">
+        <div id="detail-body"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="picker-overlay">
+  <div id="picker-panel">
+    <div id="picker-header"><span id="picker-title">Choose gear</span><span class="close" id="picker-close">&times;</span></div>
+    <div id="picker-list"></div>
+    <div id="picker-shards"></div>
+  </div>
+</div>
+<div id="legacy-picker-overlay">
+  <div id="picker-panel">
+    <div id="picker-header"><span id="legacy-picker-title">Choose a legacy item</span><span class="close" id="legacy-picker-close">&times;</span></div>
+    <div id="legacy-picker-list"></div>
+  </div>
+</div>
+<div id="ability-tooltip" class="tooltip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- Sound: fire-and-forget SFX + a single looping hub music track. ----
+  var SFX_VOLUME = 0.7, MUSIC_VOLUME = 0.35;
+  function playSfx(url, vol) {
+    if (!url) return;
+    try {
+      var a = new Audio(url);
+      a.volume = vol != null ? vol : SFX_VOLUME;
+      a.play()["catch"](function () {});
+    } catch (e) { /* best-effort */ }
+  }
+  var _musicEl = null, _musicUrl = null;
+  function playMusic(url, vol) {
+    if (_musicUrl === url && _musicEl && !_musicEl.paused) return;
+    stopMusic();
+    try {
+      _musicEl = new Audio(url);
+      _musicEl.loop = true;
+      _musicEl.volume = vol != null ? vol : MUSIC_VOLUME;
+      _musicUrl = url;
+      _musicEl.play()["catch"](function () {});
+    } catch (e) { /* best-effort */ }
+  }
+  function stopMusic() {
+    if (_musicEl) { try { _musicEl.pause(); } catch (e) {} }
+    _musicEl = null; _musicUrl = null;
+  }
+  var SFX = {
+    hover: "/assets/SFX/10_UI_Menu_SFX/001_Hover_01.wav",
+    confirm: "/assets/SFX/10_UI_Menu_SFX/013_Confirm_03.wav",
+    decline: "/assets/SFX/10_UI_Menu_SFX/029_Decline_09.wav",
+    denied: "/assets/SFX/10_UI_Menu_SFX/033_Denied_03.wav",
+    equip: "/assets/SFX/10_UI_Menu_SFX/070_Equip_10.wav",
+    unequip: "/assets/SFX/10_UI_Menu_SFX/071_Unequip_01.wav",
+  };
+  playMusic("/assets/Music/Main/Main.mp3");
+  var _lastHoverEl = null;
+  var HOVER_SEL = "button, .slot-row, .picker-row, .rail-btn, .nav-btn, .hero-card";
+  document.addEventListener("mouseover", function (ev) {
+    var el = ev.target.closest(HOVER_SEL);
+    if (el && el !== _lastHoverEl && !el.disabled && !el.classList.contains("blocked")) { _lastHoverEl = el; playSfx(SFX.hover, 0.5); }
+  });
+  document.addEventListener("mouseout", function (ev) {
+    var el = ev.target.closest(HOVER_SEL);
+    if (el && el === _lastHoverEl) _lastHoverEl = null;
+  });
+
+  var esc = function (t) { return String(t).replace(/[&<>]/g, function (ch) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]; }); };
+
+  // ---- Icons.png: a 10x14 pixel-art icon atlas (same sheet/keying trick html_battle/index.html
+  // uses for status icons) -- reused here for stat icons, hero-class icons, and skill icons. ----
+  var ICON_URL = "/assets/Artwork/Icons.png", ICON_X0 = 23, ICON_Y0 = 23, ICON_PITCH = 57, ICON_W = 620, ICON_H = 848;
+  (function keyOutIconBackdrop() {
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+        var g = cv.getContext("2d"); g.drawImage(img, 0, 0);
+        var d = g.getImageData(0, 0, cv.width, cv.height), px = d.data;
+        var br = px[0], bg = px[1], bb = px[2];
+        for (var i = 0; i < px.length; i += 4) {
+          if (Math.abs(px[i] - br) + Math.abs(px[i + 1] - bg) + Math.abs(px[i + 2] - bb) < 24) px[i + 3] = 0;
+        }
+        g.putImageData(d, 0, 0);
+        document.documentElement.style.setProperty("--icons", "url('" + cv.toDataURL("image/png") + "')");
+      } catch (e) { /* keep the raw sheet */ }
+    };
+    img.src = ICON_URL;
+  })();
+  function iconHtml(cell, size, extraClass) {
+    if (!cell) return "";
+    var k = size / ICON_PITCH;
+    var bx = -(ICON_X0 + ICON_PITCH * cell[1]) * k, by = -(ICON_Y0 + ICON_PITCH * cell[0]) * k;
+    return '<i class="ico' + (extraClass ? " " + extraClass : "") + '" style="width:' + size + 'px;height:' + size + 'px;' +
+      "background-image:var(--icons);background-size:" + (ICON_W * k) + "px " + (ICON_H * k) + "px;" +
+      "background-position:" + bx + "px " + by + "px;" + '"></i>';
+  }
+
+  // ---- Ability-icon hover tooltip (name, cost/element/target, description, status/lifesteal) ----
+  var tooltipEl = document.getElementById("ability-tooltip");
+  function showTooltip(anchorEl, html) {
+    tooltipEl.innerHTML = html;
+    tooltipEl.style.display = "block";
+    var r = anchorEl.getBoundingClientRect();
+    var tw = tooltipEl.offsetWidth, th = tooltipEl.offsetHeight;
+    var x = r.right + 10;
+    if (x + tw > window.innerWidth - 8) x = r.left - tw - 10;
+    if (x < 8) x = 8;
+    var y = r.top;
+    if (y + th > window.innerHeight - 8) y = window.innerHeight - th - 8;
+    if (y < 8) y = 8;
+    tooltipEl.style.left = x + "px";
+    tooltipEl.style.top = y + "px";
+  }
+  function hideTooltip() { tooltipEl.style.display = "none"; }
+
+  var RARITY_COLOR = { common: "#bebec3", rare: "#5aaae6", epic: "#b96ee6", legendary: "#ebaf3c", mythic: "#e63c5a" };
+  var ARMOR_SLOTS = { armor: 1, helmet: 1, boots: 1 };
+  var ARMOR_WEIGHT_ORDER = { light: 0, medium: 1, heavy: 2 };
+  var data = null;
+  var selectedId = null;
+  var classFilter = "all";
+
+  // Mirrors engine/equipment.py's class_can_equip -- a hero's archetype allows a weapon/offhand only by
+  // exact subtype, and armor up to (and including anything lighter than) its max weight.
+  function canEquip(hero, item) {
+    if (item.slot === "weapon") return hero.weapon_types.indexOf(item.subtype) !== -1;
+    if (item.slot === "offhand") return hero.offhand_types.indexOf(item.subtype) !== -1;
+    if (ARMOR_SLOTS[item.slot]) return ARMOR_WEIGHT_ORDER[item.subtype] <= ARMOR_WEIGHT_ORDER[hero.armor_weight];
+    return true; // accessory
+  }
+
+  // A hero has a star-upgrade ready (enough shards already banked), a better item sitting unused in
+  // the stash, or an unspent talent point (server-computed in hub_server.py's _hero_upgrade_info) --
+  // drives the red dot on this hero's roster card and on the specific things it applies to on their
+  // detail page.
+  function heroNeedsAttention(h) {
+    return !!h.can_rank_up || !!(h.upgrade_slots && h.upgrade_slots.length) || !!h.has_talent_points;
+  }
+
+  function setStatus(msg) { document.getElementById("status").textContent = msg || ""; }
+
+  function fetchHeroes() {
+    fetch("/api/heroes").then(function (r) { return r.json(); }).then(function (d) {
+      data = d;
+      renderClassRail();
+      renderRoster();
+      if (selectedId) renderDetail();
+    }).catch(function () { setStatus("Could not reach the hub server."); });
+  }
+
+  function findHero(id) {
+    return data.roster.find(function (h) { return h.id === id; });
+  }
+
+  // ---- Left rail: filter the roster by class. Icons are thematic picks from Icons.png, same
+  // sheet/coordinates used everywhere else on this page (stat badges, skill icons). ----
+  var CLASS_FILTERS = [
+    { id: "all", label: "All", cell: null },
+    { id: "tank", label: "Tank", cell: [0, 3] },
+    { id: "melee_dps", label: "Melee", cell: [0, 2] },
+    { id: "ranged_dps", label: "Ranged", cell: [2, 8] },
+    { id: "mage", label: "Mage", cell: [4, 8] },
+    { id: "support", label: "Support", cell: [0, 0] },
+  ];
+
+  function renderClassRail() {
+    var rail = document.getElementById("class-rail");
+    rail.innerHTML = "";
+    CLASS_FILTERS.forEach(function (f) {
+      var btn = document.createElement("button");
+      btn.className = "rail-btn" + (f.id === classFilter ? " active" : "");
+      btn.innerHTML = (f.cell ? iconHtml(f.cell, 26) : '<span class="rail-all-mark"></span>') + "<span>" + esc(f.label) + "</span>";
+      btn.addEventListener("click", function () { classFilter = f.id; renderClassRail(); renderRoster(); });
+      rail.appendChild(btn);
+    });
+  }
+
+  function renderRoster() {
+    var grid = document.getElementById("roster-grid");
+    grid.innerHTML = "";
+    var roster = data.roster.filter(function (h) { return classFilter === "all" || h.class_id === classFilter; });
+    if (!data.roster.length) {
+      grid.innerHTML = '<div id="roster-empty">No heroes yet -- visit Summon to recruit some.</div>';
+      return;
+    }
+    if (!roster.length) {
+      grid.innerHTML = '<div id="roster-empty">No heroes of this class yet.</div>';
+      return;
+    }
+    roster.forEach(function (h) {
+      var card = document.createElement("div");
+      card.className = "hero-card" + (h.is_wounded ? " wounded" : "");
+      card.style.borderColor = h.is_wounded ? "var(--mythic)" : h.rarity_color;
+      card.addEventListener("click", function () { openDetail(h.id); });
+
+      if (heroNeedsAttention(h)) {
+        var alertDot = document.createElement("div");
+        alertDot.className = "alert-dot card-alert";
+        alertDot.title = "Ready to upgrade";
+        card.appendChild(alertDot);
+      }
+
+      var pw = document.createElement("div");
+      pw.className = "portrait-wrap";
+      var img = document.createElement("img");
+      img.src = h.portrait;
+      img.onerror = function () { pw.innerHTML = '<div class="portrait-fallback">?</div>'; };
+      pw.appendChild(img);
+      card.appendChild(pw);
+
+      var name = document.createElement("div");
+      name.className = "hname";
+      name.style.color = h.rarity_color;
+      name.textContent = h.name;
+      card.appendChild(name);
+
+      var sub = document.createElement("div");
+      sub.className = "hsub";
+      sub.textContent = h.class_name + " -- Lvl " + h.level + "/" + h.level_cap;
+      card.appendChild(sub);
+
+      var stars = document.createElement("div");
+      stars.className = "hstars";
+      stars.style.color = h.rarity_color;
+      stars.textContent = h.stars_display;
+      card.appendChild(stars);
+
+      if (h.is_wounded) {
+        var wb = document.createElement("div");
+        wb.className = "wound-badge";
+        wb.textContent = "WOUNDED (" + h.wounded_runs_remaining + ")";
+        card.appendChild(wb);
+      } else if (h.is_level_maxed) {
+        var mb = document.createElement("div");
+        mb.className = "maxed-badge";
+        mb.textContent = "MAXED";
+        card.appendChild(mb);
+      }
+
+      grid.appendChild(card);
+    });
+  }
+
+  // ---- Detail "page" ----
+  // The roster currently on screen (respects the active class filter), used for Prev/Next --
+  // recomputed each time rather than cached, so it always matches what the grid behind it shows.
+  function currentRosterList() {
+    return data.roster.filter(function (h) { return classFilter === "all" || h.class_id === classFilter; });
+  }
+  function openDetail(id) {
+    selectedId = id;
+    renderDetail();
+    document.getElementById("detail-view").classList.add("open");
+    document.getElementById("detail-scroll").scrollTop = 0;
+  }
+  function closeDetail() {
+    selectedId = null;
+    hideTooltip();
+    document.getElementById("detail-view").classList.remove("open");
+  }
+  function navigateDetail(delta) {
+    var list = currentRosterList();
+    if (list.length < 2) return;
+    var idx = list.findIndex(function (h) { return h.id === selectedId; });
+    if (idx === -1) return;
+    selectedId = list[(idx + delta + list.length) % list.length].id;
+    hideTooltip();
+    renderDetail();
+    document.getElementById("detail-scroll").scrollTop = 0;
+  }
+  document.getElementById("detail-back").addEventListener("click", function () { playSfx(SFX.decline); closeDetail(); });
+  document.addEventListener("keydown", function (ev) {
+    if (!document.getElementById("detail-view").classList.contains("open")) return;
+    if (document.getElementById("picker-overlay").classList.contains("open")) return;
+    if (ev.key === "ArrowLeft") navigateDetail(-1);
+    else if (ev.key === "ArrowRight") navigateDetail(1);
+    else if (ev.key === "Escape") { playSfx(SFX.decline); closeDetail(); }
+  });
+
+  var STAT_DEFS = [
+    { key: "max_hp", label: "HP", cell: [0, 0] },
+    { key: "max_mp", label: "MP", cell: [0, 1] },
+    { key: "atk", label: "ATK", cell: [0, 2] },
+    { key: "def_", label: "DEF", cell: [0, 3] },
+    { key: "mag", label: "MAG", cell: [4, 8] },
+    { key: "res", label: "RES", cell: [0, 4] },
+    { key: "spd", label: "SPD", cell: [3, 2] },
+    { key: "luk", label: "LUK", cell: [0, 9] },
+  ];
+  var SLOT_ICON = { weapon: [0, 2], offhand: [0, 3], armor: [1, 8], helmet: [1, 2], boots: [12, 8], accessory: [0, 9] };
+
+  // Ability icons: an elemental skill gets its element's icon first (most informative at a glance);
+  // a pure heal gets the heart; a pure buff/debuff (no element, e.g. a self-buff like "brace") gets
+  // the same status-effect icon the battle screen already uses for that status; anything left over
+  // falls back to a generic arcane orb (magical) or sword (physical).
+  var STATUS_ICON = { poison: [9, 1], stun: [7, 3], atk_up: [12, 3], atk_down: [12, 2], def_up: [12, 5], def_down: [12, 4], regen: [7, 4] };
+  var STATUS_NAME = { poison: "Poison", stun: "Stun", atk_up: "Attack Up", atk_down: "Attack Down", def_up: "Defense Up", def_down: "Defense Down", regen: "Regen" };
+  var ELEMENT_ICON = { fire: [3, 0], ice: [3, 1], thunder: [3, 2], holy: [3, 6], dark: [4, 7] };
+  var ELEMENT_LABEL = { fire: "Fire", ice: "Ice", thunder: "Thunder", holy: "Holy", dark: "Dark", physical: "Physical" };
+  var SKILL_TARGET_LABEL = { single_enemy: "1 Enemy", all_enemies: "All Enemies", single_ally: "1 Ally", all_allies: "All Allies", self: "Self" };
+
+  function skillIconCell(s) {
+    if (ELEMENT_ICON[s.element]) return ELEMENT_ICON[s.element];
+    if (s.kind === "heal") return [0, 0];
+    if (s.status_to_apply && STATUS_ICON[s.status_to_apply]) return STATUS_ICON[s.status_to_apply];
+    if (s.kind === "magical") return [4, 8];
+    return [0, 2];
+  }
+
+  function skillTooltipHtml(s) {
+    var bits = [];
+    if (s.mp_cost) bits.push(s.mp_cost + " MP");
+    if (ELEMENT_LABEL[s.element]) bits.push(ELEMENT_LABEL[s.element]);
+    if (SKILL_TARGET_LABEL[s.target]) bits.push(SKILL_TARGET_LABEL[s.target]);
+    var statusLine = "";
+    if (s.status_to_apply) {
+      var durTxt = s.status_duration_bonus ? " (+" + s.status_duration_bonus + " turn" + (s.status_duration_bonus > 1 ? "s" : "") + " from rank)" : "";
+      statusLine = '<div class="tt-status">' + Math.round((s.status_chance || 0) * 100) + "% chance: " + esc(STATUS_NAME[s.status_to_apply] || s.status_to_apply) + durTxt + "</div>";
+    }
+    var lifestealLine = s.lifesteal ? '<div class="tt-status">Lifesteal ' + Math.round(s.lifesteal * 100) + "%</div>" : "";
+    var rankLine = '<div class="tt-meta">Rank ' + s.rank + " / " + s.max_rank + "</div>";
+    var nextLine = "";
+    if (s.rank < s.max_rank) {
+      var nextBits = [];
+      if (s.next_power && s.next_power !== s.power) nextBits.push("power " + s.power + " &rarr; " + s.next_power);
+      if (s.next_mp_cost !== s.mp_cost) nextBits.push(s.mp_cost + " &rarr; " + s.next_mp_cost + " MP");
+      if (s.status_to_apply && s.next_status_duration_bonus !== s.status_duration_bonus) {
+        nextBits.push("duration +" + s.status_duration_bonus + " &rarr; +" + s.next_status_duration_bonus);
+      }
+      if (nextBits.length) nextLine = '<div class="tt-status">Next rank: ' + nextBits.join(", ") + "</div>";
+    } else {
+      nextLine = '<div class="tt-status">Max rank</div>';
+    }
+    return '<div class="tt-title">' + esc(s.name) + (s.shared ? ' <span class="tt-shared">(Class Skill)</span>' : "") + "</div>" +
+      rankLine +
+      '<div class="tt-meta">' + esc(bits.join(" · ")) + "</div>" +
+      (s.description ? '<div class="tt-desc">' + esc(s.description) + "</div>" : "") + statusLine + lifestealLine + nextLine;
+  }
+
+  function statBadge(def, value) {
+    return '<div class="stat-badge">' + iconHtml(def.cell, 26) +
+      '<div><div class="sval">' + value + '</div><div class="slabel">' + def.label + "</div></div></div>";
+  }
+
+  function renderDetail() {
+    var h = findHero(selectedId);
+    if (!h) { closeDetail(); return; }
+    var body = document.getElementById("detail-body");
+    var s = h.stats;
+    var upgradeDisabled = h.shard_cost_next === null;
+    var upgradeLabel = h.shard_cost_next === null ? "Max Stars" : "Upgrade Star (" + h.shard_cost_next + " shards)";
+
+    var statsHtml = STAT_DEFS.map(function (def) { return statBadge(def, s[def.key]); }).join("");
+
+    var talentPoints = h.talent_points_available || 0;
+    var skillsHtml = (h.skills || []).map(function (sk) {
+      var maxed = sk.rank >= sk.max_rank;
+      var canRankUp = talentPoints > 0 && !maxed;
+      return '<div class="skill-slot' + (sk.shared ? " shared" : "") + '" data-skill-id="' + sk.id + '">' +
+        iconHtml(skillIconCell(sk), 42) +
+        '<span class="rank-badge' + (maxed ? " maxed" : "") + '">' + sk.rank + "/" + sk.max_rank + "</span>" +
+        (canRankUp ? '<button class="rank-up-btn" data-rankup-id="' + sk.id + '" title="Spend a talent point">+</button>' : "") +
+        (sk.shared ? '<span class="skill-tag">Class</span>' : "") + "</div>";
+    }).join("");
+
+    var upgradeSlots = h.upgrade_slots || [];
+    var slotsHtml = data.slots.map(function (slot) {
+      var eq = h.equipped[slot];
+      var label = eq ? eq.name + (eq.subtype ? ' <span class="subtype">(' + eq.subtype + ')</span>' : "") : "Empty";
+      var hasUpgrade = upgradeSlots.indexOf(slot) !== -1;
+      return '<div class="slot-row" data-slot="' + slot + '">' +
+        '<span class="slot-left">' + iconHtml(SLOT_ICON[slot], 22) + '<span class="slot-name">' + slot + "</span></span>" +
+        '<span class="slot-left">' +
+          '<span class="slot-item' + (eq ? "" : " empty") + '"' + (eq ? ' style="color:' + (RARITY_COLOR[eq.rarity] || "#fff") + '"' : "") + ">" + label + "</span>" +
+          (hasUpgrade ? '<span class="alert-dot" title="A better item is in your stash"></span>' : "") +
+        "</span>" +
+        "</div>";
+    }).join("");
+
+    var legacies = h.equipped_legacies || [];
+    var legacySlots = h.legacy_slots || 3;
+    var legacyRowsHtml = legacies.map(function (lg) {
+      return '<div class="slot-row" data-legacy-id="' + lg.instance_id + '">' +
+        '<span class="slot-left"><span class="slot-name">Legacy</span></span>' +
+        '<span class="slot-left">' +
+          '<span class="slot-item" style="color:' + (lg.rarity_color || "#fff") + '">' + esc(lg.name) + "</span>" +
+        "</span>" +
+        "</div>";
+    }).join("");
+    if (legacies.length < legacySlots) {
+      legacyRowsHtml += '<div class="slot-row" data-legacy-add="1">' +
+        '<span class="slot-left"><span class="slot-name">Empty</span></span>' +
+        '<span class="slot-item empty">Click to equip a legacy item</span>' +
+        "</div>";
+    }
+    var legacyBonusHtml = legacies.length
+      ? '<div class="talent-note">' + legacies.map(function (lg) { return esc(lg.name) + ": " + lg.bonus_text; }).join("<br>") + "</div>"
+      : "";
+
+    var loreHtml = h.lore ? '<div class="lore-box">' + esc(h.lore) + "</div>" : "";
+
+    var woundHtml = h.is_wounded
+      ? '<div class="wound-banner"><span>Wounded -- sits out the next <b>' + h.wounded_runs_remaining +
+        '</b> run(s).</span><button id="heal-wound-btn">Heal now (' + h.wound_heal_cost + ' gold)</button></div>'
+      : "";
+
+    var sacrificeHtml = "";
+    if (h.is_level_maxed && !h.is_wounded) {
+      sacrificeHtml = '<div id="sacrifice-row">' +
+        '<button id="sacrifice-btn">Sacrifice for Legacy</button>' +
+        '<div id="sacrifice-note">Permanently retires ' + esc(h.name) + ' and mints a legacy item from their class + rarity. Gear and legacy items equipped on them return to your stash.</div>' +
+        "</div>";
+    } else if (!h.is_wounded) {
+      sacrificeHtml = '<div id="sacrifice-note">Reach level ' + h.level_cap + ' to sacrifice ' + esc(h.name) + ' for a legacy item.</div>';
+    }
+
+    var navList = currentRosterList();
+    var navIdx = navList.findIndex(function (x) { return x.id === h.id; });
+    var showArrows = navList.length > 1;
+
+    document.getElementById("dhead-name").textContent = h.name;
+    document.getElementById("dhead-pos").textContent = navIdx === -1 ? "" : (navIdx + 1) + " / " + navList.length;
+
+    body.innerHTML =
+      '<div class="dportrait-col">' +
+        '<div class="dportrait">' +
+          (showArrows ? '<button class="dnav-arrow prev" id="dnav-prev" title="Previous hero">&lsaquo;</button>' : "") +
+          (showArrows ? '<button class="dnav-arrow next" id="dnav-next" title="Next hero">&rsaquo;</button>' : "") +
+          '<img src="' + h.portrait + '" onerror="this.outerHTML=\'<div class=&quot;portrait-fallback&quot; style=&quot;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--dim);&quot;>?</div>\'">' +
+          '<div class="dstars-overlay" style="color:' + h.rarity_color + '">' + h.stars_display + "</div>" +
+        "</div>" +
+        '<div id="upgrade-row"><button id="upgrade-btn" ' + (upgradeDisabled ? "disabled" : "") + ">" + upgradeLabel + "</button>" +
+          (h.can_rank_up ? '<span class="alert-dot" title="Enough shards banked to upgrade now"></span>' : "") +
+        "</div>" +
+        '<div id="shard-note">' + h.shards + " shards banked</div>" +
+      "</div>" +
+      '<div class="dinfo-col">' +
+        '<div class="dname" style="color:' + h.rarity_color + '">' + esc(h.name) + "</div>" +
+        '<div class="dsub">' + esc(h.class_name) + " &middot; Lvl " + h.level + "/" + h.level_cap +
+          (h.is_level_maxed ? ' <span style="color:var(--gold)">(MAXED)</span>' : "") +
+          " &middot; " + h.rarity + "</div>" +
+        woundHtml +
+        '<div class="section-label">Stats</div>' +
+        '<div class="stat-grid">' + statsHtml + "</div>" +
+        '<div class="section-label">Skills (hover for details)</div>' +
+        '<div class="talent-note">' +
+          (talentPoints > 0
+            ? '<span class="alert-dot" style="display:inline-block;"></span><b>' + talentPoints + '</b> talent point' + (talentPoints > 1 ? "s" : "") + ' to spend -- click the <b>+</b> on a skill'
+            : 'Talent points: <b>' + talentPoints + '</b> (earn one every ' + (h.talent_point_interval || 5) + ' levels)') +
+        "</div>" +
+        '<div class="skill-row">' + skillsHtml + "</div>" +
+        '<div class="section-label">Equipped (click a slot to choose gear)</div>' +
+        slotsHtml +
+        '<div class="section-label">Legacy Items (' + legacies.length + ' / ' + legacySlots + ' slots)</div>' +
+        legacyRowsHtml +
+        legacyBonusHtml +
+        sacrificeHtml +
+        (loreHtml ? '<div class="section-label">Story</div>' + loreHtml : "") +
+      "</div>";
+
+    var upgradeBtn = document.getElementById("upgrade-btn");
+    if (upgradeBtn && !upgradeDisabled) upgradeBtn.addEventListener("click", function () { doUpgrade(h.id); });
+
+    var prevBtn = document.getElementById("dnav-prev"), nextBtn = document.getElementById("dnav-next");
+    if (prevBtn) prevBtn.addEventListener("click", function (ev) { ev.stopPropagation(); navigateDetail(-1); });
+    if (nextBtn) nextBtn.addEventListener("click", function (ev) { ev.stopPropagation(); navigateDetail(1); });
+
+    body.querySelectorAll(".slot-row[data-slot]").forEach(function (row) {
+      row.addEventListener("click", function () { openPicker(h, row.getAttribute("data-slot")); });
+    });
+    body.querySelectorAll(".slot-row[data-legacy-id]").forEach(function (row) {
+      row.addEventListener("click", function () { doUnequipLegacy(h.id, row.getAttribute("data-legacy-id")); });
+    });
+    body.querySelectorAll(".slot-row[data-legacy-add]").forEach(function (row) {
+      row.addEventListener("click", function () { openLegacyPicker(h); });
+    });
+
+    var healBtn = document.getElementById("heal-wound-btn");
+    if (healBtn) healBtn.addEventListener("click", function (ev) { ev.stopPropagation(); doHealWound(h.id); });
+
+    var sacrificeBtn = document.getElementById("sacrifice-btn");
+    if (sacrificeBtn) sacrificeBtn.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      if (window.confirm(h.name + " will be permanently retired in exchange for a legacy item. This can't be undone. Continue?")) {
+        doSacrifice(h.id);
+      }
+    });
+
+    var skillsById = {};
+    (h.skills || []).forEach(function (sk) { skillsById[sk.id] = sk; });
+    body.querySelectorAll(".skill-slot").forEach(function (slotEl) {
+      var sk = skillsById[slotEl.getAttribute("data-skill-id")];
+      if (!sk) return;
+      slotEl.addEventListener("mouseenter", function () { showTooltip(slotEl, skillTooltipHtml(sk)); });
+      slotEl.addEventListener("mouseleave", hideTooltip);
+    });
+    body.querySelectorAll(".rank-up-btn").forEach(function (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        hideTooltip();
+        doUpgradeSkill(h.id, btn.getAttribute("data-rankup-id"));
+      });
+    });
+  }
+
+  // ---- Per-slot gear picker: click a slot to see only what fits there, instead of one long stash list.
+  var pickerHero = null, pickerSlot = null;
+
+  function openPicker(hero, slot) {
+    pickerHero = hero.id; pickerSlot = slot;
+    document.getElementById("picker-title").textContent = "Choose " + slot + " for " + hero.name;
+    renderPicker();
+    document.getElementById("picker-overlay").classList.add("open");
+  }
+
+  function closePicker() {
+    document.getElementById("picker-overlay").classList.remove("open");
+    pickerHero = null; pickerSlot = null;
+  }
+
+  function renderPicker() {
+    var h = findHero(pickerHero);
+    if (!h) { closePicker(); return; }
+    var list = document.getElementById("picker-list");
+    var currentId = h.equipped[pickerSlot];
+    var items = data.stash.filter(function (item) { return item.slot === pickerSlot; });
+
+    var html = "";
+    if (currentId) {
+      html += '<div class="picker-row unequip-row" data-action="unequip">Unequip current item</div>';
+    }
+    if (!items.length) {
+      html += '<div class="picker-empty">Nothing in your stash for this slot -- visit Summon or Shop.</div>';
+    } else {
+      html += items.map(function (item) {
+        var blocked = !canEquip(h, item);
+        var isEquipped = item.instance_id === currentId;
+        // Salvaging is offered on every unequipped stash item regardless of whether this hero can
+        // wear it -- breaking down a piece another class can't use is exactly the point.
+        var salvageBtn = !isEquipped
+          ? '<span class="salvage-btn" data-salvage-id="' + item.instance_id + '" title="Break this down for equipment shards">' +
+            'Salvage +' + (item.salvage_value || 0) + '</span>'
+          : '';
+        return '<div class="picker-row' + (blocked ? " blocked" : "") + (isEquipped ? " equipped" : "") +
+          '" data-instance-id="' + item.instance_id + '"' +
+          (blocked ? ' title="' + h.name + ' (' + h.class_name + ') can\'t equip this"' : "") + '>' +
+          '<span><span class="sname" style="color:' + (RARITY_COLOR[item.rarity] || "#fff") + '">' + item.name +
+          ' <span style="color:var(--dim);font-weight:400;">(' + (item.subtype || item.slot) + ')</span></span>' +
+          (item.bonus_text && item.bonus_text !== "(no stat bonus)" ? '<div class="sbonus">' + item.bonus_text + '</div>' : '') +
+          '</span>' +
+          (isEquipped ? '<span style="color:var(--gold);font-size:11px;">equipped</span>' : salvageBtn) +
+          '</div>';
+      }).join("");
+    }
+    list.innerHTML = html;
+    document.getElementById("picker-shards").textContent =
+      "Equipment shards: " + (data.equipment_shards || 0) + " (spend 10 on an Equipment Summon)";
+
+    var unequipRow = list.querySelector('[data-action="unequip"]');
+    if (unequipRow) {
+      unequipRow.addEventListener("click", function () {
+        doUnequip(pickerHero, pickerSlot);
+        closePicker();
+      });
+    }
+    list.querySelectorAll(".salvage-btn").forEach(function (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        doSalvage(btn.getAttribute("data-salvage-id"));
+      });
+    });
+    list.querySelectorAll(".picker-row[data-instance-id]").forEach(function (row) {
+      if (row.classList.contains("blocked") || row.classList.contains("equipped")) return;
+      row.addEventListener("click", function () {
+        doEquip(pickerHero, row.getAttribute("data-instance-id"));
+        closePicker();
+      });
+    });
+  }
+
+  document.getElementById("picker-close").addEventListener("click", function () { playSfx(SFX.decline); closePicker(); });
+  document.getElementById("picker-overlay").addEventListener("click", function (ev) {
+    if (ev.target.id === "picker-overlay") closePicker();
+  });
+
+  function apply(result) {
+    data = { roster: result.roster, stash: result.stash, slots: result.slots,
+              equipment_shards: result.equipment_shards, legacy_stash: result.legacy_stash,
+              money: result.money };
+    setStatus(result.message || "");
+    renderRoster();
+    if (selectedId) renderDetail();
+  }
+
+  // ---- Legacy item picker: what fallen heroes left behind, from a stash shared across the whole roster. ----
+  var legacyPickerHero = null;
+
+  function openLegacyPicker(hero) {
+    legacyPickerHero = hero.id;
+    document.getElementById("legacy-picker-title").textContent = "Equip a legacy item on " + hero.name;
+    renderLegacyPicker();
+    document.getElementById("legacy-picker-overlay").classList.add("open");
+  }
+
+  function closeLegacyPicker() {
+    document.getElementById("legacy-picker-overlay").classList.remove("open");
+    legacyPickerHero = null;
+  }
+
+  function renderLegacyPicker() {
+    var h = findHero(legacyPickerHero);
+    if (!h) { closeLegacyPicker(); return; }
+    var list = document.getElementById("legacy-picker-list");
+    var items = data.legacy_stash || [];
+    var html = !items.length
+      ? '<div class="picker-empty">No legacy items in your stash yet -- they\'re left behind by heroes lost in the Colosseum.</div>'
+      : items.map(function (item) {
+          return '<div class="picker-row" data-legacy-instance-id="' + item.instance_id + '">' +
+            '<span><span class="sname" style="color:' + (item.rarity_color || "#fff") + '">' + esc(item.name) + '</span>' +
+            '<div class="sbonus">' + esc(item.bonus_text) + '</div></span>' +
+            '</div>';
+        }).join("");
+    list.innerHTML = html;
+    list.querySelectorAll(".picker-row[data-legacy-instance-id]").forEach(function (row) {
+      row.addEventListener("click", function () {
+        doEquipLegacy(legacyPickerHero, row.getAttribute("data-legacy-instance-id"));
+        closeLegacyPicker();
+      });
+    });
+  }
+
+  document.getElementById("legacy-picker-close").addEventListener("click", function () { playSfx(SFX.decline); closeLegacyPicker(); });
+  document.getElementById("legacy-picker-overlay").addEventListener("click", function (ev) {
+    if (ev.target.id === "legacy-picker-overlay") closeLegacyPicker();
+  });
+
+  function doEquipLegacy(characterId, instanceId) {
+    playSfx(SFX.equip);
+    fetch("/api/heroes/equip_legacy", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ character_id: characterId, instance_id: instanceId }),
+    }).then(function (r) { return r.json(); }).then(apply);
+  }
+
+  function doUnequipLegacy(characterId, instanceId) {
+    playSfx(SFX.unequip);
+    fetch("/api/heroes/unequip_legacy", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ character_id: characterId, instance_id: instanceId }),
+    }).then(function (r) { return r.json(); }).then(apply);
+  }
+
+  function doSacrifice(characterId) {
+    playSfx(SFX.confirm);
+    fetch("/api/heroes/sacrifice", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ character_id: characterId }),
+    }).then(function (r) { return r.json(); }).then(function (result) {
+      if (!result.ok) playSfx(SFX.denied);
+      apply(result);
+    });
+  }
+
+  function doHealWound(characterId) {
+    playSfx(SFX.confirm);
+    fetch("/api/heroes/heal_wound", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ character_id: characterId }),
+    }).then(function (r) { return r.json(); }).then(function (result) {
+      if (!result.ok) playSfx(SFX.denied);
+      apply(result);
+    });
+  }
+
+  function doUpgrade(characterId) {
+    playSfx(SFX.confirm);
+    fetch("/api/heroes/upgrade_star", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ character_id: characterId }),
+    }).then(function (r) { return r.json(); }).then(apply);
+  }
+
+  function doUpgradeSkill(characterId, skillId) {
+    playSfx(SFX.confirm);
+    fetch("/api/heroes/upgrade_skill", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ character_id: characterId, skill_id: skillId }),
+    }).then(function (r) { return r.json(); }).then(function (result) {
+      if (!result.ok) playSfx(SFX.decline);
+      apply(result);
+    });
+  }
+
+  function doEquip(characterId, instanceId) {
+    playSfx(SFX.equip);
+    fetch("/api/heroes/equip", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ character_id: characterId, instance_id: instanceId }),
+    }).then(function (r) { return r.json(); }).then(apply);
+  }
+
+  function doUnequip(characterId, slot) {
+    playSfx(SFX.unequip);
+    fetch("/api/heroes/unequip", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ character_id: characterId, slot: slot }),
+    }).then(function (r) { return r.json(); }).then(apply);
+  }
+
+  function doSalvage(instanceId) {
+    playSfx(SFX.unequip);
+    fetch("/api/heroes/salvage", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instance_id: instanceId }),
+    }).then(function (r) { return r.json(); }).then(function (result) {
+      apply(result);
+      if (pickerHero) renderPicker();   // keep the picker open, showing the shrunk stash + new balance
+    });
+  }
+
+  fetchHeroes();
+})();
+</script>
+</body>
+</html>

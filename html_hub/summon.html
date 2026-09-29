@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Summon</title>
+<style>
+  :root {
+    --bg-deep: #0e0b16;
+    --bg-panel: rgba(28, 24, 42, 0.82);
+    --text-main: #f0ecff;
+    --text-dim: #a79fc9;
+    --accent: #7c5cff;
+    --gold: #e8c766;
+    /* Matches data/hero_rarity.py's HERO_RARITY_COLOR exactly -- same
+       palette html_prototype/index.html used, kept identical on purpose. */
+    --common: #bebec3;
+    --rare: #5aaae6;
+    --epic: #b96ee6;
+    --legendary: #ebaf3c;
+    --mythic: #e63c5a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    color: var(--text-main);
+    background: radial-gradient(1200px 600px at 50% -10%, #241c3d 0%, var(--bg-deep) 60%);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 20px 16px 60px;
+  }
+  a { color: var(--gold); text-decoration: none; }
+  header {
+    width: 100%; max-width: 900px;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0; }
+  .top-right { display: flex; align-items: center; gap: 14px; }
+  #gems {
+    background: var(--bg-panel); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 999px; padding: 8px 18px; font-weight: 600; font-size: 15px;
+  }
+  #gems .icon { color: #6fe3c8; margin-right: 6px; }
+  #status { max-width: 900px; width: 100%; min-height: 20px; color: var(--text-dim); font-size: 13px; margin-bottom: 16px; text-align: center; }
+
+  .banner-rail { display: flex; gap: 16px; width: 100%; max-width: 900px; margin-bottom: 20px; }
+  .banner {
+    flex: 1; border-radius: 16px; padding: 20px; cursor: pointer;
+    border: 2px solid transparent; background: var(--bg-panel);
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    position: relative; overflow: hidden;
+  }
+  .banner::before {
+    content: ""; position: absolute; inset: 0; opacity: 0.35;
+    background: linear-gradient(135deg, var(--tint, var(--accent)), transparent 70%);
+    pointer-events: none;
+  }
+  .banner:hover { transform: translateY(-3px); }
+  .banner.selected { border-color: var(--tint, var(--accent)); box-shadow: 0 0 24px -4px var(--tint, var(--accent)); }
+  .banner h2 { margin: 0 0 6px 0; font-size: 17px; position: relative; }
+  .banner p { margin: 0 0 10px 0; font-size: 12px; color: var(--text-dim); position: relative; }
+  .banner .odds { font-size: 12px; position: relative; }
+  #banner-character { --tint: var(--epic); }
+  #banner-common { --tint: var(--rare); }
+  #banner-equipment { --tint: var(--legendary); }
+  .banner-rail { flex-wrap: wrap; }
+  .banner { min-width: 240px; }
+  #currency-bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .pill { background: var(--bg-panel); border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 14px; }
+  #target-box { width: 100%; max-width: 900px; margin: -6px 0 16px; padding: 12px 16px; border-radius: 12px; background: var(--bg-panel);
+    border: 1px solid rgba(185,110,230,0.45); font-size: 13px; display: none; }
+  #target-box select { margin-left: 8px; padding: 6px 10px; border-radius: 8px; background: #241f36; color: var(--text-main); border: 1px solid rgba(255,255,255,0.2); font-size: 13px; }
+  #target-box .hint { color: var(--text-dim); font-size: 12px; margin-top: 6px; }
+  .pull-btn.ticket { background: #6b4fd1; }
+  .pull-btn.ticket small { opacity: 0.95; }
+  .pull-btn.shard { background: #b98a2e; }
+  .pull-btn.shard small { opacity: 0.95; }
+
+  .pull-bar { display: flex; gap: 14px; width: 100%; max-width: 900px; margin-bottom: 24px; }
+  .pull-btn {
+    flex: 1; padding: 14px; border-radius: 12px; border: none; cursor: pointer;
+    font-weight: 700; font-size: 14px; background: var(--accent); color: white;
+    transition: transform 0.1s ease;
+  }
+  .pull-btn:hover { transform: translateY(-2px); }
+  .pull-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .pull-btn small { display: block; font-weight: 400; opacity: 0.8; margin-top: 2px; }
+
+  #roster-note { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+
+  #reveal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(10,8,16,0.92);
+    align-items: center; justify-content: center; flex-direction: column;
+    z-index: 10; padding: 24px;
+  }
+  #reveal-overlay.open { display: flex; }
+  #reveal-grid {
+    display: grid; grid-template-columns: repeat(5, 140px); gap: 16px;
+    max-width: 900px; justify-content: center; perspective: 1000px; margin-bottom: 24px;
+  }
+  .card { width: 140px; height: 205px; position: relative; cursor: pointer; }
+  .card-inner { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.5s cubic-bezier(.2,.8,.3,1.2); }
+  .card.flipped .card-inner { transform: rotateY(180deg); }
+  .card-face { position: absolute; inset: 0; border-radius: 12px; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 10px; }
+  .card-front { background: linear-gradient(160deg, #362a5c, #1c1630); border: 2px solid rgba(255,255,255,0.12); font-size: 40px; color: rgba(255,255,255,0.25); }
+  .card-back { transform: rotateY(180deg); border: 2px solid var(--tint, var(--common)); background: linear-gradient(165deg, color-mix(in srgb, var(--tint, var(--common)) 28%, #1a1626), #14101f); box-shadow: 0 0 22px -4px var(--tint, var(--common)); }
+  .card-back .rarity-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--tint, var(--common)); font-weight: 700; margin-bottom: 6px; }
+  .card-back .name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .card-back .tag { margin-top: 8px; font-size: 11px; padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--text-dim); }
+  .card-back.new .tag { background: #2fae7a33; color: #6fe3c8; }
+  .card-back .bonus { margin-top: 6px; font-size: 10px; color: var(--text-dim); line-height: 1.4; }
+
+  .reveal-actions { display: flex; gap: 12px; }
+  .reveal-actions button { padding: 10px 22px; border-radius: 999px; border: none; font-weight: 600; cursor: pointer; }
+  #reveal-all-btn { background: var(--accent); color: white; }
+  #continue-btn { background: rgba(255,255,255,0.1); color: var(--text-main); display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Summon</h1>
+  <div class="top-right">
+    <a href="/">&larr; Back to Colosseum</a>
+    <div id="currency-bar">
+      <div class="pill" id="gems"><span class="icon">&#9670;</span><span id="gems-value">--</span></div>
+      <div class="pill" title="Gold"><span style="color:var(--gold);margin-right:6px;">$</span><span id="gold-value">--</span></div>
+      <div class="pill" title="Common tickets"><span style="color:var(--rare);margin-right:6px;">&#127903;</span><span id="tk-common">0</span></div>
+      <div class="pill" title="Premium tickets"><span style="color:var(--epic);margin-right:6px;">&#127903;</span><span id="tk-premium">0</span></div>
+      <div class="pill" title="Equipment shards"><span style="color:var(--legendary);margin-right:6px;">&#9670;</span><span id="shards-value">0</span></div>
+    </div>
+  </div>
+</header>
+
+<div id="status">Loading...</div>
+<div id="roster-note"></div>
+
+<div class="banner-rail">
+  <div class="banner selected" id="banner-character" onclick="selectBanner('character')">
+    <h2>Premium Summon</h2>
+    <p>Gems. Best odds at high rarity, and you can pick a target hero for a rate-up. Duplicates grant hero shards.</p>
+    <div class="odds" id="character-costs"></div>
+  </div>
+  <div class="banner" id="banner-common" onclick="selectBanner('common')">
+    <h2>Common Summon</h2>
+    <p>Gold only. Mostly common and rare heroes, with a small shot at a legendary or mythic.</p>
+    <div class="odds" id="common-costs"></div>
+  </div>
+  <div class="banner" id="banner-equipment" onclick="selectBanner('equipment')">
+    <h2>Equipment Summon</h2>
+    <p>Gems or equipment shards. Draws from the full gear catalog -- common through mythic -- weighted toward the common/rare end.</p>
+    <div class="odds" id="equipment-costs"></div>
+  </div>
+</div>
+
+<div id="target-box">
+  <b>Target hero</b>
+  <select id="target-select" onchange="targetChanged()"></select>
+  <div class="hint" id="target-hint"></div>
+</div>
+
+<div class="pull-bar">
+  <button class="pull-btn" id="pull-1x" onclick="pull(1)">Pull x1 <small id="pull-1x-cost"></small></button>
+  <button class="pull-btn" id="pull-10x" onclick="pull(10)">Pull x10 <small id="pull-10x-cost"></small></button>
+</div>
+<div class="pull-bar" id="ticket-bar">
+  <button class="pull-btn ticket" id="tpull-1x" onclick="pull(1, 'ticket')">Use Ticket x1 <small id="tpull-1x-cost"></small></button>
+  <button class="pull-btn ticket" id="tpull-10x" onclick="pull(10, 'ticket')">Use Tickets x10 <small id="tpull-10x-cost"></small></button>
+</div>
+<div class="pull-bar" id="shard-bar">
+  <button class="pull-btn shard" id="spull-1x" onclick="pull(1, 'shards')">Use Shards x1 <small id="spull-1x-cost"></small></button>
+  <button class="pull-btn shard" id="spull-10x" onclick="pull(10, 'shards')">Use Shards x10 <small id="spull-10x-cost"></small></button>
+</div>
+
+<div id="reveal-overlay">
+  <div id="reveal-grid"></div>
+  <div class="reveal-actions">
+    <button id="reveal-all-btn" onclick="revealAll()">Reveal All</button>
+    <button id="continue-btn" onclick="closeReveal()">Continue</button>
+  </div>
+</div>
+
+<script>
+  // Same-origin: this page is served by hub_server.py, which spends REAL
+  // gems against your REAL save (unlike the earlier summon_server.py
+  // throwaway prototype, which seeded 999,999 gems into a PlayerState that
+  // was never saved). The card-flip reveal below is deliberately the same
+  // markup/CSS/JS html_prototype/index.html used -- Andrew already looked
+  // at and approved this exact presentation ("Oh yeah this is way better")
+  // back when choosing HTML over Unity/pygame -- so this reuses it as-is
+  // rather than redesigning something he's already signed off on.
+  // ---- Sound: fire-and-forget SFX + a single looping hub music track. ----
+  const SFX_VOLUME = 0.7, MUSIC_VOLUME = 0.35;
+  function playSfx(url, vol) {
+    if (!url) return;
+    try {
+      const a = new Audio(url);
+      a.volume = vol != null ? vol : SFX_VOLUME;
+      a.play().catch(() => {});
+    } catch (e) { /* best-effort */ }
+  }
+  let _musicEl = null, _musicUrl = null;
+  function playMusic(url, vol) {
+    if (_musicUrl === url && _musicEl && !_musicEl.paused) return;
+    stopMusic();
+    try {
+      _musicEl = new Audio(url);
+      _musicEl.loop = true;
+      _musicEl.volume = vol != null ? vol : MUSIC_VOLUME;
+      _musicUrl = url;
+      _musicEl.play().catch(() => {});
+    } catch (e) { /* best-effort */ }
+  }
+  function stopMusic() {
+    if (_musicEl) { try { _musicEl.pause(); } catch (e) {} }
+    _musicEl = null; _musicUrl = null;
+  }
+  const SFX = {
+    hover: "/assets/SFX/10_UI_Menu_SFX/001_Hover_01.wav",
+    confirm: "/assets/SFX/10_UI_Menu_SFX/013_Confirm_03.wav",
+    denied: "/assets/SFX/10_UI_Menu_SFX/033_Denied_03.wav",
+  };
+  playMusic("/assets/Music/Main/Main.mp3");
+  let _lastHoverEl = null;
+  const HOVER_SEL = "button, .card, .pull-btn";
+  document.addEventListener("mouseover", (ev) => {
+    const el = ev.target.closest(HOVER_SEL);
+    if (el && el !== _lastHoverEl && !el.disabled) { _lastHoverEl = el; playSfx(SFX.hover, 0.5); }
+  });
+  document.addEventListener("mouseout", (ev) => {
+    const el = ev.target.closest(HOVER_SEL);
+    if (el && el === _lastHoverEl) _lastHoverEl = null;
+  });
+
+  let selected = "character";   // "character" (Premium Summon) | "common" | "equipment"
+  let costs = null;
+  let sdata = null;
+  let cards = [];
+  let target = "";
+
+  function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+  function pct(v) { return (Math.round(v * 10) / 10) + "%"; }
+
+  function fetchState() {
+    fetch("/api/summon/state").then(function (r) { return r.json(); }).then(function (data) {
+      sdata = data; costs = data.costs;
+      applyCurrencies(data);
+      document.getElementById("character-costs").innerHTML =
+        "<b>x1</b> " + costs.character_1x + " gems &nbsp; <b>x10</b> " + costs.character_10x + " gems";
+      document.getElementById("common-costs").innerHTML =
+        "<b>x1</b> " + data.common.cost_1x + " gold &nbsp; <b>x10</b> " + data.common.cost_10x + " gold";
+      document.getElementById("equipment-costs").innerHTML =
+        "<b>x1</b> " + costs.equipment_1x + " gems (or " + costs.equipment_shard_1x + " shards) &nbsp; " +
+        "<b>x10</b> " + costs.equipment_10x + " gems &nbsp;&middot;&nbsp; " +
+        ["common", "rare", "epic", "legendary", "mythic"].map(function (t) {
+          return cap(t) + " " + pct(data.equipment_odds[t]);
+        }).join(", ");
+      document.getElementById("roster-note").textContent = data.roster_size + " heroes recruited so far.";
+      buildTargetSelect();
+      updatePullCosts();
+      document.getElementById("status").textContent = "";
+    }).catch(function (e) {
+      document.getElementById("status").textContent = "Could not reach the hub server. (" + e + ")";
+    });
+  }
+
+  function applyCurrencies(d) {
+    if (d.gems !== undefined) document.getElementById("gems-value").textContent = d.gems;
+    if (d.gold !== undefined) document.getElementById("gold-value").textContent = d.gold;
+    if (d.tickets) {
+      document.getElementById("tk-common").textContent = d.tickets.common || 0;
+      document.getElementById("tk-premium").textContent = d.tickets.premium || 0;
+      if (sdata) sdata.tickets = d.tickets;
+    }
+    if (d.equipment_shards !== undefined) {
+      document.getElementById("shards-value").textContent = d.equipment_shards;
+      if (sdata) sdata.equipment_shards = d.equipment_shards;
+    }
+  }
+
+  function buildTargetSelect() {
+    var sel = document.getElementById("target-select");
+    var keep = target;
+    var order = ["mythic", "legendary", "epic", "rare", "common"];
+    var html = '<option value="">None (no target)</option>';
+    order.forEach(function (rar) {
+      sdata.heroes.filter(function (h) { return h.rarity === rar; }).forEach(function (h) {
+        html += '<option value="' + h.name + '">[' + cap(rar) + '] ' + h.name + ' (' + h.class_id.replace("_", " ") + ')' + (h.owned ? " - owned" : "") + '</option>';
+      });
+    });
+    sel.innerHTML = html; sel.value = keep;
+    targetChanged();
+  }
+
+  function targetChanged() {
+    target = document.getElementById("target-select").value;
+    var hint = document.getElementById("target-hint");
+    if (!target) {
+      hint.textContent = "Pick a hero to boost. When a pull lands on their rarity tier, they are chosen " +
+        Math.round(sdata.target_share * 100) + "% of the time (instead of 20%).";
+      return;
+    }
+    var h = sdata.heroes.filter(function (x) { return x.name === target; })[0];
+    var odds = sdata.premium_odds[h.rarity];
+    hint.textContent = h.name + " is " + h.rarity + ": about " + pct(odds) + " of pulls are that tier, and " +
+      Math.round(sdata.target_share * 100) + "% of those will be " + h.name + " (about " + pct(odds * sdata.target_share) + " per pull).";
+  }
+
+  function tk(kind) { return (sdata && sdata.tickets && sdata.tickets[kind]) || 0; }
+
+  function updatePullCosts() {
+    if (!costs || !sdata) return;
+    var ticketKind = selected === "common" ? "common" : "premium";
+    var c1, c10, unit;
+    if (selected === "character") { c1 = costs.character_1x; c10 = costs.character_10x; unit = "gems"; }
+    else if (selected === "common") { c1 = sdata.common.cost_1x; c10 = sdata.common.cost_10x; unit = "gold"; }
+    else { c1 = costs.equipment_1x; c10 = costs.equipment_10x; unit = "gems"; }
+    document.getElementById("pull-1x-cost").textContent = "(" + c1 + " " + unit + ")";
+    document.getElementById("pull-10x-cost").textContent = "(" + c10 + " " + unit + ")";
+
+    // Equipment summons pay with shards, not tickets -- everything else (Common/Premium hero summons)
+    // still uses tickets exactly as before.
+    var isEquipment = selected === "equipment";
+    document.getElementById("ticket-bar").style.display = isEquipment ? "none" : "flex";
+    document.getElementById("shard-bar").style.display = isEquipment ? "flex" : "none";
+    if (isEquipment) {
+      var shards = (sdata.equipment_shards || 0);
+      document.getElementById("spull-1x-cost").textContent = "(" + costs.equipment_shard_1x + " shards, you have " + shards + ")";
+      document.getElementById("spull-10x-cost").textContent = "(" + costs.equipment_shard_10x + " shards)";
+      document.getElementById("spull-1x").disabled = shards < costs.equipment_shard_1x;
+      document.getElementById("spull-10x").disabled = shards < costs.equipment_shard_10x;
+    } else {
+      document.getElementById("tpull-1x-cost").textContent = "(1 " + ticketKind + " ticket, you have " + tk(ticketKind) + ")";
+      document.getElementById("tpull-10x-cost").textContent = "(" + sdata.x10_count + " " + ticketKind + " tickets)";
+      document.getElementById("tpull-1x").disabled = tk(ticketKind) < 1;
+      document.getElementById("tpull-10x").disabled = tk(ticketKind) < sdata.x10_count;
+    }
+    document.getElementById("target-box").style.display = selected === "character" ? "block" : "none";
+  }
+
+  function selectBanner(type) {
+    selected = type;
+    document.getElementById("banner-character").classList.toggle("selected", type === "character");
+    document.getElementById("banner-common").classList.toggle("selected", type === "common");
+    document.getElementById("banner-equipment").classList.toggle("selected", type === "equipment");
+    updatePullCosts();
+  }
+
+  function setBusy(b) {
+    ["pull-1x", "pull-10x", "tpull-1x", "tpull-10x", "spull-1x", "spull-10x"].forEach(function (id) {
+      document.getElementById(id).disabled = b;
+    });
+    if (!b) updatePullCosts();
+  }
+
+  function pull(count, payMode) {
+    setBusy(true);
+    playSfx(SFX.confirm);
+    var route = selected === "equipment" ? "/api/summon/equipment" : "/api/summon/character";
+    var body = { count: count, pay: payMode || "currency" };
+    if (selected === "common") body.mode = "common";
+    if (selected === "character") { body.mode = "premium"; body.target = target; }
+    fetch(route, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      applyCurrencies(data);
+      document.getElementById("status").textContent = data.message || "";
+      if (data.ok) openReveal(data.results);
+      else playSfx(SFX.denied);
+    }).catch(function (e) {
+      playSfx(SFX.denied);
+      document.getElementById("status").textContent = "Pull failed: " + e;
+    }).finally(function () { setBusy(false); });
+  }
+
+  function openReveal(results) {
+    var grid = document.getElementById("reveal-grid");
+    grid.innerHTML = "";
+    cards = [];
+
+    results.forEach(function (r) {
+      var isCharacter = "class_id" in r;
+      var tag = isCharacter ? (r.is_duplicate ? "+" + r.shards_gained + " shards" : "NEW!") : (r.subtype || r.slot);
+      var isNew = isCharacter && !r.is_duplicate;
+      var bonusHtml = (!isCharacter && r.bonus_text && r.bonus_text !== "(no stat bonus)")
+        ? '<div class="bonus">' + r.bonus_text + '</div>' : "";
+
+      var card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML =
+        '<div class="card-inner">' +
+          '<div class="card-face card-front">?</div>' +
+          '<div class="card-face card-back ' + (isNew ? "new" : "") + '" style="--tint: var(--' + r.rarity + ')">' +
+            '<div class="rarity-label">' + r.rarity + '</div>' +
+            '<div class="name">' + r.name + '</div>' +
+            '<div class="tag">' + tag + '</div>' +
+            bonusHtml +
+          '</div>' +
+        '</div>';
+      card.addEventListener("click", function () { flipCard(card); });
+      grid.appendChild(card);
+      cards.push(card);
+    });
+
+    document.getElementById("reveal-overlay").classList.add("open");
+    document.getElementById("reveal-all-btn").style.display = "inline-block";
+    document.getElementById("continue-btn").style.display = "none";
+  }
+
+  function flipCard(card) {
+    card.classList.add("flipped");
+    maybeShowContinue();
+  }
+
+  function revealAll() {
+    cards.forEach(function (card, i) {
+      setTimeout(function () { flipCard(card); }, i * 120);
+    });
+  }
+
+  function maybeShowContinue() {
+    if (cards.every(function (c) { return c.classList.contains("flipped"); })) {
+      document.getElementById("reveal-all-btn").style.display = "none";
+      document.getElementById("continue-btn").style.display = "inline-block";
+    }
+  }
+
+  function closeReveal() {
+    document.getElementById("reveal-overlay").classList.remove("open");
+    fetchState();
+  }
+
+  fetchState();
+</script>
+</body>
+</html>

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Battle Arena -- World Map</title>
+<style>
+  :root {
+    --tile: 48px;
+    --ink: #eae6da;
+  }
+  html, body {
+    margin: 0; padding: 0; height: 100%; background: #10120e; color: var(--ink);
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif; overflow: hidden;
+    user-select: none;
+  }
+  #topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; background: linear-gradient(#20241c, #171a13);
+    border-bottom: 2px solid #3a3f2f; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  }
+  #map-name { font-size: 1.15em; font-weight: bold; letter-spacing: .03em; color: #f2d98a; }
+  #menu-btns { display: flex; gap: 8px; }
+  .menu-btn {
+    background: #2b2f22; border: 1px solid #545a41; color: var(--ink);
+    border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: .95em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .menu-btn:hover { background: #394026; }
+  #stage-wrap {
+    position: absolute; top: 54px; left: 0; right: 0; bottom: 0;
+    overflow: hidden;
+    background: radial-gradient(ellipse at center, #1c2016 0%, #0b0d08 100%);
+  }
+  /* #stage is positioned (left/top, in px) by JS on every move -- see updateCamera() -- so a map
+     bigger than the viewport scrolls to keep the player roughly centered, while a map that fits
+     within the viewport on some axis just gets centered on that axis instead (no dead scrolling
+     room). The transition makes that reposition glide instead of snap, at the same pace the actor
+     tiles themselves move (see .actor's transition below). */
+  #stage {
+    position: absolute;
+    background: #142010;
+    box-shadow: 0 0 0 4px #3a3f2f, 0 10px 40px rgba(0,0,0,.6);
+    image-rendering: pixelated;
+    transition: left .16s linear, top .16s linear;
+  }
+  .tile {
+    position: absolute; box-sizing: border-box;
+  }
+  .tile.wall { background: #2a2c22; border: 1px solid #1a1c16; }
+  .tile.floor { background: #4c5a3a; border: 1px solid #46532f; }
+  .tile.grass { background: #395a2a; border: 1px solid #335225; }
+  .tile.grass::after {
+    content: ""; position: absolute; inset: 30%;
+    background: #588a3e; border-radius: 2px;
+  }
+  .warp-marker {
+    position: absolute; display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--tile) * 0.55); pointer-events: none;
+    filter: drop-shadow(0 0 4px rgba(255,230,150,.8));
+    animation: bob 1.6s ease-in-out infinite;
+  }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  .actor {
+    position: absolute; width: var(--tile); height: var(--tile);
+    transition: left .16s linear, top .16s linear;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .actor-mirror { transform: scaleX(1); transform-origin: center bottom; }
+  .actor-frame { background-repeat: no-repeat; }
+  .actor-label {
+    position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: #f2d98a; white-space: nowrap; text-shadow: 0 1px 2px #000;
+    pointer-events: none;
+  }
+  #dialogue-overlay {
+    display: none; position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 18px 22px 22px; background: linear-gradient(rgba(10,12,8,0), rgba(10,12,8,.95) 30%);
+  }
+  #dialogue-box {
+    max-width: 720px; margin: 0 auto; background: #1a1d14; border: 2px solid #5a6142;
+    border-radius: 10px; padding: 16px 20px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  #dlg-name { font-weight: bold; color: #f2d98a; margin-bottom: 6px; }
+  #dlg-text { line-height: 1.4; min-height: 2.6em; }
+  #dlg-hint { text-align: right; font-size: .85em; opacity: .7; margin-top: 8px; }
+  #toast {
+    position: absolute; left: 50%; top: 70px; transform: translateX(-50%);
+    background: rgba(20,22,16,.92); border: 1px solid #545a41; border-radius: 8px;
+    padding: 8px 16px; font-size: .9em; opacity: 0; pointer-events: none;
+    transition: opacity .25s;
+  }
+  #toast.show { opacity: 1; }
+  #hint-bar {
+    position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+    font-size: .85em; opacity: .65; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div id="map-name">Loading...</div>
+  <div id="menu-btns">
+    <div class="menu-btn" id="btn-colosseum">🏛 Colosseum</div>
+    <div class="menu-btn" id="btn-party">🛡 Party</div>
+    <div class="menu-btn" id="btn-heroes">☰ Heroes</div>
+    <div class="menu-btn" id="btn-save">💾 Save</div>
+  </div>
+</div>
+<div id="stage-wrap">
+  <div id="stage"></div>
+  <div id="hint-bar">Move: Arrow Keys / WASD &nbsp;&middot;&nbsp; Talk: Space / Enter</div>
+</div>
+<div id="toast"></div>
+<div id="dialogue-overlay">
+  <div id="dialogue-box">
+    <div id="dlg-name"></div>
+    <div id="dlg-text"></div>
+    <div id="dlg-hint">Press Space to continue</div>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+
+  var TILE = 48;
+  var FRAME_COLS = 6, FRAME_ROWS = 6;             // NPC battler sheets (Idle/Run, mirrored L/R)
+  var WALK_FRAME_COLS = 4, WALK_FRAME_ROWS = 4;   // player's real walk-cycle sheets (4x4 each)
+  var DEFAULT_BATTLER = "Draven";
+  var sheetCache = new Map();
+  var walkSheetCache = new Map();
+
+  function sheetUrl(name, pose) {
+    return "/assets/Battlers/" + encodeURIComponent(name) + "/" + encodeURIComponent(name) + "-" + pose + ".png";
+  }
+
+  // Same fallback chain the battle screen and Party Select preview use: a sprite's own sheet, else
+  // Draven in the same pose, else Draven's Idle sheet -- so every NPC (which just reuses a Battler
+  // folder name as placeholder overworld art) always has *something* to render.
+  function loadSheet(name, pose) {
+    var key = name + "|" + pose;
+    if (sheetCache.has(key)) return sheetCache.get(key);
+    var p = new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () {
+        if (name !== DEFAULT_BATTLER) resolve(loadSheet(DEFAULT_BATTLER, pose));
+        else if (pose !== "Idle") resolve(loadSheet(DEFAULT_BATTLER, "Idle"));
+        else resolve(null);
+      };
+      img.src = sheetUrl(name, pose);
+    });
+    sheetCache.set(key, p);
+    return p;
+  }
+
+  var WALK_DIR_NAMES = { up: "North", down: "South", left: "West", right: "East" };
+  function walkSheetUrl(facing) {
+    return "/assets/walking/Walk-" + WALK_DIR_NAMES[facing] + ".png";
+  }
+
+  // The player's real 4-direction walk-cycle art (assets/walking/Walk-{North,South,East,West}.png --
+  // each its own 4x4 grid of frames, drawn facing the right way already, so unlike the NPC battler
+  // sheets nothing here ever needs to mirror left/right). One sheet per facing, cached forever once
+  // loaded; a missing file just resolves null so a bad path can't wedge movement, it only means that
+  // facing draws nothing until the file is fixed.
+  function loadWalkSheet(facing) {
+    if (walkSheetCache.has(facing)) return walkSheetCache.get(facing);
+    var p = new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { resolve(null); };
+      img.src = walkSheetUrl(facing);
+    });
+    walkSheetCache.set(facing, p);
+    return p;
+  }
+  function preloadAllWalkFacings(actor) {
+    Object.keys(WALK_DIR_NAMES).forEach(function (f) {
+      loadWalkSheet(f).then(function (img) { if (img) actor.walkSheets[f] = img; });
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // An overworld actor. Two modes:
+  //  - "battler" (NPCs): a small sprite cut from the same 6x6 battle sheets used everywhere else in
+  //    this project (data/Battlers/<name>/<name>-<pose>.png), reused as placeholder overworld art --
+  //    one sheet per pose (Idle/Run), mirrored via CSS for left-facing since there's only ever a
+  //    right-facing sheet.
+  //  - "walk" (the player): Andrew's real 4-direction walk-cycle sheets, one already-correctly-facing
+  //    sheet per direction, no mirroring, frame cadence driven by the same moving/tick() plumbing.
+  // ------------------------------------------------------------------
+  function Actor(opts) {
+    this.name = opts.name;
+    this.mode = opts.mode || "battler";
+    this.label = opts.label || "";
+    this.x = opts.x; this.y = opts.y;
+    this.facing = opts.facing || "down";
+    this.moving = false;
+    this.frame = 0;
+    this.lastFrameTime = 0;
+    this.sheets = {};        // battler mode: keyed by pose
+    this.walkSheets = {};    // walk mode: keyed by facing
+    this.el = document.createElement("div");
+    this.el.className = "actor";
+    this.mirror = document.createElement("div");
+    this.mirror.className = "actor-mirror";
+    this.mirror.style.width = "100%"; this.mirror.style.height = "100%";
+    this.mirror.style.display = "flex"; this.mirror.style.alignItems = "flex-end"; this.mirror.style.justifyContent = "center";
+    this.frameEl = document.createElement("div");
+    this.frameEl.className = "actor-frame";
+    this.mirror.appendChild(this.frameEl);
+    this.el.appendChild(this.mirror);
+    if (this.label) {
+      var lbl = document.createElement("div");
+      lbl.className = "actor-label";
+      lbl.textContent = this.label;
+      this.el.appendChild(lbl);
+    }
+    if (this.mode === "walk") {
+      this.loadFacingSheet(this.facing);
+      preloadAllWalkFacings(this);
+    } else {
+      this.setPose("Idle");
+    }
+    this.place();
+  }
+  Actor.prototype.place = function () {
+    this.el.style.left = (this.x * TILE) + "px";
+    this.el.style.top = (this.y * TILE) + "px";
+  };
+  Actor.prototype.setPose = function (pose) {
+    if (this.pose === pose) return;
+    this.pose = pose;
+    this.frame = 0;
+    var self = this;
+    loadSheet(this.name, pose).then(function (img) {
+      if (img) self.sheets[pose] = img;
+      self.draw();
+    });
+  };
+  Actor.prototype.loadFacingSheet = function (facing) {
+    var self = this;
+    loadWalkSheet(facing).then(function (img) {
+      if (img) self.walkSheets[facing] = img;
+      self.draw();
+    });
+  };
+  Actor.prototype.draw = function () {
+    var img, cols, rows;
+    if (this.mode === "walk") {
+      img = this.walkSheets[this.facing];
+      cols = WALK_FRAME_COLS; rows = WALK_FRAME_ROWS;
+    } else {
+      img = this.sheets[this.pose];
+      cols = FRAME_COLS; rows = FRAME_ROWS;
+    }
+    if (!img) return;
+    var frameW = img.naturalWidth / cols;
+    var frameH = img.naturalHeight / rows;
+    var H = TILE * 1.35;                       // a touch taller than one tile so feet plant on-tile
+    var targetW = H * (frameW / frameH);
+    var col = this.frame % cols;
+    var row = Math.floor(this.frame / cols);
+    this.frameEl.style.width = targetW + "px";
+    this.frameEl.style.height = H + "px";
+    this.frameEl.style.backgroundImage = "url(" + img.src + ")";
+    this.frameEl.style.backgroundSize = (targetW * cols) + "px " + (H * rows) + "px";
+    this.frameEl.style.backgroundPosition = (-(col * targetW)) + "px " + (-(row * H)) + "px";
+    // Only the battler fallback ever needs mirroring -- the walk sheets already face the right way.
+    this.mirror.style.transform = (this.mode === "battler" && this.facing === "left") ? "scaleX(-1)" : "scaleX(1)";
+  };
+  Actor.prototype.tick = function (now) {
+    var hasImage, frameCount;
+    if (this.mode === "walk") {
+      hasImage = !!this.walkSheets[this.facing];
+      frameCount = WALK_FRAME_COLS * WALK_FRAME_ROWS;
+    } else {
+      hasImage = this.pose && !!this.sheets[this.pose];
+      frameCount = FRAME_COLS * FRAME_ROWS;
+    }
+    if (!hasImage) return;
+    var fps = 8;
+    if (now - this.lastFrameTime > 1000 / fps) {
+      this.lastFrameTime = now;
+      this.frame = (this.moving) ? (this.frame + 1) % frameCount : 0;
+      this.draw();
+    }
+  };
+  Actor.prototype.setFacing = function (facing) {
+    if (this.facing === facing) return;
+    this.facing = facing;
+    if (this.mode === "walk" && !this.walkSheets[facing]) {
+      this.loadFacingSheet(facing);   // draw() runs once it resolves
+      return;
+    }
+    this.draw();
+  };
+  Actor.prototype.setMoving = function (moving) {
+    this.moving = moving;
+    if (this.mode === "walk") {
+      if (!moving) this.frame = 0;
+      this.draw();
+      return;
+    }
+    this.setPose(moving ? "Run" : "Idle");
+  };
+
+  // ------------------------------------------------------------------
+  // Game state
+  // ------------------------------------------------------------------
+  var stageEl = document.getElementById("stage");
+  var stageWrapEl = document.getElementById("stage-wrap");
+  var mapNameEl = document.getElementById("map-name");
+  var toastEl = document.getElementById("toast");
+  var dlgOverlay = document.getElementById("dialogue-overlay");
+  var dlgName = document.getElementById("dlg-name");
+  var dlgText = document.getElementById("dlg-text");
+  var dlgHint = document.getElementById("dlg-hint");
+
+  var map = null;             // current map def from the server
+  var player = null;          // Actor
+  var npcActors = [];
+  var busy = false;           // a move/interact request is in flight, or we're navigating away
+  var dialogue = null;        // { lines, i, onDone }
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { toastEl.classList.remove("show"); }, 1200);
+  }
+
+  function tileClass(ch) {
+    if (ch === ",") return "grass";
+    if (ch === "#" || ch === "T" || ch === "~") return "wall";
+    return "floor";
+  }
+
+  // ------------------------------------------------------------------
+  // Camera: positions #stage (left/top, in px) inside #stage-wrap so the player stays roughly
+  // centered on a map bigger than the viewport (Field Road, the one map built to need this --
+  // see data/world_data.py's _build_field_road_tiles), while a map that's smaller than the
+  // viewport on some axis is simply centered on that axis instead of leaving dead scroll room.
+  // Called after every render and every successful move/resize -- cheap enough (a couple of
+  // clamped subtractions) to just always recompute rather than track whether it's stale.
+  // ------------------------------------------------------------------
+  function clampOffset(viewport, mapPx, playerPx) {
+    if (mapPx <= viewport) return Math.round((viewport - mapPx) / 2);
+    var wanted = viewport / 2 - playerPx;               // centers the player
+    var minOffset = viewport - mapPx;                    // map's far edge lines up with the viewport
+    return Math.round(Math.max(minOffset, Math.min(0, wanted)));
+  }
+  function updateCamera() {
+    if (!map || !player) return;
+    var vw = stageWrapEl.clientWidth, vh = stageWrapEl.clientHeight;
+    var mapW = map.width * TILE, mapH = map.height * TILE;
+    var px = player.x * TILE + TILE / 2, py = player.y * TILE + TILE / 2;
+    stageEl.style.left = clampOffset(vw, mapW, px) + "px";
+    stageEl.style.top = clampOffset(vh, mapH, py) + "px";
+  }
+  window.addEventListener("resize", updateCamera);
+
+  function renderMap() {
+    stageEl.innerHTML = "";
+    stageEl.style.width = (map.width * TILE) + "px";
+    stageEl.style.height = (map.height * TILE) + "px";
+    mapNameEl.textContent = map.name;
+    for (var y = 0; y < map.height; y++) {
+      var row = map.tiles[y];
+      for (var x = 0; x < map.width; x++) {
+        var t = document.createElement("div");
+        t.className = "tile " + tileClass(row[x]);
+        t.style.width = TILE + "px"; t.style.height = TILE + "px";
+        t.style.left = (x * TILE) + "px"; t.style.top = (y * TILE) + "px";
+        stageEl.appendChild(t);
+      }
+    }
+    (map.warps || []).forEach(function (w) {
+      var m = document.createElement("div");
+      m.className = "warp-marker";
+      m.style.width = TILE + "px"; m.style.height = TILE + "px";
+      m.style.left = (w.x * TILE) + "px"; m.style.top = (w.y * TILE) + "px";
+      m.textContent = w.colosseum ? "🏛" : "➜";
+      m.title = w.label || "";
+      stageEl.appendChild(m);
+    });
+    npcActors = (map.npcs || []).map(function (n) {
+      var a = new Actor({ name: n.sprite, label: n.name, x: n.x, y: n.y, facing: n.facing });
+      stageEl.appendChild(a.el);
+      return a;
+    });
+    if (player) stageEl.appendChild(player.el);
+  }
+
+  function loadState() {
+    return fetch("/api/world/state").then(function (r) { return r.json(); }).then(function (state) {
+      map = state.map;
+      renderMap();
+      if (!player) {
+        player = new Actor({
+          name: state.player.sprite, label: state.player.name,
+          x: state.player.x, y: state.player.y, facing: state.player.facing,
+          mode: "walk",
+        });
+      } else {
+        player.x = state.player.x; player.y = state.player.y;
+        player.setFacing(state.player.facing);
+        player.place();
+      }
+      stageEl.appendChild(player.el);
+      updateCamera();
+    });
+  }
+
+  function animate(now) {
+    if (player) player.tick(now);
+    npcActors.forEach(function (a) { a.tick(now); });
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  // ------------------------------------------------------------------
+  // Dialogue
+  // ------------------------------------------------------------------
+  function openDialogue(name, lines, onDone) {
+    dialogue = { lines: lines, i: 0, onDone: onDone };
+    dlgName.textContent = name;
+    dlgText.textContent = lines[0] || "";
+    dlgHint.textContent = lines.length > 1 ? "Press Space to continue" : "Press Space to close";
+    dlgOverlay.style.display = "block";
+  }
+  function advanceDialogue() {
+    if (!dialogue) return;
+    dialogue.i += 1;
+    if (dialogue.i >= dialogue.lines.length) {
+      dlgOverlay.style.display = "none";
+      var done = dialogue.onDone;
+      dialogue = null;
+      if (done) done();
+      return;
+    }
+    dlgText.textContent = dialogue.lines[dialogue.i];
+    dlgHint.textContent = (dialogue.i === dialogue.lines.length - 1) ? "Press Space to close" : "Press Space to continue";
+  }
+
+  // ------------------------------------------------------------------
+  // Movement / interaction
+  // ------------------------------------------------------------------
+  var DIR_KEYS = {
+    ArrowUp: "up", w: "up", W: "up",
+    ArrowDown: "down", s: "down", S: "down",
+    ArrowLeft: "left", a: "left", A: "left",
+    ArrowRight: "right", d: "right", D: "right",
+  };
+
+  function applyMoveResult(res) {
+    if (res.player) {
+      player.x = res.player.x; player.y = res.player.y;
+      player.setFacing(res.player.facing);
+      player.place();
+    }
+    if (res.map_changed && res.map) {
+      map = res.map;
+      renderMap();
+      stageEl.appendChild(player.el);
+    }
+    updateCamera();
+    if (res.blocked === "npc") showToast("Someone's in the way.");
+    if (res.colosseum) {
+      busy = true;
+      window.location.href = "/";
+      return;
+    }
+    if (res.encounter) {
+      busy = true;
+      showToast("A wild fight breaks out!");
+      setTimeout(function () { window.location.href = "/battle?return=world"; }, 350);
+      return;
+    }
+    busy = false;
+    player.setMoving(false);
+  }
+
+  function move(direction) {
+    if (busy || dialogue) return;
+    busy = true;
+    player.setFacing(direction);
+    player.setMoving(true);
+    fetch("/api/world/move", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ direction: direction }),
+    }).then(function (r) { return r.json(); }).then(applyMoveResult).catch(function () {
+      busy = false; player.setMoving(false); showToast("Lost touch with the server.");
+    });
+  }
+
+  function interact() {
+    if (busy || dialogue) return;
+    busy = true;
+    fetch("/api/world/interact", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        busy = false;
+        if (!res.npc) { showToast("Nothing to talk to there."); return; }
+        openDialogue(res.npc.name, res.npc.lines, function () {
+          if (res.battle) {
+            showToast("Here we go!");
+            setTimeout(function () { window.location.href = "/battle?return=world"; }, 300);
+          } else if (res.navigate) {
+            window.location.href = res.navigate;
+          }
+        });
+      })
+      .catch(function () { busy = false; });
+  }
+
+  document.addEventListener("keydown", function (ev) {
+    if (dialogue) {
+      if (ev.key === " " || ev.key === "Enter") { ev.preventDefault(); advanceDialogue(); }
+      return;
+    }
+    if (ev.key === " " || ev.key === "Enter") { ev.preventDefault(); interact(); return; }
+    var dir = DIR_KEYS[ev.key];
+    if (dir) { ev.preventDefault(); move(dir); }
+  });
+  dlgOverlay.addEventListener("click", function () { advanceDialogue(); });
+
+  document.getElementById("btn-colosseum").addEventListener("click", function () { window.location.href = "/"; });
+  document.getElementById("btn-party").addEventListener("click", function () { window.location.href = "/party"; });
+  document.getElementById("btn-heroes").addEventListener("click", function () { window.location.href = "/heroes"; });
+  document.getElementById("btn-save").addEventListener("click", function () {
+    fetch("/api/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_and_quit" }) })
+      .then(function () { showToast("Saved!"); }).catch(function () { showToast("Could not reach the server."); });
+  });
+
+  loadState().catch(function () { mapNameEl.textContent = "Could not reach the hub server."; });
+})();
+</script>
+</body>
+</html>
