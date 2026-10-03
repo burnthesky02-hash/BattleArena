@@ -259,7 +259,95 @@ ENEMY_ARCHETYPES: Dict[str, EnemyArchetype] = {
     ),
 }
 
-ENEMY_IDS = tuple(ENEMY_ARCHETYPES.keys())
+# --- Shard Vault natives (html_hub/3d/make_vault.py): level 10-15 monsters that only live in the vault. They sit in ENEMY_ARCHETYPES
+# so the hub's `battle` pools can name them, but are kept OUT of ENEMY_IDS so the Colosseum's random draw never picks them. ---
+VAULT_ENEMY_ARCHETYPES: Dict[str, EnemyArchetype] = {
+    "shard_sentry": EnemyArchetype(
+        id="shard_sentry", name="Shard Sentry",
+        base_stats=Stats(max_hp=230, max_mp=30, atk=30, def_=26, mag=6, res=12, spd=8, luk=8),
+        growth=Stats(max_hp=13, max_mp=1, atk=3, def_=2, mag=0, res=1, spd=0, luk=0),
+        skill_ids=["shield_bash", "power_strike", "iron_stance", "ground_slam"],
+        resistances={Element.PHYSICAL: 0.8, Element.THUNDER: 1.3},
+        persona=("A vault guard of fused crystal. It opens with Shield Bash on whoever hits hardest to stun them, braces with Iron Stance when hurt, "
+                 "and slams the whole party with Ground Slam when it has the MP."),
+        sprite_color=(120, 190, 220), is_melee=True),
+    "arc_drone": EnemyArchetype(
+        id="arc_drone", name="Arc Drone",
+        base_stats=Stats(max_hp=100, max_mp=70, atk=8, def_=8, mag=30, res=14, spd=20, luk=12),
+        growth=Stats(max_hp=6, max_mp=4, atk=0, def_=1, mag=3, res=1, spd=1, luk=0),
+        skill_ids=["spark", "arc_discharge", "thunderbolt", "weaken"],
+        resistances={Element.THUNDER: 0.4, Element.PHYSICAL: 1.2},
+        persona=("A hovering lightning emitter. It weakens the sturdiest target first, then chains Arc Discharge through the whole party as often as its "
+                 "MP allows, and falls back on Thunderbolt against a single weak target."),
+        sprite_color=(90, 220, 255), is_melee=False),
+    "rift_leech": EnemyArchetype(
+        id="rift_leech", name="Rift Leech",
+        base_stats=Stats(max_hp=170, max_mp=40, atk=24, def_=14, mag=16, res=12, spd=13, luk=10),
+        growth=Stats(max_hp=10, max_mp=2, atk=2, def_=1, mag=1, res=1, spd=0, luk=0),
+        skill_ids=["life_drain", "poison_dart", "weaken"],
+        resistances={Element.DARK: 0.6, Element.HOLY: 1.4},
+        persona=("A parasite that feeds on whatever leaks through the rift. It poisons anyone not yet poisoned, then drains the weakest living target "
+                 "to heal itself, and never wastes a turn on a target already near death by poison."),
+        sprite_color=(120, 60, 160), is_melee=True),
+    "lattice_medic": EnemyArchetype(
+        id="lattice_medic", name="Lattice Medic",
+        base_stats=Stats(max_hp=130, max_mp=90, atk=10, def_=12, mag=22, res=22, spd=11, luk=12),
+        growth=Stats(max_hp=7, max_mp=5, atk=1, def_=1, mag=2, res=2, spd=0, luk=0),
+        skill_ids=["heal", "greater_heal", "holy_light", "shield_bash"],
+        resistances={Element.HOLY: 0.5, Element.DARK: 1.4},
+        persona=("A repair automaton that keeps the vault's other creatures alive. It heals the most wounded squadmate whenever anyone is under "
+                 "60% HP, and otherwise attacks with Holy Light. Kill it first."),
+        sprite_color=(210, 240, 200), is_melee=False),
+    "phase_hound": EnemyArchetype(
+        id="phase_hound", name="Phase Hound",
+        base_stats=Stats(max_hp=150, max_mp=30, atk=34, def_=12, mag=6, res=10, spd=30, luk=18),
+        growth=Stats(max_hp=8, max_mp=1, atk=3, def_=1, mag=0, res=1, spd=2, luk=1),
+        skill_ids=["rending_strike", "reckless_swing", "piercing_shot"],
+        resistances={Element.PHYSICAL: 0.9},
+        persona=("A pack hunter that slips between the walkways. It always goes first, picks the lowest-defence target and keeps hitting it with "
+                 "Rending Strike, and uses Reckless Swing when it is already hurt and wants the kill."),
+        sprite_color=(190, 120, 255), is_melee=True),
+    "void_acolyte": EnemyArchetype(
+        id="void_acolyte", name="Void Acolyte",
+        base_stats=Stats(max_hp=140, max_mp=100, atk=10, def_=11, mag=34, res=20, spd=14, luk=10),
+        growth=Stats(max_hp=8, max_mp=5, atk=0, def_=1, mag=3, res=2, spd=1, luk=0),
+        skill_ids=["void_lance", "shadow_bolt", "life_drain", "weaken"],
+        resistances={Element.DARK: 0.4, Element.HOLY: 1.5},
+        persona=("A robed scholar who followed the Shard into the void. It saves Void Lance for the target with the most HP, drains whoever is lowest, "
+                 "and weakens anyone who has not been weakened yet."),
+        sprite_color=(70, 40, 110), is_melee=False),
+    "frost_mirage": EnemyArchetype(
+        id="frost_mirage", name="Frost Mirage",
+        base_stats=Stats(max_hp=125, max_mp=85, atk=8, def_=9, mag=32, res=18, spd=18, luk=14),
+        growth=Stats(max_hp=7, max_mp=4, atk=0, def_=1, mag=3, res=1, spd=1, luk=1),
+        skill_ids=["frost_nova", "ice_lance", "weaken"],
+        resistances={Element.ICE: 0.4, Element.FIRE: 1.5},
+        persona=("A shimmering heat-haze of cold. It opens with Frost Nova on the whole party, then Ice Lance on the tankiest target, "
+                 "and keeps its distance."),
+        sprite_color=(170, 220, 255), is_melee=False),
+    "forge_juggernaut": EnemyArchetype(
+        id="forge_juggernaut", name="Forge Juggernaut",
+        base_stats=Stats(max_hp=320, max_mp=40, atk=36, def_=28, mag=18, res=14, spd=7, luk=6),
+        growth=Stats(max_hp=18, max_mp=2, atk=3, def_=2, mag=1, res=1, spd=0, luk=0),
+        skill_ids=["crushing_blow", "ground_slam", "warcry", "firestorm"],
+        resistances={Element.FIRE: 0.3, Element.PHYSICAL: 0.8, Element.ICE: 1.5},
+        persona=("A furnace-hearted war machine. It opens with Warcry, hammers the strongest target with Crushing Blow, "
+                 "and engulfs everyone in Firestorm when its MP allows."),
+        sprite_color=(255, 140, 50), is_melee=True),
+    "null_reaper": EnemyArchetype(
+        id="null_reaper", name="Null Reaper",
+        base_stats=Stats(max_hp=190, max_mp=60, atk=38, def_=14, mag=26, res=16, spd=19, luk=20),
+        growth=Stats(max_hp=11, max_mp=3, atk=3, def_=1, mag=2, res=1, spd=1, luk=1),
+        skill_ids=["executioners_edge", "void_lance", "life_drain"],
+        resistances={Element.DARK: 0.5, Element.HOLY: 1.4},
+        persona=("A pale harvester that finishes the wounded. Executioner's Edge goes to the lowest-HP target, Void Lance to the strongest, "
+                 "and Life Drain when it needs to recover."),
+        sprite_color=(240, 240, 255), is_melee=True),
+}
+ENEMY_ARCHETYPES.update(VAULT_ENEMY_ARCHETYPES)
+VAULT_ENEMY_IDS = tuple(VAULT_ENEMY_ARCHETYPES.keys())
+
+ENEMY_IDS = tuple(k for k in ENEMY_ARCHETYPES.keys() if k not in VAULT_ENEMY_ARCHETYPES)
 
 # Hero enemies are sourced from the same recruitable roster as summons, but can
 # appear in battle encounters as rare, higher-skill opponents instead of only

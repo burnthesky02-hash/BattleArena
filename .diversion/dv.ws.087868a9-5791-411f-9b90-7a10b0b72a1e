@@ -1,0 +1,15 @@
+{
+  "WorkspaceID": "dv.ws.087868a9-5791-411f-9b90-7a10b0b72a1e",
+  "RepoID": "dv.repo.0a943d9d-b8a0-4f9b-bd3e-e22476575a4a",
+  "Path": "D:\\Battle Arena",
+  "AccountID": "Google_117941106610600815906",
+  "BranchID": "dv.branch.1",
+  "BranchName": "main",
+  "CommitID": "dv.commit.1",
+  "Paused": false,
+  "ShouldDownload": false,
+  "RepoName": "New_Game",
+  "ReadOnly": false,
+  "DigestMethod": "sha1",
+  "OrganizationTier": "UNKNOWN"
+}

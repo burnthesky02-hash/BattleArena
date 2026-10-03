@@ -9,8 +9,11 @@ if exist icon.ico set ICON=--icon icon.ico
 python -m PyInstaller --noconfirm --clean --windowed --name BattleArena %ICON% ^
   --collect-submodules websockets ^
   --add-data "html_hub;html_hub" --add-data "html_battle;html_battle" --add-data "html_overworld;html_overworld" ^
+  --add-data "html_builder;html_builder" ^
   --add-data "data\Portraits;data\Portraits" --add-data "data\Battlers;data\Battlers" ^
-  --add-data "data\Bosses;data\Bosses" --add-data "data\Artwork;data\Artwork" ^
+  --add-data "data\Bosses;data\Bosses" --add-data "data\Artwork;data\Artwork" --add-data "data\maps;data\maps" ^
+  --add-data "data\tile_palette.json;data" --add-data "data\prop_palette.json;data" ^
+  --add-data "Assets;Assets" ^
   launcher.py
 if errorlevel 1 (echo BUILD FAILED & pause & exit /b 1)
 rem Debug launcher next to the exe (windowed exe has no console; this passes --debug)

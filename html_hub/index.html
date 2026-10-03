@@ -258,6 +258,18 @@
     border-radius: 8px; padding: 6px 10px; font-size: 11px; cursor: pointer;
   }
 
+  #map-builder-btn {
+    position: absolute; z-index: 3; bottom: 12px; left: 204px;
+    background: rgba(40,80,200,0.75); border: 1px solid rgba(120,160,255,0.6);
+    border-radius: 8px; padding: 6px 10px; font-size: 11px; cursor: pointer;
+  }
+
+
+  #map-builder3d-btn {
+    position: absolute; z-index: 3; bottom: 12px; left: 300px;
+    background: rgba(120,60,200,0.75); border: 1px solid rgba(190,150,255,0.6);
+    border-radius: 8px; padding: 6px 10px; font-size: 11px; cursor: pointer;
+  }
 
   #dbg-modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; }
   #dbg-modal.open { display: flex; }
@@ -371,6 +383,8 @@
 
   <div id="debug-btn" style="display:none;">Debug Menu</div>
   <div id="debug-battle-btn" style="display:none;">Battle Debug</div>
+  <div id="map-builder-btn" style="display:none;">Map Builder</div>
+  <div id="map-builder3d-btn" style="display:none;">3D Editor</div>
   <div id="help-btn" title="How to play">?</div>
 </div>
 <div id="dbg-modal"><div id="dbg-box"></div></div>
@@ -389,6 +403,9 @@
 </div>
 <div id="toast"></div>
 
+<script src="/battle/battlemap.js"></script>
+<script src="/hub3d/hub3d.js"></script>
+<script src="/hub3d/jrpgmenu.js"></script>
 <script>
 (function () {
   "use strict";
@@ -396,6 +413,14 @@
   // ---- Sound: fire-and-forget SFX + a single looping hub music track. SFX_VOLUME/MUSIC_VOLUME
   // are the only tuning knobs for now -- no in-game volume control yet. ----
   var SFX_VOLUME = 0.7, MUSIC_VOLUME = 0.35;
+  // Esc menu > Settings stores these in localStorage ("rpgSettings") and fires "rpg-settings" on change.
+  function applyUserSettings(s) {
+    if (!s) return;
+    if (s.sfx != null) SFX_VOLUME = s.sfx;
+    if (s.music != null) { MUSIC_VOLUME = s.music; if (_musicEl) _musicEl.volume = MUSIC_VOLUME; }
+  }
+  window.addEventListener("rpg-settings", function (e) { applyUserSettings(e.detail); });
+  try { applyUserSettings(JSON.parse(localStorage.getItem("rpgSettings") || "null")); } catch (e) {}
   function playSfx(url, vol) {
     if (!url) return;
     try {
@@ -428,6 +453,29 @@
   };
   var MUSIC_MAIN = "/assets/Music/Main/Main.mp3";
   playMusic(MUSIC_MAIN);
+  // Per-scene music (the 3D editor's Music panel stores scene.music = {url, intro?}). No music set = the hub theme.
+  var _sceneMusicKey = "main";
+  function setSceneMusic(m) {
+    var key = m && m.url ? (m.intro || "") + "|" + m.url : "main";
+    if (key === _sceneMusicKey) return;
+    _sceneMusicKey = key;
+    if (key === "main") { playMusic(MUSIC_MAIN); return; }
+    stopMusic();
+    try {
+      var vol = m.volume != null ? m.volume : MUSIC_VOLUME;
+      if (m.intro) {
+        var ia = new Audio(m.intro); ia.volume = vol; _musicEl = ia; _musicUrl = m.intro;
+        ia.onended = function () {
+          if (_musicEl !== ia) return;
+          var la = new Audio(m.url); la.loop = true; la.volume = vol; _musicEl = la; _musicUrl = m.url; la.play()["catch"](function () {});
+        };
+        ia.play()["catch"](function () {});
+      } else playMusic(m.url, vol);
+    } catch (e) { /* best-effort */ }
+  }
+  // browsers may block music until the first click/key: retry then
+  function resumeMusic() { if (_musicEl && _musicEl.paused) { try { _musicEl.play()["catch"](function () {}); } catch (e) {} } }
+  document.addEventListener("pointerdown", resumeMusic); document.addEventListener("keydown", resumeMusic);
   // Generic hover SFX for any clickable control, delegated so it also covers buttons/rows built
   // later by render()/drawDbg() -- mouseover+closest avoids needing a listener per element.
   var _lastHoverEl = null;
@@ -557,7 +605,7 @@
     document.getElementById("gems-val").textContent = s.gems;
     document.getElementById("tickets-val").textContent = ((s.tickets || {}).common || 0) + " / " + ((s.tickets || {}).premium || 0);
     document.getElementById("shards-val").textContent = s.equipment_shards || 0;
-    renderParty(s.party, s.bench_count, s.roster_count);
+    renderParty((window.Hub3D && Hub3D.isStory && Hub3D.isStory() && s.story_party) ? s.story_party : s.party, s.bench_count, s.roster_count);
     renderLadder(s.ladder);
     var heroesAlert = !!s.heroes_need_attention;
     ["heroes-alert-rail", "heroes-alert-nav"].forEach(function (id) {
@@ -566,6 +614,8 @@
     });
     document.getElementById("debug-btn").style.display = s.debug ? "block" : "none";
     document.getElementById("debug-battle-btn").style.display = s.debug ? "block" : "none";
+    document.getElementById("map-builder-btn").style.display = s.debug ? "block" : "none";
+    document.getElementById("map-builder3d-btn").style.display = s.debug ? "block" : "none";    if (window.Hub3D) Hub3D.onState(s);
   }
 
   function fetchState() {
@@ -637,15 +687,31 @@
   });
 
   document.getElementById("debug-battle-btn").addEventListener("click", function () { window.location.href = "/debug"; });
+  document.getElementById("map-builder-btn").addEventListener("click", function () { window.location.href = "/builder"; });
+  document.getElementById("map-builder3d-btn").addEventListener("click", function () { window.location.href = "/builder3d"; });
   // ---- Debug menu (only shown when the server runs with --debug) ----
   var dbg = { menu: null, tab: "Economy" };
-  var TABS = ["Economy", "Heroes", "Gear", "Items", "Ladder", "Reset"];
+  var TABS = ["Economy", "Heroes", "Gear", "Items", "Ladder", "Quests", "Cheats", "Reset"];
+  // Story chapters and the progress flags each one owns (flags live in this browser's localStorage "h3dCleared").
+  var QUESTS = [
+    { name: "Paradise Island: the village and the Hollow Crypt", start: "st_intro", done: "st_found", flags: ["st_intro", "st_quest", "st_found", "st_bossmsg", "dg_boss"] },
+    { name: "Paradise Island: defend the village", start: "st_attack", done: "st_a3", flags: ["st_attack", "st_a1", "st_a2", "st_a3"] },
+    { name: "The Pit: slave of the Colosseum", start: "st_jailed", done: "st_free", flags: ["st_jailed", "st_done", "st_free"] },
+    { name: "Olympus: arrival and the siege", start: "st_arrived", done: "st_siege", flags: ["st_arrived", "st_siege"] },
+    { name: "Outpost Kestrel: Rhea and Lyra", start: "st_landed", done: "st_lyra", flags: ["st_space", "st_landed", "st_met", "st_lyra"] },
+    { name: "The Shard Vault: guardians and the Warden", start: "vt_g1", done: "vt_boss", flags: ["vt_g1", "vt_g2", "vt_g3", "vt_boss", "vc_*"] }
+  ];
+  function inQuest(q, f) { return q.flags.some(function (p) { return p.slice(-1) === "*" ? f.indexOf(p.slice(0, -1)) === 0 : p === f; }); }
+  function getFlags() { try { return JSON.parse(localStorage.getItem("h3dCleared") || "[]"); } catch (e) { return []; } }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
   function opts(list, val, lab) { return list.map(function (x) { return '<option value="' + esc(val(x)) + '">' + esc(lab(x)) + '</option>'; }).join(""); }
   function dbgAct(msg) {
     return fetch("/api/debug/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(msg) })
       .then(function (r) { return r.json(); })
       .then(function (res) {
+        if (res.ok && msg && msg.action === "reset_game") {      // a fresh game also restarts the island story
+          try { localStorage.removeItem("h3dCleared"); sessionStorage.removeItem("h3dPos"); } catch (e) {}
+        }
         dbg.menu = res.menu; if (res.hub) render(res.hub);
         playSfx(res.ok ? SFX.confirm : SFX.denied);
         showToast(res.message || (res.ok ? "Done." : "Failed."));
@@ -657,7 +723,11 @@
     var m = dbg.menu, h = '<h3><span>Debug Menu</span><span class="dbg-btn" id="dbg-close">Close</span></h3><div id="dbg-tabs">';
     TABS.forEach(function (t) { h += '<div class="dbg-tab' + (t === dbg.tab ? " on" : "") + '" data-tab="' + t + '">' + t + '</div>'; });
     h += "</div>";
-    if (dbg.tab === "Economy") {
+    if (dbg.tab === "Cheats") {
+      var nc = false; try { nc = localStorage.getItem("h3dNoclip") === "1"; } catch (e) {}
+      h += '<div class="dbg-sec">Movement</div><div class="dbg-row"><label>Noclip</label><button class="dbg-btn" id="d-noclip">' + (nc ? "ON - click to turn off" : "OFF - click to walk through walls") + '</button></div>' +
+           '<div class="dbg-row" style="color:var(--dim)">In the 3D scenes the hero ignores walls, colliders, NPC bodies and the map edge. Saved in this browser.</div>';
+    } else if (dbg.tab === "Economy") {
       h += '<div class="dbg-row"><label>Gold</label><input type="number" id="d-gold" value="1000"><button class="dbg-btn" data-a="add_money" data-f="d-gold:amount">Add</button></div>' +
            '<div class="dbg-row"><label>Gems</label><input type="number" id="d-gems" value="100"><button class="dbg-btn" data-a="add_gems" data-f="d-gems:amount">Add</button></div>' +
            '<div class="dbg-row"><label>Tickets</label><select id="d-tk"><option value="common">Common</option><option value="premium">Premium</option></select>' +
@@ -703,6 +773,16 @@
            '<div class="dbg-row"><label>Renown</label><input type="number" id="d-rn" value="' + m.renown + '" min="0"><button class="dbg-btn" data-a="set_renown" data-f="d-rn:renown">Set</button>' +
            '<button class="dbg-btn" data-a="unlock_boss">Unlock boss challenge</button></div>' +
            '<div class="dbg-row"><button class="dbg-btn warn" data-a="reset_boss_clears">Re-arm first-clear bonuses</button></div>';
+    } else if (dbg.tab === "Quests") {
+      var have = getFlags();
+      h += '<div class="dbg-sec">Reset one story chapter (clears only its progress flags; the game reloads)</div>';
+      QUESTS.forEach(function (q, i) {
+        var n = have.filter(function (f) { return inQuest(q, f); }).length;
+        var st = have.indexOf(q.done) >= 0 ? "done" : n ? "in progress" : "not started";
+        h += '<div class="dbg-row"><span style="flex:1">' + esc(q.name) + ' <small>(' + st + ', ' + n + ' flags set)</small></span>' +
+             '<button class="dbg-btn warn" data-q="' + i + '"' + (n ? "" : " disabled") + '>Reset</button></div>';
+      });
+      h += '<div class="dbg-row"><button class="dbg-btn warn" data-q="all"' + (have.length ? "" : " disabled") + '>Reset ALL story progress (keeps the save)</button></div>';
     } else {
       h += '<div class="dbg-row"><button class="dbg-btn warn" id="d-reset">RESET GAME (wipes the save)</button></div>' +
            '<div class="dbg-row"><a class="dbg-btn" href="/debug" style="text-decoration:none">Open Battle Debug</a></div>';
@@ -721,6 +801,19 @@
     if (t.id === "d-reset") {
       if (t.dataset.armed) { dbgAct({ action: "reset_game" }); return; }
       t.dataset.armed = "1"; t.textContent = "Click again to confirm RESET"; return;
+    }
+    if (t.id === "d-noclip") {
+      try { localStorage.setItem("h3dNoclip", localStorage.getItem("h3dNoclip") === "1" ? "0" : "1"); } catch (e) {}
+      playSfx(SFX.confirm); drawDbg(); return;
+    }
+    if (t.dataset.q) {
+      var drop = t.dataset.q === "all" ? null : QUESTS[+t.dataset.q].flags;
+      try {
+        var qq = drop ? QUESTS[+t.dataset.q] : null;
+        var keep = drop ? getFlags().filter(function (f) { return !inQuest(qq, f); }) : [];
+        localStorage.setItem("h3dCleared", JSON.stringify(keep)); sessionStorage.removeItem("h3dPos");
+      } catch (e) {}
+      playSfx(SFX.confirm); showToast("Quest progress reset. Reloading..."); setTimeout(function () { location.reload(); }, 500); return;
     }
     if (t.dataset.a) {
       var msg = { action: t.dataset.a };
@@ -805,6 +898,15 @@
   try { _seenTutorial = localStorage.getItem(BA_TUTORIAL_KEY) === "1"; } catch (e) { /* best-effort */ }
   if (!_seenTutorial) openTutorial();
 
+  // 3D plaza: NPCs trigger the same controls the 2D menu uses. Falls back to the 2D layout if WebGL is unavailable.
+  function h3dActivate(a) {
+    var el = a === "challenge" ? document.getElementById("challenge-btn") : document.querySelector('#navbar [data-action="' + a + '"]');
+    if (!el) return;
+    if (el.disabled) { playSfx(SFX.denied); return; }
+    el.click();
+  }
+  if (window.JrpgMenu) JrpgMenu.init({ sfx: playSfx, SFX: SFX });
+  if (window.Hub3D) Hub3D.init({ activate: h3dActivate, sfx: playSfx, SFX: SFX, refresh: fetchState, music: setSceneMusic });
   fetchState();
 })();
 </script>

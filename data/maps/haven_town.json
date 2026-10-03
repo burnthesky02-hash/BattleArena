@@ -1,0 +1,213 @@
+{
+  "id": "haven_town",
+  "name": "Haven Town",
+  "tiles": [
+    [
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1"
+    ],
+    [
+      "stone1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "stone1"
+    ],
+    [
+      "stone1",
+      "floor1",
+      "grass1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "grass1",
+      "floor1",
+      "stone1"
+    ],
+    [
+      "stone1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "stone1"
+    ],
+    [
+      "stone1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1"
+    ],
+    [
+      "stone1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "stone1"
+    ],
+    [
+      "stone1",
+      "floor1",
+      "floor1",
+      "stone1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "stone1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "stone1"
+    ],
+    [
+      "stone1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "floor1",
+      "stone1"
+    ],
+    [
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1"
+    ]
+  ],
+  "npcs": [
+    {
+      "id": "kael_haven",
+      "name": "Kael",
+      "x": 7,
+      "y": 2,
+      "sprite": "Kael",
+      "facing": "down",
+      "lines": [
+        "Kael: First time out of the Colosseum, huh?",
+        "Kael: The whole world opened back up once someone finally rebuilt the roads.",
+        "Kael: Follow the road east and you'll hit the fields, then Ember Town."
+      ],
+      "battle": false,
+      "boss_id": null,
+      "navigate": null
+    },
+    {
+      "id": "sera_haven",
+      "name": "Sera",
+      "x": 9,
+      "y": 6,
+      "sprite": "Sera",
+      "facing": "left",
+      "lines": [
+        "Sera: That glowing archway is the Colosseum entrance.",
+        "Sera: Step on it whenever you want to fight, shop, or manage your party.",
+        "Sera: We'll still be here when you get back."
+      ],
+      "battle": false,
+      "boss_id": null,
+      "navigate": null
+    }
+  ],
+  "warps": [
+    {
+      "x": 4,
+      "y": 3,
+      "target_map": "__COLOSSEUM__",
+      "target_x": 0,
+      "target_y": 0,
+      "target_facing": "down",
+      "label": "Colosseum"
+    },
+    {
+      "x": 12,
+      "y": 4,
+      "target_map": "field_road",
+      "target_x": 1,
+      "target_y": 7,
+      "target_facing": "right",
+      "label": "Field Road"
+    }
+  ],
+  "spawn": [
+    6,
+    7
+  ],
+  "spawn_facing": "up",
+  "encounter_chance": 0.12,
+  "props": [
+    {
+      "prop_id": "tree1",
+      "x": 2,
+      "y": 2
+    },
+    {
+      "prop_id": "tree1",
+      "x": 10,
+      "y": 2
+    }
+  ]
+}

@@ -532,6 +532,11 @@
         wb.className = "wound-badge";
         wb.textContent = "WOUNDED (" + h.wounded_runs_remaining + ")";
         card.appendChild(wb);
+      } else if (h.is_story) {
+        var sb = document.createElement("div");
+        sb.className = "maxed-badge";
+        sb.textContent = "STORY HERO";
+        card.appendChild(sb);
       } else if (h.is_level_maxed) {
         var mb = document.createElement("div");
         mb.className = "maxed-badge";

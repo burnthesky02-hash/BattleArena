@@ -187,6 +187,8 @@ def sacrifice_hero(player_state: PlayerState, character_id: str) -> Tuple[bool, 
     character = _find_character(player_state, character_id)
     if character is None:
         return False, "Unknown character."
+    if character.is_story:
+        return False, f"{character.name} is part of the story and can't be sacrificed."
     if not character.is_level_maxed:
         return False, f"{character.name} must reach level {character.level_cap} before they can be sacrificed."
     if character.is_wounded:

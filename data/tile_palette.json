@@ -1,0 +1,82 @@
+{
+  "grass1": {
+    "label": "Grass",
+    "category": "encounter",
+    "sheet_url": "/assets/tilesets/forest/forestground06dv5.png",
+    "sheet_w": 629,
+    "sheet_h": 679,
+    "x": 140,
+    "y": 100,
+    "size": 40
+  },
+  "floor1": {
+    "label": "Floor / Path",
+    "category": "floor",
+    "sheet_url": "/assets/tilesets/forest/forestground06dv5.png",
+    "sheet_w": 629,
+    "sheet_h": 679,
+    "x": 180,
+    "y": 500,
+    "size": 40
+  },
+  "stone1": {
+    "label": "Stone",
+    "category": "blocked",
+    "sheet_url": "/assets/tilesets/forest/forestground06dv5.png",
+    "sheet_w": 629,
+    "sheet_h": 679,
+    "x": 90,
+    "y": 410,
+    "size": 40
+  },
+  "water1": {
+    "label": "Water",
+    "category": "blocked",
+    "sheet_url": "/assets/tilesets/forest/watertileset3qb2tg0.png",
+    "sheet_w": 410,
+    "sheet_h": 331,
+    "x": 60,
+    "y": 140,
+    "size": 40
+  },
+  "better_grass_comt": {
+    "label": "better grass",
+    "category": "floor",
+    "sheet_url": "/assets/tilesets/forest/forestground06dv5.png",
+    "sheet_w": 629,
+    "sheet_h": 679,
+    "x": 160,
+    "y": 80,
+    "size": 40
+  },
+  "left_stone_9y4q": {
+    "label": "left stone",
+    "category": "blocked",
+    "sheet_url": "/assets/tilesets/forest/forestground06dv5.png",
+    "sheet_w": 629,
+    "sheet_h": 679,
+    "x": 40,
+    "y": 120,
+    "size": 40
+  },
+  "right_stone_nvho": {
+    "label": "right stone",
+    "category": "blocked",
+    "sheet_url": "/assets/tilesets/forest/forestground06dv5.png",
+    "sheet_w": 629,
+    "sheet_h": 679,
+    "x": 360,
+    "y": 120,
+    "size": 40
+  },
+  "dirt_k3nm": {
+    "label": "dirt",
+    "category": "floor",
+    "sheet_url": "/assets/tilesets/forest/forestground06dv5.png",
+    "sheet_w": 629,
+    "sheet_h": 679,
+    "x": 160,
+    "y": 520,
+    "size": 40
+  }
+}

@@ -9,7 +9,7 @@ a = Analysis(
     ['launcher.py'],
     pathex=[],
     binaries=[],
-    datas=[('html_hub', 'html_hub'), ('html_battle', 'html_battle'), ('html_overworld', 'html_overworld'), ('data/Portraits', 'data/Portraits'), ('data/Battlers', 'data/Battlers'), ('data/Bosses', 'data/Bosses'), ('data/Artwork', 'data/Artwork')],
+    datas=[('html_hub', 'html_hub'), ('html_battle', 'html_battle'), ('html_overworld', 'html_overworld'), ('html_builder', 'html_builder'), ('data/Portraits', 'data/Portraits'), ('data/Battlers', 'data/Battlers'), ('data/Bosses', 'data/Bosses'), ('data/Artwork', 'data/Artwork'), ('data/maps', 'data/maps'), ('data/tile_palette.json', 'data'), ('data/prop_palette.json', 'data'), ('Assets', 'Assets')],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

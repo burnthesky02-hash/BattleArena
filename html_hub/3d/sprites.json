@@ -1,0 +1,117 @@
+{
+ "npcs": {
+  "Draven": {
+   "file": "npc/Draven.webp",
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 137,
+   "ch": 240,
+   "footX": 68.5,
+   "footY": 240.0,
+   "refH": 240.0
+  },
+  "Kael": {
+   "file": "npc/Kael.webp",
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 231,
+   "ch": 241,
+   "footX": 115.3,
+   "footY": 240.0,
+   "refH": 240.0
+  },
+  "Lyra": {
+   "file": "npc/Lyra.webp",
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 183,
+   "ch": 242,
+   "footX": 91.7,
+   "footY": 240.6,
+   "refH": 240.0
+  },
+  "Rook": {
+   "file": "npc/Rook.webp",
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 209,
+   "ch": 240,
+   "footX": 104.5,
+   "footY": 240.0,
+   "refH": 240.0
+  },
+  "Sera": {
+   "file": "npc/Sera.webp",
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 261,
+   "ch": 241,
+   "footX": 130.3,
+   "footY": 241.5,
+   "refH": 240.0
+  },
+  "Yulia": {
+   "file": "npc/Yulia.webp",
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 110,
+   "ch": 241,
+   "footX": 54.9,
+   "footY": 240.9,
+   "refH": 240.0
+  }
+ },
+ "walk": {
+  "south": {
+   "file": "npc/Walk-South.webp",
+   "cols": 4,
+   "rows": 4,
+   "count": 16,
+   "cw": 147,
+   "ch": 245,
+   "footX": 73.3,
+   "footY": 243.7,
+   "refH": 240.0
+  },
+  "north": {
+   "file": "npc/Walk-North.webp",
+   "cols": 4,
+   "rows": 4,
+   "count": 16,
+   "cw": 142,
+   "ch": 240,
+   "footX": 71.0,
+   "footY": 240.0,
+   "refH": 239.1
+  },
+  "east": {
+   "file": "npc/Walk-East.webp",
+   "cols": 4,
+   "rows": 4,
+   "count": 16,
+   "cw": 176,
+   "ch": 247,
+   "footX": 88.2,
+   "footY": 245.6,
+   "refH": 244.7
+  },
+  "west": {
+   "file": "npc/Walk-West.webp",
+   "cols": 4,
+   "rows": 4,
+   "count": 16,
+   "cw": 183,
+   "ch": 246,
+   "footX": 91.5,
+   "footY": 242.8,
+   "refH": 242.8
+  }
+ },
+ "refH": 240
+}

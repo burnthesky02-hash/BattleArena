@@ -30,11 +30,27 @@ def default_party_ids(player_state: PlayerState) -> List[str]:
     they're never pre-checked here even if they were in the last confirmed
     party), or -- the first time, or if that filtered list comes up empty --
     the first MAX_PARTY_SIZE fit-to-fight characters in roster order."""
-    owned_ids = {c.id for c in player_state.characters if not c.wounded_runs_remaining}
+    owned_ids = {c.id for c in colosseum_heroes(player_state) if not c.wounded_runs_remaining}
     kept = [cid for cid in player_state.active_party if cid in owned_ids]
     if kept:
         return kept[:MAX_PARTY_SIZE]
-    return [c.id for c in player_state.characters if not c.wounded_runs_remaining][:MAX_PARTY_SIZE]
+    return [c.id for c in colosseum_heroes(player_state) if not c.wounded_runs_remaining][:MAX_PARTY_SIZE]
+
+
+def colosseum_heroes(player_state: PlayerState) -> List[PlayerCharacter]:
+    """Heroes that fight in the Colosseum: everyone except the story cast (Mythic rarity)."""
+    return [c for c in player_state.characters if not c.is_story]
+
+
+def story_heroes(player_state: PlayerState) -> List[PlayerCharacter]:
+    """The story cast (Mythic heroes), in roster order."""
+    return [c for c in player_state.characters if c.is_story]
+
+
+def story_party_characters(player_state: PlayerState) -> List[PlayerCharacter]:
+    """Who fights outside the Colosseum (3D story scenes, dungeons, world bosses): the story heroes,
+    up to MAX_PARTY_SIZE, in the order they joined (Kael first). Never wounded."""
+    return story_heroes(player_state)[:MAX_PARTY_SIZE]
 
 
 def active_party_characters(player_state: PlayerState) -> List[PlayerCharacter]:
@@ -57,7 +73,7 @@ def active_party_characters(player_state: PlayerState) -> List[PlayerCharacter]:
     Heroes screen; this is just the hub's summary line."""
     ids = player_state.active_party or default_party_ids(player_state)
     id_set = set(ids)
-    return [c for c in player_state.characters if c.id in id_set and not c.wounded_runs_remaining]
+    return [c for c in player_state.characters if c.id in id_set and not c.wounded_runs_remaining and not c.is_story]
 
 
 def toggle_member(selected_ids: Sequence[str], character_id: str) -> Tuple[List[str], bool]:
@@ -103,7 +119,7 @@ def confirm_party(player_state: PlayerState,
     it) silently bumps the overflowing hero into whichever row still has
     room instead of rejecting the whole confirm, same as an invalid row
     value."""
-    owned = {c.id for c in player_state.characters}
+    owned = {c.id for c in colosseum_heroes(player_state)}
     wounded = {c.id for c in player_state.characters if c.wounded_runs_remaining}
     ids = [cid for cid in dict.fromkeys(selected_ids) if cid in owned and cid not in wounded]
     if not (MIN_PARTY_SIZE <= len(ids) <= MAX_PARTY_SIZE):

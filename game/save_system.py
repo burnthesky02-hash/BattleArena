@@ -54,7 +54,8 @@ def save_game(state: PlayerState, path: str = SAVE_PATH) -> None:
              "skill_ranks": dict(c.skill_ranks),
              "equipped_legacies": list(c.equipped_legacies),
              "wounded_runs_remaining": c.wounded_runs_remaining,
-             "formation": c.formation}
+             "formation": c.formation,
+             "hp": c.hp, "mp": c.mp}
             for c in state.characters
         ],
         "active_party": list(state.active_party),
@@ -146,7 +147,11 @@ def load_game(path: str = SAVE_PATH) -> PlayerState:
                          # formation is new as of the battle-formations pass -- an old save has no such
                          # key, so default to "middle" (engine/formation.py's DEFAULT_FORMATION), same
                          # as a freshly created PlayerCharacter gets.
-                         formation=c.get("formation", "middle"))
+                         formation=c.get("formation", "middle"),
+                         # hp/mp are new as of the in-game menu pass (HP/MP now carry over between fights
+                         # outside the Colosseum) -- an old save has neither, and None means "full".
+                         hp=(None if c.get("hp") is None else int(c["hp"])),
+                         mp=(None if c.get("mp") is None else int(c["mp"])))
         for c in data.get("characters", [])
     ]
     if migrating:

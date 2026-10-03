@@ -1,0 +1,200 @@
+{
+	"asset":
+	{
+		"version": "2.0",
+		"generator": "Unreal Engine 5.7.4"
+	},
+	"scene": 0,
+	"accessors": [
+		{
+			"bufferView": 0,
+			"count": 132,
+			"type": "SCALAR",
+			"componentType": 5121
+		},
+		{
+			"bufferView": 1,
+			"count": 67,
+			"type": "VEC3",
+			"componentType": 5126,
+			"min": [
+				-1.46999991,
+				0,
+				-0.0300003514
+			],
+			"max": [
+				0.0299999714,
+				1.20000076,
+				2.36999989
+			]
+		},
+		{
+			"bufferView": 2,
+			"count": 67,
+			"type": "VEC3",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 3,
+			"count": 67,
+			"type": "VEC4",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 4,
+			"count": 67,
+			"type": "VEC2",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 5,
+			"count": 67,
+			"type": "VEC2",
+			"componentType": 5126
+		}
+	],
+	"buffers": [
+		{
+			"uri": "SM_construction_block_01.bin",
+			"byteLength": 3884
+		}
+	],
+	"bufferViews": [
+		{
+			"buffer": 0,
+			"byteLength": 132,
+			"target": 34963
+		},
+		{
+			"buffer": 0,
+			"byteLength": 804,
+			"byteOffset": 132,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 804,
+			"byteOffset": 936,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 1072,
+			"byteOffset": 1740,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 536,
+			"byteOffset": 2812,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 536,
+			"byteOffset": 3348,
+			"target": 34962
+		}
+	],
+	"images": [
+		{
+			"uri": "MI_block_constrruction_SM_construction_block_01_BaseColor.png"
+		},
+		{
+			"uri": "MI_block_constrruction_SM_construction_block_01_MetallicRoughness.png"
+		},
+		{
+			"uri": "MI_block_constrruction_SM_construction_block_01_Normal.png"
+		},
+		{
+			"uri": "MI_block_constrruction_SM_construction_block_01_Occlusion.png"
+		}
+	],
+	"materials": [
+		{
+			"name": "MI_block_constrruction_SM_construction_block_01",
+			"pbrMetallicRoughness":
+			{
+				"baseColorTexture":
+				{
+					"index": 0,
+					"texCoord": 1
+				},
+				"metallicRoughnessTexture":
+				{
+					"index": 1,
+					"texCoord": 1
+				}
+			},
+			"normalTexture":
+			{
+				"index": 2,
+				"texCoord": 1
+			},
+			"occlusionTexture":
+			{
+				"index": 3,
+				"texCoord": 1
+			}
+		}
+	],
+	"meshes": [
+		{
+			"name": "SM_construction_block_01",
+			"primitives": [
+				{
+					"attributes":
+					{
+						"POSITION": 1,
+						"NORMAL": 2,
+						"TANGENT": 3,
+						"TEXCOORD_0": 4,
+						"TEXCOORD_1": 5
+					},
+					"indices": 0,
+					"material": 0
+				}
+			]
+		}
+	],
+	"nodes": [
+		{
+			"mesh": 0
+		}
+	],
+	"samplers": [
+		{
+			"minFilter": 9987,
+			"magFilter": 9729
+		}
+	],
+	"scenes": [
+		{
+			"nodes": [
+				0
+			]
+		}
+	],
+	"textures": [
+		{
+			"name": "MI_block_constrruction_SM_construction_block_01_BaseColor",
+			"sampler": 0,
+			"source": 0
+		},
+		{
+			"name": "MI_block_constrruction_SM_construction_block_01_MetallicRoughness",
+			"sampler": 0,
+			"source": 1
+		},
+		{
+			"name": "MI_block_constrruction_SM_construction_block_01_Normal",
+			"sampler": 0,
+			"source": 2
+		},
+		{
+			"name": "MI_block_constrruction_SM_construction_block_01_Occlusion",
+			"sampler": 0,
+			"source": 3
+		}
+	]
+}

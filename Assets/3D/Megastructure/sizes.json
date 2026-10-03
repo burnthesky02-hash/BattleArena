@@ -1,0 +1,202 @@
+{
+"SM_arch_01": [
+7.256,
+6.002,
+1.412
+],
+"SM_arch_02": [
+7.256,
+6.002,
+1.412
+],
+"SM_arch_03": [
+7.476,
+6.172,
+4.517
+],
+"SM_arch_04": [
+7.476,
+6.172,
+1.412
+],
+"SM_triangle_arch": [
+38.029,
+21.786,
+8.88
+],
+"SM_demo_floor": [
+1207.505,
+181.699,
+290.309
+],
+"SM_floor_module_01": [
+25.0,
+2.0,
+25.0
+],
+"SM_floor_module_02": [
+5.0,
+2.0,
+5.0
+],
+"SM_floor_module_03": [
+10.0,
+2.0,
+10.0
+],
+"SM_floor_module_04": [
+50.0,
+2.0,
+50.0
+],
+"SM_lamp_big": [
+0.604,
+0.156,
+0.604
+],
+"SM_lamp_long": [
+5.124,
+0.098,
+0.354
+],
+"SM_lamp_small": [
+0.241,
+0.062,
+0.241
+],
+"SM_Pannel_part_01": [
+1.129,
+4.153,
+0.0
+],
+"SM_Pannel_part_02": [
+0.489,
+3.188,
+0.0
+],
+"SM_Pannel_part_03": [
+0.287,
+1.871,
+0.0
+],
+"SM_Pannel_part_04": [
+0.446,
+2.908,
+0.0
+],
+"SM_Pannel_part_05": [
+0.446,
+2.908,
+0.0
+],
+"SM_Pannel_part_06": [
+0.75,
+4.889,
+0.0
+],
+"SM_Pannel_part_07": [
+0.489,
+3.188,
+0.0
+],
+"SM_Pannel_part_08": [
+0.623,
+4.061,
+0.0
+],
+"SM_Pannel_part_09": [
+1.129,
+4.153,
+0.0
+],
+"SM_Pannel_part_11": [
+0.287,
+1.871,
+0.0
+],
+"SM_Pannel_part_12": [
+0.446,
+2.908,
+0.0
+],
+"SM_Pannel_part_13": [
+0.446,
+2.908,
+0.0
+],
+"SM_Pannel_part_14": [
+0.75,
+4.889,
+0.0
+],
+"SM_Pannel_part_15": [
+0.623,
+4.061,
+0.0
+],
+"SM_architecture_module_01": [
+1.323,
+7.006,
+1.133
+],
+"SM_architecture_module_02": [
+1.134,
+7.014,
+1.316
+],
+"SM_architecture_module_03": [
+1.542,
+10.67,
+1.555
+],
+"SM_architecture_module_04": [
+1.542,
+10.611,
+1.562
+],
+"SM_architecture_module_05": [
+1.542,
+12.575,
+1.573
+],
+"SM_architecture_module_06": [
+0.446,
+2.777,
+0.448
+],
+"SM_architecture_module_07": [
+2.021,
+27.357,
+2.029
+],
+"SM_architecture_module_08": [
+1.554,
+3.64,
+1.547
+],
+"SM_architecture_module_09": [
+11.316,
+21.382,
+11.718
+],
+"SM_architecture_module_10": [
+18.343,
+21.382,
+12.421
+],
+"SM_architecture_module_11": [
+17.807,
+18.353,
+2.624
+],
+"SM_architecture_module_12": [
+27.785,
+6.663,
+2.183
+],
+"SM_architecture_module_13": [
+11.316,
+21.573,
+11.718
+]
+}

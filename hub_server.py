@@ -89,21 +89,24 @@ import argparse
 import asyncio
 import json
 import random
+import re
 import queue
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote
 from typing import Dict, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import config
+import builder3d_api
 from ai.enemy_ai import make_enemy_ai_fn
 from ai.ollama_client import OllamaClient
 from data.equipment_db import EQUIPMENT
-from data.hero_rarity import HERO_SUMMON_WEIGHTS, rarity_multiplier, HERO_RARITY_COLOR, MAX_STARS, shard_cost_for_next_star, star_display
+from data.hero_rarity import HERO_SUMMON_WEIGHTS, STORY_RARITY, rarity_multiplier, HERO_RARITY_COLOR, MAX_STARS, shard_cost_for_next_star, star_display
 from data.items_db import ITEMS, STARTING_INVENTORY
 from data.skills_db import SKILLS
 from data.summon_pool import (
@@ -128,10 +131,10 @@ from game import party as party_logic
 from game import save_system
 from game import shop as shop_logic
 from data.classes import CLASS_ARCHETYPES
-from data.enemy_pool import ENEMY_ARCHETYPES
+from data.enemy_pool import ENEMY_ARCHETYPES, ENEMY_IDS
 from data.hero_skills import skill_ids_for, STAPLE_SKILL_INDEX
 from data.hero_lore import HERO_LORE
-from data.leveling import MAX_LEVEL
+from data.leveling import MAX_LEVEL, xp_for_next_level, story_fight_xp
 from data.summon_pool import RECRUITABLE_ROSTER
 from game.battle_setup import (MONSTER_STAT_SCALE, BattleSetup, apply_squad_formations, build_battle,
                                build_enemy_combatant, build_hero_enemy_combatant, _hero_enemy_id,
@@ -140,6 +143,7 @@ from game import renown as renown_logic
 from game import debug_tools
 from game import ladder as ladder_logic
 from game import world as world_logic
+from data import world_data
 from data.world_data import WORLD_MAPS, START_MAP
 from game.player_state import PlayerState
 from game.roster import PlayerCharacter
@@ -162,7 +166,10 @@ WS_HOST, WS_PORT = "127.0.0.1", 8766
 HTML_DIR = PROJECT_ROOT / "html_hub"
 BATTLE_HTML_DIR = PROJECT_ROOT / "html_battle"
 WORLD_HTML_DIR = PROJECT_ROOT / "html_overworld"
+BUILDER_HTML_DIR = PROJECT_ROOT / "html_builder"
+BUILDER3D_BACKUP_DIR = BUILDER_HTML_DIR / "backups"   # timestamped copies of every scene the 3D editor overwrites
 DATA_DIR = PROJECT_ROOT / "data"
+BATTLERS_DIR = DATA_DIR / "Battlers"
 ASSETS_DIR = PROJECT_ROOT / "Assets"  # sibling of data/ -- Music/, SFX/, and walking/ live here, served under /assets/ too
 
 # Still hardcoded -- see the module docstring. Real Party Select/Battle Setup
@@ -224,6 +231,75 @@ def _build_rank_boss_setup(bdef, party_pcs, challenge: bool, equipment_db=None, 
     setup._rank_challenge = challenge
     return setup
 
+def _build_range_battle(party_pcs, lo: int, hi: int, pool, equipment_db=None, legacy_db=None):
+    """A random dungeon fight: 1-3 monsters (never a boss or hero rival) at one level rolled from [lo, hi]."""
+    equipment_db = EQUIPMENT if equipment_db is None else equipment_db
+    ids = [i for i in (pool or []) if i in ENEMY_ARCHETYPES] or list(ENEMY_IDS)
+    level = random.randint(lo, hi)
+    n = min(len(ids), random.randint(1, max(1, min(3, len(party_pcs) + 1))))
+    chosen = random.sample(ids, k=n)
+    enemies = [build_enemy_combatant(i, level) for i in chosen]
+    apply_squad_formations(enemies)
+    setup = BattleSetup(difficulty="normal", enemy_level=level, enemy_ids=chosen,
+                        party=[c.build_combatant(equipment_db, legacy_db) for c in party_pcs],
+                        enemies=enemies, enemy_hero_recruits=[None] * len(enemies))
+    return apply_enemy_scaling(setup, 0)
+
+
+# ---- Story: the slave arc ("The Pit") -------------------------------------------------------
+# While the hero is a slave (hub3d.js syncs st_done && !st_free via POST /api/story/slave) every
+# Colosseum fight is a SOLO fight with the main hero. Boss fights add 3 random allies the player
+# does not control: they act through ally_auto_action() below, never asking the browser.
+story_slave = False
+SLAVE_ALLY_COUNT = 3
+# Bosses are tuned for a full 4-hero party with gear. A slave has Kael plus three ungeared, uncontrolled helpers,
+# so a boss met in the Pit is weakened by these per-stat factors.
+SLAVE_BOSS_MULT = {"max_hp": 0.30, "atk": 0.60, "mag": 0.60, "def_": 0.80, "res": 0.80}
+
+
+def slave_hero(state):
+    """The one hero a slave fights with: Kael if owned, else the first roster member."""
+    chars = list(state.characters)
+    return ([c for c in chars if c.name == "Kael"] or chars[:1])
+
+
+def _slave_too_hurt() -> bool:
+    return bool(story_slave) and any(c.wounded_runs_remaining > 0 for c in slave_hero(player_state))
+
+
+def build_slave_allies(level: int, equipment_db, legacy_db, avoid_names):
+    """3 random recruitable heroes (different names, never the main hero) as player-side Combatants."""
+    pool = [h for h in RECRUITABLE_ROSTER if h.name not in avoid_names]
+    out = []
+    for h in random.sample(pool, k=min(SLAVE_ALLY_COUNT, len(pool))):
+        pc = PlayerCharacter(name=h.name, class_id=h.class_id, level=max(1, int(level)), rarity=h.rarity)
+        c = pc.build_combatant(equipment_db, legacy_db)
+        out.append((c, h))
+    return out
+
+
+def ally_auto_action(combatant, state: dict) -> Action:
+    """A simple, instant decision for an AI-driven party member: heal a hurt friend, else hit hard."""
+    me = combatant.id
+    foes = [e for e in state.get("enemies", []) if e.get("alive")]
+    friends = [a for a in state.get("party", []) if a.get("alive")]
+    if not foes:
+        return Action.defend(me)
+    mp = state.get("actor_mp", 0)
+    skills = [sk for sk in state.get("available_skills", []) if sk.get("mp_cost", 0) <= mp]
+    hurt = min(friends, key=lambda a: a["hp"] / max(1, a["max_hp"]), default=None)
+    if hurt and hurt["hp"] / max(1, hurt["max_hp"]) < 0.45:
+        heals = [sk for sk in skills if sk.get("kind") == "heal"]
+        if heals:
+            sk = max(heals, key=lambda k: k.get("power", 0))
+            return Action.use_skill(me, sk["id"], [hurt["id"]])
+    foe = min(foes, key=lambda e: e["hp"])
+    dmg = [sk for sk in skills if sk.get("kind") in ("physical", "magical")]
+    if dmg and random.random() < 0.7:
+        sk = max(dmg, key=lambda k: k.get("power", 0))
+        return Action.use_skill(me, sk["id"], [foe["id"]])
+    return Action.attack(me, foe["id"])
+
 SKILLS.update(BOSS_SKILLS)  # boss-only skills live in data/bosses.py
 
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "application/javascript",
@@ -236,13 +312,40 @@ CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "application/javasc
 # with hardcoded difficulty/opponent count, just for the roster's first
 # hero instead. Real character creation replaces this the same turn
 # Title/New Game gets built.
-DEFAULT_STARTER_NAME = "Garrick"
-DEFAULT_STARTER_CLASS = "tank"
+DEFAULT_STARTER_NAME = "Kael"
+DEFAULT_STARTER_CLASS = "melee_dps"
 
 
 def _default_new_game() -> PlayerState:
-    hero = PlayerCharacter(name=DEFAULT_STARTER_NAME, class_id=DEFAULT_STARTER_CLASS)
-    return PlayerState.new_game(hero)
+    hero = PlayerCharacter(name=DEFAULT_STARTER_NAME, class_id=DEFAULT_STARTER_CLASS, rarity=STORY_RARITY)
+    state = PlayerState.new_game(hero)
+    _ensure_story_split(state)
+    return state
+
+
+COLOSSEUM_STARTER = ("Bran", "melee_dps")      # the free Colosseum fighter a game gets when it has none
+
+
+def _ensure_story_split(state: PlayerState) -> bool:
+    """Story heroes (Mythic) vs Colosseum heroes: the starter Kael is a story hero (older saves had him
+    Common), story heroes never sit in the Colosseum party, and the Colosseum always has at least one
+    fighter (a free starter) so the ladder stays playable. Returns True if anything changed."""
+    changed = False
+    for c in state.characters:
+        if c.name == DEFAULT_STARTER_NAME and c.rarity != STORY_RARITY:
+            c.rarity = STORY_RARITY; changed = True
+    story_ids = {c.id for c in state.characters if c.is_story}
+    if story_ids & set(state.active_party):
+        state.active_party = [i for i in state.active_party if i not in story_ids]; changed = True
+    for c in state.characters:
+        if c.is_story and (c.wounded_runs_remaining or c.formation not in ("front", "middle", "rear")):
+            c.wounded_runs_remaining = 0; changed = True
+    if not any(not c.is_story for c in state.characters):
+        starter = PlayerCharacter(name=COLOSSEUM_STARTER[0], class_id=COLOSSEUM_STARTER[1])
+        state.characters.append(starter)
+        state.active_party = [starter.id]
+        changed = True
+    return changed
 
 
 # One process-wide PlayerState, loaded once at startup and saved back out on
@@ -260,6 +363,8 @@ else:
 # removed) has no valid world_map -- drop it at the starting map's spawn point, same as a brand-new
 # game gets from PlayerState.new_game().
 world_logic.ensure_spawned(player_state, WORLD_MAPS, START_MAP)
+if _ensure_story_split(player_state):
+    save_system.save_game(player_state)
 
 
 def _resolved_equipment_db():
@@ -301,6 +406,7 @@ def _serialize_character_summary(c: PlayerCharacter) -> dict:
         # and persisted on the hero (game/roster.py) until changed.
         "formation": c.formation,
         "is_melee": c.archetype.is_melee,
+        "is_story": c.is_story,
     }
 
 
@@ -319,8 +425,9 @@ def _any_hero_needs_attention() -> bool:
 
 def _serialize_hub_state() -> dict:
     party_chars = party_logic.active_party_characters(player_state)
-    bench_count = len(player_state.characters) - len(party_chars)
+    bench_count = len(party_logic.colosseum_heroes(player_state)) - len(party_chars)
     return {
+        "story_party": [_serialize_character_summary(c) for c in party_logic.story_party_characters(player_state)],
         "money": player_state.money,
         "gems": player_state.gems,
         "tickets": dict(player_state.tickets),
@@ -348,7 +455,9 @@ def _world_player_sprite() -> dict:
 
 
 def _serialize_world_state() -> dict:
-    current = WORLD_MAPS.get(player_state.world_map) or WORLD_MAPS[START_MAP]
+    # world_data.START_MAP (not the bare START_MAP imported above, which is a one-time snapshot from
+    # server startup) so a start-map change made in the map builder is honored here right away.
+    current = WORLD_MAPS.get(player_state.world_map) or WORLD_MAPS[world_data.START_MAP]
     return {
         "map": current.serialize(),
         "player": {
@@ -516,7 +625,8 @@ def _serialize_hero_full(c: PlayerCharacter, equipment_db) -> dict:
         # reaches this, they're eligible to be sacrificed for a legacy item (game/legacy.py's
         # sacrifice_hero); the Heroes page shows the Sacrifice action once is_level_maxed is true.
         "level_cap": c.level_cap,
-        "is_level_maxed": c.is_level_maxed,
+        "is_level_maxed": c.is_level_maxed and not c.is_story,
+        "is_story": c.is_story,
         # Wounded (game/legacy.py's apply_wound_penalty): can't be sacrificed or fielded until this
         # clears (waited out or healed for gold -- wound_heal_cost, by this hero's rarity).
         "wounded_runs_remaining": c.wounded_runs_remaining,
@@ -601,6 +711,55 @@ def _serialize_heroes_state() -> dict:
 
 
 # ----------------------------------------------------------------------
+# In-game menu (html_hub/3d/jrpgmenu.js): the active party with live HP/MP, items, gear
+# ----------------------------------------------------------------------
+def _hp_mp_for(c: PlayerCharacter, stats) -> tuple:
+    """(hp, mp) right now, clamped to the hero's current max. PlayerCharacter.hp/mp None = full."""
+    hp = stats.max_hp if c.hp is None else max(0, min(stats.max_hp, int(c.hp)))
+    mp = stats.max_mp if c.mp is None else max(0, min(stats.max_mp, int(c.mp)))
+    return hp, mp
+
+
+def _serialize_menu_hero(c: PlayerCharacter, edb) -> dict:
+    d = _serialize_hero_full(c, edb)
+    st = c.effective_stats(edb, player_state.legacy_instances)
+    d["hp"], d["mp"] = _hp_mp_for(c, st)
+    d["xp"] = c.xp
+    d["xp_next"] = None if c.is_level_maxed else xp_for_next_level(c.level, c.is_story)
+    d["formation"] = c.formation
+    for slot in SLOTS:                                   # raw bonuses, for the equip screen's before/after preview
+        eq = d["equipped"].get(slot)
+        item = edb.get(c.equipped.get(slot)) if c.equipped.get(slot) else None
+        if eq is not None and item is not None:
+            eq["bonuses"] = dict(item.stat_bonuses)
+    return d
+
+
+def _serialize_menu_state() -> dict:
+    edb = _resolved_equipment_db()
+    party = party_logic.story_party_characters(player_state)      # the field menu is the story party's
+    stash = _serialize_stash(edb)
+    for entry in stash:
+        item = edb.get(entry["instance_id"])
+        entry["bonuses"] = dict(item.stat_bonuses) if item else {}
+    inventory = []
+    for iid, count in player_state.inventory.items():
+        it = ITEMS.get(iid)
+        if it is None or count <= 0:
+            continue
+        inventory.append({"id": it.id, "name": it.name, "description": it.description, "count": count,
+                          "heal_hp": it.heal_hp, "heal_mp": it.heal_mp, "revive": it.revive,
+                          "cure_status": it.cure_status})
+    return {
+        "party": [_serialize_menu_hero(c, edb) for c in party],
+        "inventory": inventory, "stash": stash, "slots": list(SLOTS),
+        "money": player_state.money, "gems": player_state.gems, "rank": player_state.rank,
+        "renown": player_state.renown, "tickets": dict(player_state.tickets),
+        "equipment_shards": player_state.equipment_shards,
+    }
+
+
+# ----------------------------------------------------------------------
 # Serialization helpers -- Shop / Party Select
 # ----------------------------------------------------------------------
 def _serialize_shop_state() -> dict:
@@ -635,7 +794,7 @@ def _serialize_party_hero(c: PlayerCharacter, equipment_db) -> dict:
 def _serialize_party_state() -> dict:
     edb = _resolved_equipment_db()
     return {
-        "roster": [_serialize_party_hero(c, edb) for c in player_state.characters],
+        "roster": [_serialize_party_hero(c, edb) for c in party_logic.colosseum_heroes(player_state)],
         "selected": party_logic.default_party_ids(player_state),
         "max_size": party_logic.MAX_PARTY_SIZE,
         "min_size": party_logic.MIN_PARTY_SIZE,
@@ -647,6 +806,14 @@ def _serialize_party_state() -> dict:
 # ----------------------------------------------------------------------
 # Serialization helpers -- Summon
 # ----------------------------------------------------------------------
+def _fold_story_odds(odds: dict) -> dict:
+    """Mythic heroes are the story cast and are never summoned: their share of a pull lands as Legendary."""
+    odds = dict(odds); extra = odds.pop(STORY_RARITY, 0)
+    if extra:
+        odds["legendary"] = odds.get("legendary", 0) + extra
+    return odds
+
+
 def _serialize_summon_state() -> dict:
     return {
         "gems": player_state.gems,
@@ -655,10 +822,10 @@ def _serialize_summon_state() -> dict:
         "ticket_labels": TICKET_LABEL,
         "equipment_shards": player_state.equipment_shards,
         "heroes": [{"name": h.name, "class_id": h.class_id, "rarity": h.rarity,
-                    "owned": any(c.name == h.name for c in player_state.characters)} for h in RECRUITABLE_ROSTER],
+                    "owned": any(c.name == h.name for c in player_state.characters)} for h in RECRUITABLE_ROSTER if h.rarity != STORY_RARITY],
         "common": {"cost_1x": COMMON_SUMMON_COST, "cost_10x": COMMON_SUMMON_COST_X10,
-                   "odds": dict(COMMON_SUMMON_WEIGHTS)},
-        "premium_odds": {k: float(v) for k, v in HERO_SUMMON_WEIGHTS.items()},
+                   "odds": _fold_story_odds(dict(COMMON_SUMMON_WEIGHTS))},
+        "premium_odds": _fold_story_odds({k: float(v) for k, v in HERO_SUMMON_WEIGHTS.items()}),
         "equipment_odds": dict(EQUIPMENT_RARITY_WEIGHTS),
         "target_share": TARGET_SHARE,
         "roster_size": len(player_state.characters),
@@ -828,13 +995,43 @@ class Handler(BaseHTTPRequestHandler):
         # own heuristic caching for index.html/heroes.html/etc -- meaning a page reload could silently
         # keep running old JS after a file on disk changed. These are actively-edited dev assets, so
         # never let the browser cache them.
-        if content_type in (CONTENT_TYPES[".html"], "application/javascript", "text/javascript"):
+        if content_type in (CONTENT_TYPES[".html"], "application/javascript", "text/javascript", "application/json", "model/gltf-binary"):
             self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.end_headers()
         self.wfile.write(body)
 
     def _send_json(self, status: int, payload: dict) -> None:
         self._send_bytes(status, json.dumps(payload).encode("utf-8"), "application/json")
+
+    def _send_battle_map_file(self, name):
+        """3D battle arena maps live in html_battle/maps/: <id>.glb (the model) + optional <id>.json (settings).
+        index.json is generated from whatever is in the folder; a .glb with no .json gets sensible defaults."""
+        maps_dir = BATTLE_HTML_DIR / "maps"
+        if name == "index.json":
+            ids = {}
+            if maps_dir.is_dir():
+                for p in sorted(maps_dir.iterdir()):
+                    if p.suffix.lower() in (".json", ".glb") and p.name != "index.json":
+                        ids.setdefault(p.stem, p.stem.replace("_", " ").replace("-", " ").title())
+                for p in maps_dir.glob("*.json"):
+                    try:
+                        label = json.loads(p.read_text(encoding="utf-8")).get("name")
+                        if label and p.stem in ids:
+                            ids[p.stem] = label
+                    except (OSError, ValueError):
+                        pass
+            self._send_json(200, {"maps": [{"id": k, "name": v} for k, v in ids.items()]})
+            return
+        safe = Path(name).name                      # no sub-folders, no ..
+        path = maps_dir / safe
+        ctype = {".json": "application/json", ".glb": "model/gltf-binary", ".png": "image/png",
+                 ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}.get(path.suffix.lower())
+        if path.is_file() and ctype:
+            self._send_bytes(200, path.read_bytes(), ctype)
+        elif path.suffix.lower() == ".json" and (maps_dir / (path.stem + ".glb")).is_file():
+            self._send_json(200, {"name": path.stem, "model": path.stem + ".glb", "scale": 1, "offset": [0, 0, 0], "rotY": 0, "cullNearCamera": 8})
+        else:
+            self._send_bytes(404, b"not found", "text/plain")
 
     def _send_html_file(self, directory: Path, filename: str) -> None:
         path = directory / filename
@@ -872,6 +1069,12 @@ class Handler(BaseHTTPRequestHandler):
         if route_path in ("/shop", "/shop/", "/shop/index.html"):
             self._send_html_file(HTML_DIR, "shop.html")
             return
+        if route_path in ("/party", "/party/", "/party/index.html") and _slave_too_hurt():
+            self._send_bytes(200, ("<!doctype html><meta charset=utf-8><body style='background:#0b0a10;color:#ddd;font:20px sans-serif;text-align:center;padding-top:20vh'>"
+                                   "<p>You are too wounded to fight. The Overseer won't send a corpse to the sand.</p>"
+                                   "<p>Rest on the cot in your cell to let time pass.</p>"
+                                   "<p><button style='font-size:20px' onclick='history.back()'>Back</button></p>").encode("utf-8"), "text/html; charset=utf-8")
+            return
         if route_path in ("/party", "/party/", "/party/index.html"):
             debug_battle = None  # normal battle flow -- drop any pending debug setup
             self._send_html_file(HTML_DIR, "party.html")
@@ -897,12 +1100,92 @@ class Handler(BaseHTTPRequestHandler):
         if route_path in ("/battle", "/battle/", "/battle/index.html"):
             self._send_html_file(BATTLE_HTML_DIR, "index.html")
             return
+        if route_path in ("/battle/battle3d.js", "/battle/battlemap.js"):
+            js_path = BATTLE_HTML_DIR / route_path.rsplit("/", 1)[1]
+            if js_path.is_file():
+                self._send_bytes(200, js_path.read_bytes(), "application/javascript")
+            else:
+                self._send_bytes(404, b"not found", "text/plain")
+            return
+        if route_path.startswith("/hub3d/"):
+            # 3D colosseum plaza: html_hub/3d/ (hub3d.js, plaza.json, sprites.json, npc/*.webp)
+            rel = unquote(route_path[len("/hub3d/"):])
+            base = (HTML_DIR / "3d").resolve()
+            fp = (base / rel).resolve()
+            ctype = {".js": "application/javascript", ".json": "application/json", ".webp": "image/webp",
+                     ".png": "image/png", ".jpg": "image/jpeg"}.get(fp.suffix.lower())
+            if ctype and base in fp.parents and fp.is_file():
+                self._send_bytes(200, fp.read_bytes(), ctype)
+            else:
+                self._send_bytes(404, b"not found", "text/plain")
+            return
+        if route_path.startswith("/battle/maps/"):
+            self._send_battle_map_file(unquote(route_path[len("/battle/maps/"):]))
+            return
         if route_path in ("/world", "/world/", "/world/index.html"):
             self._send_html_file(WORLD_HTML_DIR, "index.html")
             return
         if route_path == "/api/world/state":
             with _state_lock:
                 self._send_json(200, _serialize_world_state())
+            return
+        if route_path in ("/builder", "/builder/", "/builder/index.html"):
+            self._send_html_file(BUILDER_HTML_DIR, "index.html")
+            return
+        if route_path in ("/builder3d", "/builder3d/", "/builder3d/index.html"):
+            self._send_html_file(BUILDER_HTML_DIR, "index3d.html")
+            return
+        if route_path == "/api/builder3d/scenes":
+            self._send_json(200, {"scenes": builder3d_api.list_scenes(HTML_DIR / "3d", BATTLE_HTML_DIR / "maps")})
+            return
+        if route_path == "/api/builder3d/images":
+            self._send_json(200, {"images": builder3d_api.list_images(ASSETS_DIR, DATA_DIR)})
+            return
+        if route_path == "/api/builder3d/music":
+            self._send_json(200, {"music": builder3d_api.list_music(ASSETS_DIR / "Music")})
+            return
+        if route_path == "/api/builder3d/models":
+            self._send_json(200, {"models": builder3d_api.list_models(ASSETS_DIR / "3D")})
+            return
+        if route_path == "/api/builder/maps":
+            with _state_lock:
+                self._send_json(200, {"maps": [
+                    {"id": m.id, "name": m.name, "width": m.width(), "height": m.height()}
+                    for m in WORLD_MAPS.values()
+                ]})
+            return
+        if route_path.startswith("/api/builder/maps/"):
+            map_id = route_path[len("/api/builder/maps/"):]
+            with _state_lock:
+                m = WORLD_MAPS.get(map_id)
+                if m is None:
+                    self._send_bytes(404, b"no such map", "text/plain")
+                    return
+                self._send_json(200, world_logic.map_to_dict(m))
+            return
+        if route_path == "/api/builder/meta":
+            with _state_lock:
+                self._send_json(200, {"start_map": world_data.START_MAP,
+                                       "map_ids": sorted(WORLD_MAPS.keys())})
+            return
+        if route_path == "/api/builder/battlers":
+            names = sorted(p.name for p in BATTLERS_DIR.iterdir() if p.is_dir()) if BATTLERS_DIR.is_dir() else []
+            self._send_json(200, {"battlers": names})
+            return
+        if route_path == "/api/builder/world_bosses":
+            self._send_json(200, {"world_bosses": [
+                {"id": b.id, "name": b.name} for b in WORLD_BOSSES.values()
+            ]})
+            return
+        if route_path == "/api/palette":
+            # Both html_overworld (to render tiles/props) and html_builder (to build its brush list
+            # and Tile Chooser) fetch this once at load -- the palette is global, not per-map, so
+            # there's no need to re-fetch it on every map/warp like map.serialize() itself.
+            with _state_lock:
+                self._send_json(200, {
+                    "tiles": [world_logic.tile_kind_to_dict(t) for t in world_logic.TILE_PALETTE.values()],
+                    "props": [world_logic.prop_kind_to_dict(p) for p in world_logic.PROP_PALETTE.values()],
+                })
             return
         if route_path == "/api/state":
             with _state_lock:
@@ -914,16 +1197,20 @@ class Handler(BaseHTTPRequestHandler):
             with _state_lock:
                 self._send_json(200, _serialize_heroes_state())
             return
+        if route_path == "/api/menu/state":
+            with _state_lock:
+                self._send_json(200, _serialize_menu_state())
+            return
         if route_path == "/api/summon/state":
             with _state_lock:
                 self._send_json(200, _serialize_summon_state())
             return
         if route_path.startswith("/assets/"):
-            rel = route_path[len("/assets/"):]
-            # Music/, SFX/, and walking/ (the overworld's real 4-direction walk-cycle sheets --
-            # see html_overworld/index.html) live under the sibling Assets/ folder (capital A),
-            # not data/ -- same generic static-file serving, just a different root for those subtrees.
-            root = ASSETS_DIR if rel.startswith(("Music/", "SFX/", "walking/")) else DATA_DIR
+            rel = unquote(route_path[len("/assets/"):])      # folder names like "GLB format" arrive as %20
+            # Music/, SFX/, walking/ (the overworld's 4-direction walk-cycle sheets), and tilesets/
+            # (the overworld's terrain art), and 3D/ (GLB models for the battle maps) live under the sibling Assets/ folder (capital A), not
+            # data/ -- same generic static-file serving, just a different root for those subtrees.
+            root = ASSETS_DIR if rel.startswith(("Music/", "SFX/", "walking/", "tilesets/", "3D/", "Backgrounds/")) else DATA_DIR
             path = (root / rel).resolve()
             if root.resolve() not in path.parents or not path.is_file():
                 self._send_bytes(404, b"not found", "text/plain")
@@ -935,7 +1222,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------------
     def do_POST(self):
-        global debug_battle
+        global debug_battle, story_slave
         if self.path == "/api/debug/setup" and config.DEBUG:
             cfg, err = _validate_debug_setup(self._read_json_body())
             if cfg is None:
@@ -985,6 +1272,38 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_world_move()
         elif self.path == "/api/world/interact":
             self._handle_world_interact()
+        elif self.path == "/api/world/hub_battle":
+            self._handle_hub_battle()
+        elif self.path == "/api/story/recruit":
+            self._handle_story_recruit()
+        elif self.path == "/api/story/chest":
+            self._handle_story_chest()
+        elif self.path == "/api/story/pass_time":
+            self._handle_pass_time()
+        elif self.path == "/api/story/slave":
+            story_slave = bool(self._read_json_body().get("slave"))
+            self._send_json(200, {"ok": True, "slave": story_slave})
+        elif self.path == "/api/menu/use_item":
+            self._handle_menu_use_item()
+        elif self.path == "/api/menu/cast":
+            self._handle_menu_cast()
+        elif self.path == "/api/menu/rest":
+            self._handle_menu_rest()
+        elif self.path == "/api/menu/save":
+            self._handle_menu_save()
+        elif self.path == "/api/builder3d/scene":
+            msg = self._read_json_body()
+            try:
+                result = builder3d_api.save_scene(msg.get("kind"), msg.get("id"), msg.get("scene"), HTML_DIR / "3d", BATTLE_HTML_DIR / "maps", BUILDER3D_BACKUP_DIR)
+            except OSError as exc:  # e.g. a read-only packaged build
+                result = {"ok": False, "error": f"could not write the scene file: {exc}"}
+            self._send_json(200 if result.get("ok") else 400, result)
+        elif self.path == "/api/builder/maps":
+            self._handle_builder_save_map()
+        elif self.path == "/api/builder/meta":
+            self._handle_builder_save_meta()
+        elif self.path == "/api/builder/palette":
+            self._handle_builder_save_palette()
         else:
             self._send_bytes(404, b"not found", "text/plain")
 
@@ -1112,6 +1431,9 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_ladder_start(self) -> None:
         global pending_ladder, pending_challenge, debug_battle
         with _state_lock:
+            if _slave_too_hurt():
+                self._send_json(200, {"ok": False, "message": "You are too wounded to fight. Rest on your cot to pass time."})
+                return
             pending_ladder, pending_challenge, debug_battle = True, None, None
             self._send_json(200, {"ok": True, "url": "/party"})
 
@@ -1119,6 +1441,9 @@ class Handler(BaseHTTPRequestHandler):
         """Hub's boss card: starts the challenge flow (party select, then the fight) if the renown is there."""
         global pending_challenge, pending_ladder, debug_battle
         with _state_lock:
+            if _slave_too_hurt():
+                self._send_json(200, {"ok": False, "message": "You are too wounded to fight. Rest on your cot to pass time."})
+                return
             boss_id = renown_logic.boss_id_for_rank(player_state.rank)
             if boss_id not in BOSSES or not renown_logic.can_challenge(player_state):
                 self._send_json(200, {"ok": False, "message": "You are not renowned enough to challenge this boss yet."})
@@ -1207,6 +1532,203 @@ class Handler(BaseHTTPRequestHandler):
                 save_system.save_game(player_state)
             self._send_json(200, result)
 
+    def _menu_reply(self, ok: bool, message: str, **extra) -> None:
+        self._send_json(200, {"ok": ok, "message": message, **extra, "state": _serialize_menu_state()})
+
+    def _menu_party_member(self, character_id):
+        for c in party_logic.story_party_characters(player_state):
+            if c.id == character_id:
+                return c
+        return None
+
+    def _handle_menu_use_item(self) -> None:
+        """Menu > Items: use one consumable on one party member. Potions and Ethers restore the hero's
+        persistent HP/MP (a hero already full is refused and nothing is spent); revives and status cures
+        have no meaning outside a fight, so they are refused too."""
+        msg = self._read_json_body()
+        item = ITEMS.get(msg.get("item_id"))
+        with _state_lock:
+            c = self._menu_party_member(msg.get("character_id"))
+            if item is None or player_state.inventory.get(item.id, 0) <= 0:
+                return self._menu_reply(False, "You don't have any of that.")
+            if c is None:
+                return self._menu_reply(False, "Choose someone in the party.")
+            st = c.effective_stats(_resolved_equipment_db(), player_state.legacy_instances)
+            hp, mp = _hp_mp_for(c, st)
+            parts = []
+            if item.heal_hp and not item.revive and hp < st.max_hp:
+                new = min(st.max_hp, hp + item.heal_hp); parts.append(f"{new - hp} HP"); c.hp = new
+            if item.heal_mp and mp < st.max_mp:
+                new = min(st.max_mp, mp + item.heal_mp); parts.append(f"{new - mp} MP"); c.mp = new
+            if not parts:
+                why = "can only be used in battle" if (item.revive or item.cure_status) else "would have no effect"
+                return self._menu_reply(False, f"{item.name} {why} on {c.name}.")
+            player_state.inventory[item.id] -= 1
+            if player_state.inventory[item.id] <= 0:
+                del player_state.inventory[item.id]
+            save_system.save_game(player_state)
+            self._menu_reply(True, f"{c.name} recovers {' and '.join(parts)}.")
+
+    def _handle_menu_cast(self) -> None:
+        """Menu > Magic: cast one of a hero's healing skills on a party member (or the whole party for an
+        all-allies skill). Uses the same heal formula as battle (MAG x rank-scaled power, row bonus, variance)."""
+        msg = self._read_json_body()
+        skill = SKILLS.get(msg.get("skill_id"))
+        with _state_lock:
+            caster = self._menu_party_member(msg.get("caster_id"))
+            if caster is None or skill is None or skill.kind != "heal" or skill.id not in skill_ids_for(caster.name, caster.class_id):
+                return self._menu_reply(False, "That can't be cast here.")
+            edb = _resolved_equipment_db(); ldb = player_state.legacy_instances
+            st = caster.effective_stats(edb, ldb)
+            _, mp = _hp_mp_for(caster, st)
+            rank = caster.skill_rank(skill.id); cost = mp_cost_at_rank(skill, rank)
+            if mp < cost:
+                return self._menu_reply(False, f"{caster.name} doesn't have enough MP ({cost} needed).")
+            party = party_logic.story_party_characters(player_state)
+            if skill.target == TargetType.SINGLE_ALLY:
+                t = self._menu_party_member(msg.get("target_id"))
+                targets = [t] if t is not None else []
+            elif skill.target == TargetType.SELF:
+                targets = [caster]
+            else:
+                targets = list(party)
+            if not targets:
+                return self._menu_reply(False, "Choose a target.")
+            tstats = {t.id: t.effective_stats(edb, ldb) for t in targets}
+            if all(_hp_mp_for(t, tstats[t.id])[0] >= tstats[t.id].max_hp for t in targets):
+                return self._menu_reply(False, "No one needs healing.")
+            comb = caster.build_combatant(edb, ldb)
+            power = power_at_rank(skill, rank); healed = []
+            for t in targets:
+                hp, _m = _hp_mp_for(t, tstats[t.id]); amt = formulas.heal_amount(comb, power)
+                new = min(tstats[t.id].max_hp, hp + amt)
+                if new > hp: healed.append(f"{t.name} +{new - hp}")
+                t.hp = new
+            caster.mp = mp - cost
+            save_system.save_game(player_state)
+            self._menu_reply(True, f"{caster.name} casts {skill.name}. " + (", ".join(healed) if healed else "Nothing happens."))
+
+    def _handle_menu_rest(self) -> None:
+        """Rest (an inn bed, a campfire, the village elder): everyone in the roster is back to full HP and MP."""
+        with _state_lock:
+            for c in player_state.characters:
+                c.hp = None; c.mp = None
+            save_system.save_game(player_state)
+            self._menu_reply(True, "You rest a while. Everyone's HP and MP are fully restored.")
+
+    def _handle_story_recruit(self) -> None:
+        """A story character joins the roster for free (e.g. Lyra at Outpost Kestrel). Arrives at the level of the strongest hero,
+        and is added to the active party if there is room. Already owning her is fine: nothing changes."""
+        name = str(self._read_json_body().get("name") or "")
+        h = next((r for r in RECRUITABLE_ROSTER if r.name == name), None)
+        if h is None:
+            self._send_json(200, {"ok": False, "message": f"Nobody called {name!r} can join."})
+            return
+        with _state_lock:
+            if any(c.name == h.name for c in player_state.characters):
+                self._send_json(200, {"ok": True, "message": f"{h.name} is already with you.", "joined": False})
+                return
+            level = max([c.level for c in party_logic.story_heroes(player_state)] or [1])    # joins at the strongest story hero's level
+            pc = PlayerCharacter(name=h.name, class_id=h.class_id, level=level, rarity=h.rarity)
+            player_state.characters.append(pc)
+            _ensure_story_split(player_state)
+            save_system.save_game(player_state)
+        self._send_json(200, {"ok": True, "message": f"{h.name} joins your party!", "joined": True})
+
+    def _handle_story_chest(self) -> None:
+        """A treasure chest in a 3D scene (Shard Vault). Body: {loot: {gold, gems, shards, tickets:{common|premium:n}, items:{id:n}, equipment:[ids]}}.
+        Reuses the debug grants (game/debug_tools.py) so every id is validated; amounts are clamped. Opened-chest state is a story flag kept in the browser."""
+        loot = self._read_json_body().get("loot") or {}
+
+        def _n(v, hi):
+            try:
+                return max(0, min(hi, int(v)))
+            except (TypeError, ValueError):
+                return 0
+        found = []
+        with _state_lock:
+            def grant(msg):
+                ok, text = debug_tools.apply(player_state, msg, (DEFAULT_STARTER_NAME, DEFAULT_STARTER_CLASS))
+                if ok:
+                    found.append(text.rstrip("."))
+            if _n(loot.get("gold"), 5000): grant({"action": "add_money", "amount": _n(loot.get("gold"), 5000)})
+            if _n(loot.get("gems"), 100): grant({"action": "add_gems", "amount": _n(loot.get("gems"), 100)})
+            if _n(loot.get("shards"), 200): grant({"action": "add_equipment_shards", "amount": _n(loot.get("shards"), 200)})
+            for kind, n in (loot.get("tickets") or {}).items():
+                if _n(n, 20): grant({"action": "add_tickets", "kind": kind, "count": _n(n, 20)})
+            for iid, n in (loot.get("items") or {}).items():
+                if _n(n, 20): grant({"action": "add_item", "id": iid, "count": _n(n, 20)})
+            for eid in (loot.get("equipment") or [])[:4]:
+                grant({"action": "add_equipment", "id": eid, "count": 1})
+            if found:
+                save_system.save_game(player_state)
+        msg = ("You open the chest and find: " + ", ".join(found) + ".") if found else "The chest is empty."
+        self._send_json(200, {"ok": bool(found), "message": msg})
+
+    def _handle_pass_time(self) -> None:
+        """The Pit's cot: sleeping lets time pass. Each rest counts as one finished run for every wounded hero
+        (the same countdown a Colosseum run advances) and restores HP/MP."""
+        with _state_lock:
+            hurt = [c for c in player_state.characters if c.wounded_runs_remaining > 0]
+            for c in player_state.characters:
+                c.hp = None; c.mp = None
+            msgs = legacy_logic.tick_wounds(player_state)
+            save_system.save_game(player_state)
+            left = [c for c in player_state.characters if c.wounded_runs_remaining > 0]
+        if not hurt:
+            text = "You lie on the cot a while. The crowd roars above. You are rested and ready."
+        elif left:
+            text = "You sleep, and the days blur together. " + ", ".join(f"{c.name} needs {c.wounded_runs_remaining} more rest{'s' if c.wounded_runs_remaining != 1 else ''}" for c in left) + " before fit to fight."
+        else:
+            text = "You sleep, and the days blur together. " + " ".join(msgs)
+        self._menu_reply(True, text)
+
+    def _handle_menu_save(self) -> None:
+        with _state_lock:
+            save_system.save_game(player_state)
+            self._menu_reply(True, "Game saved.")
+
+    def _handle_hub_battle(self) -> None:
+        """A 3D hub scene (island dungeon, ...) starting a fight through its `battle` event action.
+        Sets the same one-shot flags the overworld uses, so run_battle() treats it as a from_world
+        fight: one battle, no streak prompt, and the page returns to the scene it came from.
+        `boss_id` names a WORLD_BOSSES entry; anything else is a normal scaled wild encounter."""
+        global pending_world_boss, pending_world_encounter, pending_world_level, pending_hub3d, last_hub_battle
+        msg = self._read_json_body()
+        if msg.get("retry") and last_hub_battle:      # "Retry Battle" after a defeat: the very same fight again
+            msg = dict(last_hub_battle)
+        else:
+            last_hub_battle = dict(msg)
+        boss_id = msg.get("boss_id") or ""
+
+        def _int(v, default=None):
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return default
+        with _state_lock:
+            pending_world_boss = None
+            pending_world_encounter = False
+            pending_world_level = None
+            pending_hub3d = True
+            if boss_id in WORLD_BOSSES:
+                pending_world_boss = boss_id
+                lv = _int(msg.get("level"))            # an exact boss level; without it: party average + the boss's offset
+                if lv:
+                    pending_world_level = {"boss_level": max(1, min(MAX_LEVEL, lv))}
+            else:
+                pending_world_encounter = True
+                lo = _int(msg.get("level_min")); hi = _int(msg.get("level_max"))
+                pool = [p for p in (msg.get("pool") or []) if isinstance(p, str)]
+                rel = msg.get("level_rel")
+                if lo or hi:                           # a random fight at a set level range (dungeon encounters)
+                    lo = max(1, min(MAX_LEVEL, lo or hi)); hi = max(lo, min(MAX_LEVEL, hi or lo))
+                    pending_world_level = {"min": lo, "max": hi, "pool": pool}
+                elif isinstance(rel, (list, tuple)) and len(rel) == 2 and all(isinstance(v, (int, float)) for v in rel):
+                    # a fight relative to the party: the average party level plus [lo, hi] (story ambushes that should scale)
+                    pending_world_level = {"rel": [int(rel[0]), int(rel[1])], "pool": pool}
+        self._send_json(200, {"ok": True, "boss": bool(boss_id in WORLD_BOSSES)})
+
     def _handle_world_interact(self) -> None:
         global pending_world_boss
         with _state_lock:
@@ -1214,6 +1736,71 @@ class Handler(BaseHTTPRequestHandler):
             if result.get("boss_id") in WORLD_BOSSES:
                 pending_world_boss = result["boss_id"]
             self._send_json(200, result)
+
+    def _handle_builder_save_map(self) -> None:
+        """html_builder/index.html's Save button. Validates the posted map (see
+        _validate_builder_map below), writes it to data/maps/<id>.json, and reloads the live
+        WORLD_MAPS registry in place so the change is playable immediately -- no server restart,
+        and no separate "publish" step. A POST here with an id that already exists overwrites that
+        map; any other id creates a new one."""
+        msg = self._read_json_body()
+        err = _validate_builder_map(msg)
+        if err:
+            self._send_json(400, {"ok": False, "error": err})
+            return
+        with _state_lock:
+            map_def = world_logic.map_from_dict(msg)
+            world_logic.save_map_to_dir(world_data.MAPS_DIR, map_def)
+            world_data.reload_world_maps()
+            self._send_json(200, {"ok": True, "map": world_logic.map_to_dict(WORLD_MAPS[map_def.id])})
+
+    def _handle_builder_save_meta(self) -> None:
+        """Sets which map a brand-new save spawns into (data/maps/_meta.json's start_map)."""
+        msg = self._read_json_body()
+        start_map = msg.get("start_map")
+        with _state_lock:
+            if start_map not in WORLD_MAPS:
+                self._send_json(400, {"ok": False, "error": f"no such map: {start_map!r}"})
+                return
+            world_data.MAPS_DIR.mkdir(parents=True, exist_ok=True)
+            world_data.META_PATH.write_text(json.dumps({"start_map": start_map}, indent=2) + "\n", encoding="utf-8")
+            world_data.reload_world_maps()
+            self._send_json(200, {"ok": True, "start_map": world_data.START_MAP})
+
+    def _handle_builder_save_palette(self) -> None:
+        """The Tile Chooser's "Add to Palette" action. Adds one new TileKind or PropKind (never
+        edits/removes an existing one -- a map may already reference it by id), persists the whole
+        palette file, and hot-reloads TILE_PALETTE/PROP_PALETTE in place so it's paintable right
+        away. Returns the full refreshed palette, same shape as GET /api/palette, so the client can
+        just replace its local copy instead of re-fetching."""
+        msg = self._read_json_body()
+        err = _validate_builder_palette_entry(msg)
+        if err:
+            self._send_json(400, {"ok": False, "error": err})
+            return
+        with _state_lock:
+            kind = msg["kind"]
+            if kind == "tile":
+                world_logic.TILE_PALETTE[msg["id"]] = world_logic.TileKind(
+                    id=msg["id"], label=msg["label"], category=msg["category"],
+                    sheet_url=msg["sheet_url"], sheet_w=int(msg["sheet_w"]), sheet_h=int(msg["sheet_h"]),
+                    x=int(msg["x"]), y=int(msg["y"]), size=int(msg["size"]),
+                )
+                world_logic.save_tile_palette()
+                world_logic.reload_tile_palette()
+            else:
+                world_logic.PROP_PALETTE[msg["id"]] = world_logic.PropKind(
+                    id=msg["id"], label=msg["label"], image_url=msg["image_url"],
+                    image_w=int(msg["image_w"]), image_h=int(msg["image_h"]),
+                    height_tiles=float(msg.get("height_tiles", 1.0)), blocking=bool(msg.get("blocking", True)),
+                )
+                world_logic.save_prop_palette()
+                world_logic.reload_prop_palette()
+            self._send_json(200, {
+                "ok": True,
+                "tiles": [world_logic.tile_kind_to_dict(t) for t in world_logic.TILE_PALETTE.values()],
+                "props": [world_logic.prop_kind_to_dict(p) for p in world_logic.PROP_PALETTE.values()],
+            })
 
 
 # ----------------------------------------------------------------------
@@ -1225,6 +1812,9 @@ class Handler(BaseHTTPRequestHandler):
 debug_battle = None  # {"party": [{name, level}], "enemies": [{kind, id, level}]} or None
 pending_ladder = False     # the hub's Ladder Mode button was pressed; consumed by the next battle
 pending_challenge = None   # boss id the player started from the hub's boss card; consumed by the next battle
+pending_hub3d = False         # the pending world fight came from a 3D hub scene (retry / restart-dungeon on defeat)
+last_hub_battle = None       # the last such request body, replayed by {"retry": true}
+pending_world_level = None  # {"min","max","pool"} (random fight at a level range), {"rel":[lo,hi],"pool"} (party-relative) or {"boss_level"} from a 3D hub scene
 pending_world_boss = None  # boss id from talking to a boss NPC in the overworld (game/world.py);
                             # consumed by the next battle, same one-shot spirit as pending_challenge --
                             # see data/bosses.WORLD_BOSSES and _handle_world_interact below.
@@ -1281,6 +1871,90 @@ def _clamp_level(v) -> int:
         return max(1, min(int(v), MAX_LEVEL))
     except (TypeError, ValueError):
         return 1
+
+
+_BUILDER_ID_RE = re.compile(r"^[a-z0-9_]{1,40}$")
+_PALETTE_ID_RE = re.compile(r"^[a-z0-9_]{1,40}$")
+
+
+def _validate_builder_map(msg: dict) -> Optional[str]:
+    """Returns an error string, or None if `msg` (the map builder's POST body) is safe to hand to
+    world_logic.map_from_dict(). Deliberately not exhaustive -- e.g. it doesn't check that a warp
+    actually lands somewhere walkable -- just enough that a malformed save can't corrupt a map file
+    or crash the loader for every other map on the next server start. Tiles are a grid of
+    TILE_PALETTE ids now (not a fixed character legend) -- a cell referencing an id that isn't (or
+    isn't yet) in the palette is still accepted here (it just renders/blocks as "unknown", same as
+    any other unrecognized id -- see MapDef.is_walkable), so painting with a brand-new palette entry
+    never gets rejected by a stale id list."""
+    if not isinstance(msg, dict):
+        return "map must be an object"
+    map_id = msg.get("id")
+    if not isinstance(map_id, str) or not _BUILDER_ID_RE.match(map_id):
+        return "id must be lowercase letters/digits/underscores, 1-40 chars"
+    tiles = msg.get("tiles")
+    if (not isinstance(tiles, list) or not tiles
+            or not all(isinstance(row, list) and row and all(isinstance(c, str) and c for c in row) for row in tiles)):
+        return "tiles must be a non-empty grid of non-empty palette-id strings"
+    width = len(tiles[0])
+    for row in tiles:
+        if len(row) != width:
+            return "every tile row must be the same length"
+    height = len(tiles)
+    spawn = msg.get("spawn") or [1, 1]
+    if (not isinstance(spawn, list) or len(spawn) != 2
+            or not all(isinstance(v, int) for v in spawn)
+            or not (0 <= spawn[0] < width and 0 <= spawn[1] < height)):
+        return "spawn must be an [x, y] pair inside the map"
+    for n in msg.get("npcs") or []:
+        if not isinstance(n, dict) or not n.get("id") or not n.get("name"):
+            return "every NPC needs an id and a name"
+        if not (0 <= n.get("x", -1) < width and 0 <= n.get("y", -1) < height):
+            return f"NPC {n.get('id')!r} is placed outside the map"
+    for w in msg.get("warps") or []:
+        if not isinstance(w, dict) or not w.get("target_map"):
+            return "every warp needs a target_map"
+        if not (0 <= w.get("x", -1) < width and 0 <= w.get("y", -1) < height):
+            return "a warp is placed outside the map"
+    for p in msg.get("props") or []:
+        if not isinstance(p, dict) or not isinstance(p.get("prop_id"), str) or not p.get("prop_id"):
+            return "every prop needs a prop_id"
+        if not (0 <= p.get("x", -1) < width and 0 <= p.get("y", -1) < height):
+            return f"prop {p.get('prop_id')!r} is placed outside the map"
+    return None
+
+
+def _validate_builder_palette_entry(msg: dict) -> Optional[str]:
+    """Returns an error string, or None if `msg` (html_builder's Tile Chooser "Add to Palette" POST
+    body) is safe to store. `kind` picks tile vs. prop; each has its own required fields."""
+    if not isinstance(msg, dict):
+        return "palette entry must be an object"
+    pid = msg.get("id")
+    if not isinstance(pid, str) or not _PALETTE_ID_RE.match(pid):
+        return "id must be lowercase letters/digits/underscores, 1-40 chars"
+    kind = msg.get("kind")
+    if kind not in ("tile", "prop"):
+        return "kind must be 'tile' or 'prop'"
+    if not isinstance(msg.get("label"), str) or not msg["label"].strip():
+        return "label is required"
+    if kind == "tile":
+        if pid in world_logic.TILE_PALETTE:
+            return f"a tile called {pid!r} already exists"
+        if msg.get("category") not in ("floor", "encounter", "blocked"):
+            return "category must be 'floor', 'encounter', or 'blocked'"
+        if not isinstance(msg.get("sheet_url"), str) or not msg["sheet_url"]:
+            return "sheet_url is required"
+        for k in ("sheet_w", "sheet_h", "x", "y", "size"):
+            if not isinstance(msg.get(k), (int, float)):
+                return f"{k} must be a number"
+    else:
+        if pid in world_logic.PROP_PALETTE:
+            return f"a prop called {pid!r} already exists"
+        if not isinstance(msg.get("image_url"), str) or not msg["image_url"]:
+            return "image_url is required"
+        for k in ("image_w", "image_h"):
+            if not isinstance(msg.get(k), (int, float)):
+                return f"{k} must be a number"
+    return None
 
 
 def _validate_debug_setup(msg: dict):
@@ -1391,8 +2065,9 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
     off the shared player_state (not a fixed demo squad), and rewards are
     applied to that same player_state -- under _state_lock -- once the
     fight ends, the same computation main.py's run_one_battle uses."""
-    global pending_challenge, pending_ladder, pending_world_boss, pending_world_encounter
+    global pending_challenge, pending_ladder, pending_world_boss, pending_world_encounter, pending_world_level, pending_hub3d
     dbg = debug_battle  # hand-picked debug fight (no rewards/saves), or None for a normal one
+    slave_fight = False
     from_world = False    # a wild encounter or boss NPC from the overworld -- forces can_continue off below
     if dbg:
         party, setup = _build_debug_battle(dbg)
@@ -1402,9 +2077,14 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
         with _state_lock:
             want_ladder, pending_ladder = pending_ladder, False       # consumed: one ladder run
             party = party_logic.active_party_characters(player_state)
+            slave_fight = bool(story_slave) and not pending_world_boss and not pending_world_encounter and not pending_hub3d
+            if slave_fight:
+                party = slave_hero(player_state) or party         # a slave fights alone
             want, pending_challenge = pending_challenge, None      # consumed: one challenge, one fight
             want_world_boss, pending_world_boss = pending_world_boss, None  # consumed: one world-boss fight
             want_world_encounter, pending_world_encounter = pending_world_encounter, False  # consumed: one wild fight
+            world_level, pending_world_level = pending_world_level, None  # consumed with the flags above
+            want_hub3d, pending_hub3d = pending_hub3d, False
             if (want in BOSSES and want == renown_logic.boss_id_for_rank(player_state.rank)
                     and renown_logic.can_challenge(player_state)):
                 challenge_boss = BOSSES[want]
@@ -1418,6 +2098,8 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
                 from_world = True
             elif want_world_encounter:
                 from_world = True
+            if from_world and not slave_fight:
+                party = party_logic.story_party_characters(player_state) or party     # outside the Colosseum the story heroes fight
         edb = _resolved_equipment_db()
         with _state_lock:
             ldb = dict(player_state.legacy_instances)
@@ -1429,14 +2111,40 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
                 save_system.save_game(player_state)
         for message in wound_messages:
             outbound.put({"type": "log", "message": message})
-        setup = (_build_rank_boss_setup(challenge_boss, party, challenge=is_rank_challenge, equipment_db=edb, legacy_db=ldb) if challenge_boss
-                 else build_scaled_battle(party, equipment_db=edb, legacy_db=ldb))
+        if challenge_boss and from_world and world_level and world_level.get("boss_level"):
+            setup = _build_boss_setup(challenge_boss, party, world_level["boss_level"], equipment_db=edb, legacy_db=ldb)
+            setup._rank_challenge = False                  # a set-level dungeon boss
+        elif from_world and not challenge_boss and world_level and world_level.get("min"):
+            setup = _build_range_battle(party, world_level["min"], world_level["max"], world_level.get("pool"), edb, ldb)
+        elif from_world and not challenge_boss and world_level and world_level.get("rel"):
+            avg = round(sum(getattr(pc, "level", 1) for pc in party) / max(1, len(party)))
+            lo = max(1, min(MAX_LEVEL, avg + world_level["rel"][0])); hi = max(lo, min(MAX_LEVEL, avg + world_level["rel"][1]))
+            setup = _build_range_battle(party, lo, hi, world_level.get("pool"), edb, ldb)
+        else:
+            setup = (_build_rank_boss_setup(challenge_boss, party, challenge=is_rank_challenge, equipment_db=edb, legacy_db=ldb) if challenge_boss
+                     else build_scaled_battle(party, equipment_db=edb, legacy_db=ldb))
         setup._from_world = from_world
+        setup._hub3d = bool(from_world and want_hub3d)
     # Win streak: the SAME hero Combatant objects fight every round, so HP/MP
     # carry over (no recovery between fights). Each win after the first
     # doubles that fight's reward. Inventory also persists across the streak.
     ladder = ladder_logic.LadderRun() if (not dbg and want_ladder and not getattr(setup, "_rank_challenge", False)) else None
     heroes = setup.party
+    if not dbg:
+        # HP/MP only carry over between fights outside the Colosseum (island dungeon, overworld). A
+        # Colosseum fight always starts everyone fresh -- and clears any saved damage -- see
+        # PlayerCharacter.hp/mp and the menu's Rest action.
+        with _state_lock:
+            hub3d_snapshot = [(pc.hp, pc.mp) for pc in party]     # restored if this fight is lost, so a retry starts the same
+            for pc, h in zip(party, heroes):
+                if from_world:
+                    if pc.hp is not None:
+                        h.hp = max(1, min(h.max_hp, int(pc.hp)))
+                    if pc.mp is not None:
+                        h.mp = max(0, min(h.max_mp, int(pc.mp)))
+                else:
+                    pc.hp = None
+                    pc.mp = None
     bdef = getattr(setup, "_boss_def", None)   # set for scripted boss fights (see data/bosses.py)
     pay_boss_rewards = bool(bdef) and (not dbg or bool(dbg.get("rewards")))
     # Debug battles stream every damage/heal calculation into the log; normal ones turn the hook off.
@@ -1472,6 +2180,8 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
         they're skipped entirely."""
         if dbg:
             return
+        if getattr(setup, "_from_world", False) or getattr(setup, "_hub3d", False):
+            return            # nobody is wounded outside the Colosseum (3D scenes, dungeons, world bosses), win or lose
         with _state_lock:
             messages = legacy_logic.apply_wound_penalty(player_state, heroes, party, run_won)
             if messages:
@@ -1516,8 +2226,12 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
         if config.DEBUG and engine_ref[0] is not None:
             outbound.put({"type": "state", "state": _serialize_battle_state(engine_ref[0])})
 
+    auto_ids = set()
+
     def get_party_action(combatant, state: dict) -> Action:
         debug_refresh()
+        if combatant.id in auto_ids:                  # a borrowed ally: the game plays it, the player can't
+            return ally_auto_action(combatant, state)
         for sk in state.get("available_skills", []):  # let the browser's auto-battle compare skill damage
             if sk["id"] in SKILLS:
                 sk["power"] = SKILLS[sk["id"]].power
@@ -1558,7 +2272,28 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
     while True:
         bdef = getattr(setup, "_boss_def", None)   # a streak can roll a boss from the pool mid-way
         pay_boss_rewards = bool(bdef) and (not dbg or bool(dbg.get("rewards")))
+        auto_ids.clear()
+        heroes = heroes[:len(party)]               # drop last battle's borrowed allies (a streak rebuilds the setup)
+        if slave_fight and getattr(setup, "_boss_def", None):
+            if not getattr(setup, "_slave_scaled", False):
+                setup._slave_scaled = True
+                for e in setup.enemies:
+                    st = e.base_stats
+                    for name in SCALED_ENEMY_STATS:
+                        setattr(st, name, max(1, round(getattr(st, name) * SLAVE_BOSS_MULT.get(name, 1.0))))
+                    e.hp = st.max_hp
+            with _state_lock:
+                ally_level = round(sum(getattr(pc, "level", 1) for pc in party) / max(1, len(party)))
+                borrowed = build_slave_allies(ally_level, edb, ldb, {pc.name for pc in party})
+            for c, _h in borrowed:
+                heroes.append(c); auto_ids.add(c.id)
+            outbound.put({"type": "log", "message": "Three fighters are thrown into the pit beside you -- you can't command them: "
+                          + ", ".join(c.name for c, _h in borrowed) + "."})
+        elif slave_fight:
+            outbound.put({"type": "log", "message": "A slave fights alone."})
         roles = {ch.name: ch.class_id for ch in party}
+        if auto_ids:
+            roles.update({c.name: h.class_id for c, h in borrowed})
         # Parallel to setup.enemies: the RecruitableHero (with its class_id) behind each hero-rival
         # enemy, when there is one -- lets us pick a ranged vs. melee animation for them too. Plain
         # monsters/bosses have no recruit behind them and fall back to "melee" in _anim_kind_for.
@@ -1655,6 +2390,19 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
         if runner_ref[0] is not None:
             runner_ref[0].on_end(result)
         sync_inventory()
+        if from_world and not dbg:
+            # Carry what is left of everyone's HP/MP into the world. A downed hero is benched by the
+            # wound system (game/legacy.py) and comes back whole, so they are stored as "full".
+            with _state_lock:
+                if getattr(setup, "_hub3d", False) and result != BattleResult.VICTORY:
+                    # Lost a fight in a 3D scene: nothing is lost. The party goes back to how it was before the
+                    # fight, and the page offers Retry Battle / Restart Dungeon (see html_battle/index.html).
+                    for pc, (hp0, mp0) in zip(party, hub3d_snapshot):
+                        pc.hp, pc.mp = hp0, mp0
+                else:
+                    for pc, h in zip(party, heroes):
+                        pc.hp, pc.mp = ((h.hp, h.mp) if h.alive else (None, None))
+                save_system.save_game(player_state)
 
         multiplier = 1
         this_win = {"money": 0, "gems": 0, "xp": 0}
@@ -1694,6 +2442,8 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
                 result, difficulty=DEMO_DIFFICULTY, num_heroes=setup.num_heroes, num_enemies=setup.num_enemies,
             )
             this_win = {"money": round(money * multiplier), "gems": round(gems * multiplier), "xp": round(xp * multiplier)}
+            if from_world and not dbg:
+                this_win["xp"] = story_fight_xp(getattr(setup, "enemy_level", 1) or 1)     # the story heroes' longer level curve
             for k in pot:
                 pot[k] += this_win[k]
             this_tickets = roll_ticket_drops(ladder=ladder is not None)
@@ -1771,6 +2521,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
                       "multiplier": multiplier,
                       "next_multiplier": (round(ladder.reward_multiplier(2 ** wins), 2) if ladder is not None else 2 ** wins),
                       "can_continue": can_continue, "from_world": bool(getattr(setup, "_from_world", False)),
+                      "hub3d": bool(getattr(setup, "_hub3d", False)),
                       "forfeited": forfeited, "paid": paid, "debug": bool(dbg),
                       "boss": bool(bdef), "first_clear": first_clear, "rewards_paid": bool(paid) if bdef else None,
                       "renown": renown_info, "ladder": ladder_info})

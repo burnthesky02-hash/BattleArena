@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Battle Arena - 2.5D battle prototype</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root { --panel: rgba(14,12,26,.72); --edge: rgba(190,160,255,.35); --txt:#ece8ff; --dim:#9a93c0; }
+  html,body { margin:0; height:100%; background:#08060f; overflow:hidden; color:var(--txt);
+              font-family: "Segoe UI", system-ui, sans-serif; user-select:none; }
+  canvas#gl { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  #vignette { position:fixed; inset:0; pointer-events:none;
+              background: radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0) 55%, rgba(4,2,12,.55) 100%); }
+  #hud { position:fixed; inset:0; pointer-events:none; overflow:hidden; }
+
+  .tag { position:absolute; transform:translate(-50%,-100%); text-align:center; white-space:nowrap;
+         font-size:12px; text-shadow:0 1px 3px #000; transition:opacity .25s; }
+  .tag .nm { font-weight:600; letter-spacing:.02em; }
+  .tag .hp { width:84px; height:6px; margin:3px auto 0; background:rgba(0,0,0,.65);
+             border:1px solid rgba(255,255,255,.25); border-radius:4px; overflow:hidden; }
+  .tag .hp i { display:block; height:100%; width:100%; background:linear-gradient(#7dffa0,#27c25b); transition:width .35s; }
+  .tag.enemy .hp i { background:linear-gradient(#ff9a8a,#d8392b); }
+  .tag.active .nm { color:#ffe27a; }
+  .tag.ko { opacity:.0; }
+  .tag.target .nm { color:#ff8a8a; }
+
+  .dmg { position:absolute; font-weight:800; font-size:30px; color:#fff; transform:translate(-50%,-50%);
+         text-shadow:0 0 6px #000,0 2px 0 #000,0 0 14px #ff5a3c; animation: rise 1.0s ease-out forwards; }
+  .dmg.miss { color:#ccc; font-size:20px; text-shadow:0 1px 3px #000; }
+  @keyframes rise { 0%{opacity:0; transform:translate(-50%,-20%) scale(.6);} 12%{opacity:1; transform:translate(-50%,-60%) scale(1.25);}
+                    30%{transform:translate(-50%,-70%) scale(1);} 100%{opacity:0; transform:translate(-50%,-190%) scale(1);} }
+
+  .panel { position:absolute; background:var(--panel); border:1px solid var(--edge); border-radius:12px;
+           backdrop-filter: blur(3px); pointer-events:auto; }
+  #cmd { left:18px; bottom:18px; padding:10px; min-width:190px; display:none; }
+  #cmd .who { font-size:12px; color:var(--dim); margin:0 4px 6px; }
+  #cmd button { display:block; width:100%; margin:4px 0; padding:9px 12px; text-align:left; font-size:15px;
+                color:var(--txt); background:rgba(80,60,140,.35); border:1px solid var(--edge); border-radius:8px; cursor:pointer; }
+  #cmd button:hover { background:rgba(130,100,230,.5); }
+  #party { right:18px; bottom:18px; padding:10px 12px; min-width:250px; }
+  #party .row { display:grid; grid-template-columns: 62px 1fr 56px; gap:8px; align-items:center; margin:5px 0; font-size:13px; }
+  #party .row.active .n { color:#ffe27a; }
+  #party .row.ko { opacity:.45; }
+  #party .bar { height:8px; background:rgba(0,0,0,.6); border-radius:5px; overflow:hidden; border:1px solid rgba(255,255,255,.18); }
+  #party .bar i { display:block; height:100%; background:linear-gradient(#7dffa0,#27c25b); transition:width .35s; }
+  #party .v { text-align:right; font-variant-numeric:tabular-nums; color:var(--dim); font-size:12px; }
+
+  #top { left:50%; top:14px; transform:translateX(-50%); padding:6px 16px; font-size:13px; color:var(--dim); pointer-events:none; }
+  #msg { left:50%; top:54px; transform:translateX(-50%); padding:6px 16px; font-size:15px; display:none; pointer-events:none; }
+
+  #camp { left:18px; top:14px; padding:8px 10px; font-size:12px; }
+  #camp .t { color:var(--dim); margin-bottom:6px; }
+  #camp button { margin:2px 2px 0 0; padding:5px 9px; font-size:12px; color:var(--txt); cursor:pointer;
+                 background:rgba(80,60,140,.35); border:1px solid var(--edge); border-radius:7px; }
+  #camp button.on { background:rgba(130,100,230,.6); }
+  #camp .hint { margin-top:7px; color:var(--dim); line-height:1.45; max-width:230px; }
+
+  #end { position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column;
+         background:rgba(5,3,12,.55); pointer-events:auto; }
+  #end h1 { font-size:64px; margin:0 0 8px; letter-spacing:.06em; text-shadow:0 0 30px #8a5cff; }
+  #end button { padding:10px 22px; font-size:17px; color:var(--txt); background:rgba(130,100,230,.5);
+                border:1px solid var(--edge); border-radius:10px; cursor:pointer; }
+  #loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#08060f;
+             font-size:18px; color:var(--dim); z-index:5; transition:opacity .5s; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="vignette"></div>
+<div id="hud">
+  <div id="camp" class="panel">
+    <div class="t">Camera</div>
+    <div id="presets"></div>
+    <div class="hint">Drag = orbit &middot; wheel = zoom &middot; keys 1-4 = presets<br>
+      <label style="pointer-events:auto"><input type="checkbox" id="actioncam" checked> action camera (push-in on hits)</label></div>
+  </div>
+  <div id="top" class="panel">2.5D prototype &mdash; billboard sprites in a real 3D scene</div>
+  <div id="msg" class="panel"></div>
+  <div id="cmd" class="panel"></div>
+  <div id="party" class="panel"></div>
+  <div id="end"><h1 id="endt"></h1><button id="again">Fight again</button></div>
+</div>
+<div id="loading">Loading arena&hellip;</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   Battle Arena -- 2.5D battle prototype (no libraries, raw WebGL)
+
+   Everything is real 3D (perspective camera, orbit, depth-scaled sprites)
+   but the fighters are still your 6x6 sprite sheets, drawn as upright
+   billboards. Mock battle only -- not connected to the engine/WebSocket yet.
+   ===================================================================== */
+const ASSETS = "/assets";
+const COLS = 6, ROWS = 6, NFRAMES = 36;
+const DEFAULT_BATTLER = "Draven";
+const CHAR_H = 2.5;                       // world height of a standing fighter
+
+/* ---------- tiny math ---------- */
+const V = {
+  sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],
+  add:(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],
+  mul:(a,s)=>[a[0]*s,a[1]*s,a[2]*s],
+  dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],
+  norm:(a)=>{const l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l];},
+  len:(a)=>Math.hypot(a[0],a[1],a[2]),
+};
+function perspective(fovy, aspect, n, f) {
+  const t = 1/Math.tan(fovy/2);
+  return [t/aspect,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0];
+}
+function lookAt(e, c, up) {
+  const z = V.norm(V.sub(e,c)), x = V.norm(V.cross(up,z)), y = V.cross(z,x);
+  return { m:[x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0, -V.dot(x,e),-V.dot(y,e),-V.dot(z,e),1], x, y, z };
+}
+function mul4(a, b) { // a*b, column-major
+  const o = new Array(16);
+  for (let c=0;c<4;c++) for (let r=0;r<4;r++) {
+    o[c*4+r] = a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];
+  }
+  return o;
+}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const ease=(t)=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const easeOut=(t)=>1-Math.pow(1-t,3);
+const rand=(a,b)=>a+Math.random()*(b-a);
+
+/* ---------- GL setup ---------- */
+const canvas = document.getElementById("gl");
+const gl = canvas.getContext("webgl", { antialias:true, alpha:false, premultipliedAlpha:false });
+if (!gl) { document.getElementById("loading").textContent = "WebGL isn't available in this browser."; throw new Error("no webgl"); }
+
+const VS = `
+attribute vec2 a;
+uniform mat4 u_vp; uniform vec3 u_o, u_r, u_u; uniform vec2 u_size, u_anchor;
+varying vec2 v_uv;
+void main(){
+  vec2 p = (a - u_anchor) * u_size;
+  vec3 w = u_o + u_r * p.x + u_u * p.y;
+  gl_Position = u_vp * vec4(w, 1.0);
+  v_uv = a;
+}`;
+const FS = `
+precision mediump float;
+uniform sampler2D u_tex; uniform vec4 u_rect; uniform vec2 u_eps;
+uniform float u_flip; uniform vec4 u_tint; uniform float u_flash; uniform vec3 u_flashc;
+varying vec2 v_uv;
+void main(){
+  vec2 uv = v_uv; if (u_flip > .5) uv.x = 1.0 - uv.x;
+  vec2 t = u_rect.xy + vec2(uv.x, 1.0 - uv.y) * u_rect.zw;
+  t = clamp(t, u_rect.xy + u_eps, u_rect.xy + u_rect.zw - u_eps);
+  vec4 c = texture2D(u_tex, t);               // premultiplied
+  c.rgb *= u_tint.rgb;
+  c.rgb = mix(c.rgb, u_flashc * c.a, u_flash);
+  c *= u_tint.a;
+  gl_FragColor = c;
+}`;
+function mkShader(type, src) { const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+const prog = gl.createProgram();
+gl.attachShader(prog, mkShader(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, mkShader(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog); if(!gl.getProgramParameter(prog,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+const U = {}; ["u_vp","u_o","u_r","u_u","u_size","u_anchor","u_tex","u_rect","u_eps","u_flip","u_tint","u_flash","u_flashc"]
+  .forEach(n => U[n] = gl.getUniformLocation(prog, n));
+const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0, 1,0, 0,1, 1,1]), gl.STATIC_DRAW);
+const aLoc = gl.getAttribLocation(prog, "a"); gl.enableVertexAttribArray(aLoc); gl.vertexAttribPointer(aLoc,2,gl.FLOAT,false,0,0);
+gl.disable(gl.DEPTH_TEST);
+gl.enable(gl.BLEND);
+const BLEND_NORMAL = () => gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+const BLEND_ADD    = () => gl.blendFunc(gl.ONE, gl.ONE);
+gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+
+function makeTexture(source) {
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  return t;
+}
+function canvasTex(w, h, draw) { const c=document.createElement("canvas"); c.width=w; c.height=h; draw(c.getContext("2d"), w, h); return { tex: makeTexture(c), w, h }; }
+
+/* generic textured-quad draw */
+function drawQuad(o) {
+  gl.uniformMatrix4fv(U.u_vp, false, cam.vp);
+  gl.uniform3fv(U.u_o, o.origin); gl.uniform3fv(U.u_r, o.right); gl.uniform3fv(U.u_u, o.up);
+  gl.uniform2f(U.u_size, o.w, o.h); gl.uniform2f(U.u_anchor, o.ax ?? .5, o.ay ?? 0);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.uniform1i(U.u_tex, 0);
+  const r = o.rect || [0,0,1,1]; gl.uniform4f(U.u_rect, r[0], r[1], r[2], r[3]);
+  gl.uniform2f(U.u_eps, o.epsx || 0, o.epsy || 0);
+  gl.uniform1f(U.u_flip, o.flip ? 1 : 0);
+  const t = o.tint || [1,1,1,1]; gl.uniform4f(U.u_tint, t[0], t[1], t[2], t[3]);
+  gl.uniform1f(U.u_flash, o.flash || 0); const fc = o.flashc || [1,1,1]; gl.uniform3f(U.u_flashc, fc[0], fc[1], fc[2]);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+/* ---------- procedural textures ---------- */
+let TEX = {};
+function buildProceduralTextures() {
+  TEX.glow = canvasTex(128,128,(g,w,h)=>{ const r=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);
+    r.addColorStop(0,"rgba(255,255,255,1)"); r.addColorStop(.25,"rgba(255,255,255,.55)"); r.addColorStop(1,"rgba(255,255,255,0)");
+    g.fillStyle=r; g.fillRect(0,0,w,h); });
+  TEX.shadow = canvasTex(128,128,(g,w,h)=>{ const r=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);
+    r.addColorStop(0,"rgba(0,0,0,.75)"); r.addColorStop(.6,"rgba(0,0,0,.35)"); r.addColorStop(1,"rgba(0,0,0,0)");
+    g.fillStyle=r; g.fillRect(0,0,w,h); });
+  TEX.ring = canvasTex(256,256,(g,w,h)=>{ g.strokeStyle="rgba(255,255,255,1)"; g.lineWidth=10; g.beginPath(); g.arc(w/2,h/2,w/2-14,0,7); g.stroke();
+    g.strokeStyle="rgba(255,255,255,.35)"; g.lineWidth=22; g.beginPath(); g.arc(w/2,h/2,w/2-18,0,7); g.stroke(); });
+  TEX.white = canvasTex(4,4,(g,w,h)=>{ g.fillStyle="#fff"; g.fillRect(0,0,w,h); });
+  TEX.spark = canvasTex(128,128,(g,w,h)=>{ g.translate(w/2,h/2); g.fillStyle="#fff";
+    for (let i=0;i<8;i++){ g.rotate(Math.PI/4); g.beginPath(); g.moveTo(0,-4); g.lineTo(56,0); g.lineTo(0,4); g.fill(); }
+    const r=g.createRadialGradient(0,0,0,0,0,26); r.addColorStop(0,"rgba(255,255,255,1)"); r.addColorStop(1,"rgba(255,255,255,0)");
+    g.fillStyle=r; g.beginPath(); g.arc(0,0,26,0,7); g.fill(); });
+
+  // Arena platform: stone disc in the backdrop's purple/cream palette, soft edge.
+  TEX.disc = canvasTex(1024,1024,(g,w,h)=>{
+    const cx=w/2, cy=h/2, R=w/2-2;
+    g.save(); g.beginPath(); g.arc(cx,cy,R,0,7); g.clip();
+    let r=g.createRadialGradient(cx,cy,0,cx,cy,R);
+    r.addColorStop(0,"#d9cfb4"); r.addColorStop(.38,"#c2b79b"); r.addColorStop(.42,"#4a3d70"); r.addColorStop(.8,"#2c2447"); r.addColorStop(1,"#181230");
+    g.fillStyle=r; g.fillRect(0,0,w,h);
+    // radial tile seams
+    g.strokeStyle="rgba(20,12,40,.55)"; g.lineWidth=3;
+    for (let i=0;i<24;i++){ const a=i/24*Math.PI*2; g.beginPath(); g.moveTo(cx+Math.cos(a)*R*.14,cy+Math.sin(a)*R*.14); g.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R); g.stroke(); }
+    // rings
+    [.14,.26,.40,.62,.80,.93].forEach((k,i)=>{ g.lineWidth = i===2?10:4; g.strokeStyle = i===2?"rgba(20,12,40,.8)":"rgba(10,6,24,.55)";
+      g.beginPath(); g.arc(cx,cy,R*k,0,7); g.stroke(); });
+    // neon ring
+    g.shadowColor="#a066ff"; g.shadowBlur=26; g.strokeStyle="#c79bff"; g.lineWidth=6; g.beginPath(); g.arc(cx,cy,R*.87,0,7); g.stroke(); g.shadowBlur=0;
+    // cracks / grain
+    g.lineWidth=2; g.strokeStyle="rgba(10,6,24,.35)";
+    for (let i=0;i<70;i++){ let x=rand(0,w), y=rand(0,h); g.beginPath(); g.moveTo(x,y);
+      for(let k=0;k<5;k++){ x+=rand(-40,40); y+=rand(-40,40); g.lineTo(x,y);} g.stroke(); }
+    for (let i=0;i<5000;i++){ g.fillStyle=`rgba(${Math.random()<.5?255:0},${Math.random()<.5?255:0},${Math.random()<.5?255:0},.035)`;
+      g.fillRect(rand(0,w),rand(0,h),2,2); }
+    g.restore();
+    // soft alpha edge
+    g.globalCompositeOperation="destination-in";
+    const m=g.createRadialGradient(cx,cy,R*.9,cx,cy,R); m.addColorStop(0,"rgba(0,0,0,1)"); m.addColorStop(1,"rgba(0,0,0,0)");
+    g.fillStyle=m; g.fillRect(0,0,w,h);
+  });
+}
+
+/* ---------- sprite sheets (own pose -> Draven same pose -> Draven Idle, like the real battle page) ---------- */
+const imgCache = new Map();
+function loadImage(url) {
+  if (!imgCache.has(url)) imgCache.set(url, new Promise(res => { const i=new Image(); i.onload=()=>res(i); i.onerror=()=>res(null); i.src=url; }));
+  return imgCache.get(url);
+}
+const sheetCache = new Map();
+function getSheet(name, pose) {
+  const key = name + "/" + pose;
+  if (sheetCache.has(key)) return sheetCache.get(key);
+  const p = (async () => {
+    const img = await loadImage(`${ASSETS}/Battlers/${encodeURIComponent(name)}/${encodeURIComponent(name)}-${pose}.png`);
+    if (img) return buildSheet(img);
+    if (name !== DEFAULT_BATTLER) return getSheet(DEFAULT_BATTLER, pose);
+    if (pose !== "Idle") return getSheet(DEFAULT_BATTLER, "Idle");
+    return placeholderSheet();
+  })();
+  sheetCache.set(key, p); return p;
+}
+function placeholderSheet() {
+  return { tex: TEX.white.tex, fw:1, fh:1, imgW:1, imgH:1, ref:true, ax:.5, ay:0, w:1.1, h:CHAR_H, frames:1, placeholder:true };
+}
+function buildSheet(img) {
+  const fw = Math.floor(img.width / COLS), fh = Math.floor(img.height / ROWS);
+  // measure the character's alpha bounding box in the first frame so every pose normalises to the same on-screen height
+  const c = document.createElement("canvas"); c.width = fw; c.height = fh;
+  const g = c.getContext("2d", { willReadFrequently:true }); g.drawImage(img, 0, 0, fw, fh, 0, 0, fw, fh);
+  const d = g.getImageData(0,0,fw,fh).data; let x0=fw,x1=0,y0=fh,y1=0;
+  for (let y=0;y<fh;y++) for (let x=0;x<fw;x++) if (d[(y*fw+x)*4+3] > 24) { if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+  if (x1 <= x0 || y1 <= y0) { x0=0; x1=fw-1; y0=0; y1=fh-1; }
+  const s = CHAR_H / (y1 - y0 + 1);              // world units per pixel
+  return { tex: makeTexture(img), fw, fh, imgW: img.width, imgH: img.height,
+           w: fw*s, h: fh*s, ax: ((x0+x1)/2)/fw, ay: 1 - (y1+1)/fh, frames: NFRAMES, bw: (x1-x0+1)*s };
+}
+
+/* ---------- camera ---------- */
+const PRESETS = {
+  "Side":         { yaw: 0,    pitch: 13, dist: 26, fov: 27, tx: 0, ty: 1.4 },
+  "3/4 view":     { yaw: -14,  pitch: 17, dist: 25, fov: 27, tx: 0, ty: 1.3 },
+  "Over shoulder":{ yaw: 52,   pitch: 15, dist: 20, fov: 34, tx: -1.5, ty: 1.4 },
+  "High":         { yaw: -10,  pitch: 36, dist: 26, fov: 27, tx: 0, ty: .6 },
+};
+const cam = { yaw:0, pitch:12, dist:17, fov:34, tx:0, ty:1.3, tz:0, vp:null, pos:[0,0,0], right:[1,0,0], up:[0,1,0], fwd:[0,0,-1],
+              w:1, h:1, aspect:1, shake:0,
+              // targets the camera eases toward
+              g:{ yaw:0, pitch:12, dist:17, fov:34, tx:0, ty:1.3, tz:0 }, focus:{ x:0, z:0, push:0 } };
+let presetName = "Side";
+function setPreset(name) { presetName = name; Object.assign(cam.g, PRESETS[name]); cam.g.tz = 0;
+  [...document.querySelectorAll("#presets button")].forEach(b => b.classList.toggle("on", b.dataset.p === name)); }
+function updateCamera(dt) {
+  const k = 1 - Math.pow(0.0015, dt);
+  const act = document.getElementById("actioncam").checked ? cam.focus.push : 0;
+  const goalTx = cam.g.tx + cam.focus.x * act * .6, goalTz = cam.g.tz + cam.focus.z * act * .6;
+  const goalDist = cam.g.dist * (1 - .26*act), goalFov = cam.g.fov;
+  cam.yaw = lerp(cam.yaw, cam.g.yaw, k); cam.pitch = lerp(cam.pitch, cam.g.pitch, k); cam.fov = lerp(cam.fov, goalFov, k);
+  cam.dist = lerp(cam.dist, goalDist, 1 - Math.pow(0.02, dt));
+  cam.tx = lerp(cam.tx, goalTx, 1 - Math.pow(0.02, dt)); cam.tz = lerp(cam.tz, goalTz, 1 - Math.pow(0.02, dt)); cam.ty = lerp(cam.ty, cam.g.ty, k);
+  cam.shake = Math.max(0, cam.shake - dt * 2.4);
+
+  const ya = cam.yaw*Math.PI/180, pi = cam.pitch*Math.PI/180;
+  const target = [cam.tx, cam.ty, cam.tz];
+  let pos = V.add(target, [Math.sin(ya)*Math.cos(pi)*cam.dist, Math.sin(pi)*cam.dist, Math.cos(ya)*Math.cos(pi)*cam.dist]);
+  if (cam.shake > 0) { const s = cam.shake*cam.shake*.35; pos = V.add(pos, [rand(-s,s), rand(-s,s), rand(-s,s)]); }
+  const L = lookAt(pos, target, [0,1,0]);
+  cam.pos = pos; cam.right = V.norm([L.x[0],0,L.x[2]]); cam.camX = L.x; cam.camY = L.y; cam.fwd = V.mul(L.z,-1);
+  cam.vp = mul4(perspective(cam.fov*Math.PI/180, cam.aspect, .1, 120), L.m);
+}
+function project(p) {
+  const m = cam.vp, x=p[0],y=p[1],z=p[2];
+  const cx = m[0]*x+m[4]*y+m[8]*z+m[12], cy = m[1]*x+m[5]*y+m[9]*z+m[13], cw = m[3]*x+m[7]*y+m[11]*z+m[15];
+  return { x: (cx/cw*.5+.5)*cam.w, y: (1-(cy/cw*.5+.5))*cam.h, w: cw };
+}
+
+/* ---------- fighters ---------- */
+const fighters = [];
+const POSES = {
+  // pose file names per character (falls back through getSheet's chain if a sheet doesn't exist)
+  Kael:   { melee:"Attack", run:"Run" }, Draven: { melee:"Melee", run:"Run" }, Yulia: { melee:"Attack", run:"Run" },
+  Lyra:   { ranged:"Casting" }, Rook: { ranged:"Shoot" }, Sera: { ranged:"Cast" },
+};
+const HEROES  = [ {name:"Kael", style:"melee"}, {name:"Lyra", style:"ranged"}, {name:"Rook", style:"ranged"}, {name:"Sera", style:"ranged"} ];
+const ENEMIES = [ {name:"Draven", style:"melee"}, {name:"Yulia", style:"melee"}, {name:"Draven", style:"melee", tint:[.75,.55,1,1], label:"Shade"} ];
+
+function makeFighter(def, side, i, n) {
+  const dir = side === "hero" ? 1 : -1;               // +x is the heroes' side
+  const zig = (i % 2) ? 1.3 : 0;
+  const z = (i - (n-1)/2) * 2.4;
+  const hx = dir * (4.6 + zig);
+  const f = { id: side+i, name: def.label || def.name, base: def.name, side, style: def.style, tint: def.tint || [1,1,1,1],
+              hx, hz: z, x: hx, z, y: 0, hp: side==="hero"?120:150, max: side==="hero"?120:150, alive:true,
+              pose:"Idle", poseT:0, poseOnce:false, fps:8, flash:0, alpha:1, face: -dir, defend:false, lift:0, tagEl:null, seed:Math.random()*10 };
+  // face: +1 = looking toward +x (native sprite direction); heroes look toward -x
+  return f;
+}
+const sheetFor = (f, pose) => getSheet(f.base, pose);
+const FRAME = (f, now) => {
+  const sh = f._sheet; if (!sh) return 0;
+  const t = (now - f.poseT);
+  const idx = Math.floor(t * f.fps);
+  return f.poseOnce ? Math.min(idx, NFRAMES-1) : (idx + Math.floor(f.seed*4)) % NFRAMES;
+};
+async function setPose(f, pose, { once=false, fps=8 } = {}) {
+  f.pose = pose; f.poseOnce = once; f.fps = fps; f.poseT = nowS();
+  f._sheet = await sheetFor(f, pose);
+}
+
+/* ---------- timing / tweens ---------- */
+let clock = 0; const nowS = () => clock;
+const tickers = [];
+function tween(dur, fn) { return new Promise(res => { const t0 = clock; tickers.push(() => { const t = clamp((clock - t0)/dur, 0, 1); fn(t); if (t >= 1) { res(); return true; } }); }); }
+const wait = (s) => tween(s, () => {});
+
+/* ---------- fx ---------- */
+const fx = [];   // {tex, pos, size, tint, add, life, t0, vel, grow, fade, rect}
+function spawnFx(o) { fx.push(Object.assign({ t0: clock, life: .5, size: 1, add: true, tint:[1,1,1,1], grow: 0, vel:[0,0,0], billboard:true }, o)); }
+function impactBurst(pos, color) {
+  spawnFx({ tex:TEX.glow.tex, pos, size:3.2, tint:[color[0],color[1],color[2],1], life:.28, grow:2.4 });
+  spawnFx({ tex:TEX.spark.tex, pos, size:2.4, tint:[1,.95,.8,1], life:.22, grow:1.4 });
+  for (let i=0;i<10;i++) spawnFx({ tex:TEX.glow.tex, pos:[...pos], size:rand(.25,.5), tint:[color[0],color[1],color[2],1], life:rand(.3,.6),
+      vel:[rand(-4,4), rand(1,5), rand(-3,3)], grow:-.3 });
+}
+
+/* ---------- HUD ---------- */
+const hud = document.getElementById("hud");
+function makeTag(f) {
+  const el = document.createElement("div"); el.className = "tag " + (f.side === "hero" ? "hero" : "enemy");
+  el.innerHTML = `<div class="nm"></div><div class="hp"><i></i></div>`; el.querySelector(".nm").textContent = f.name;
+  hud.appendChild(el); f.tagEl = el;
+}
+function renderParty() {
+  const el = document.getElementById("party");
+  el.innerHTML = fighters.filter(f => f.side==="hero").map(f => `
+    <div class="row ${f.alive?"":"ko"} ${f===activeHero?"active":""}"><div class="n">${f.name}</div>
+    <div class="bar"><i style="width:${Math.max(0,f.hp/f.max*100)}%"></i></div><div class="v">${Math.max(0,f.hp)}/${f.max}</div></div>`).join("");
+}
+function say(text, ms=1400) { const m=document.getElementById("msg"); m.textContent=text; m.style.display="block"; clearTimeout(say._t); say._t=setTimeout(()=>m.style.display="none", ms); }
+function floatText(f, text, cls="") {
+  const p = project([f.x, CHAR_H*.85 + f.lift, f.z]); const d = document.createElement("div");
+  d.className = "dmg " + cls; d.textContent = text; d.style.left = p.x + "px"; d.style.top = p.y + "px"; hud.appendChild(d);
+  setTimeout(() => d.remove(), 1100);
+}
+
+/* ---------- combat ---------- */
+let activeHero = null, busy = false, picking = null, hoverTarget = null, battleOver = false;
+const alive = (side) => fighters.filter(f => f.side===side && f.alive);
+
+function applyHit(attacker, target, power=1) {
+  let dmg = Math.round(rand(14,30) * power);
+  if (target.defend) { dmg = Math.round(dmg*.5); }
+  target.hp = Math.max(0, target.hp - dmg);
+  target.flash = 1; target.hitKick = 1;
+  floatText(target, dmg);
+  impactBurst([target.x, CHAR_H*.55, target.z], target.side==="hero" ? [1,.5,.35] : [1,.85,.5]);
+  cam.shake = Math.max(cam.shake, .75);
+  if (target.hp <= 0) { target.alive = false; target.koAt = clock; }
+  renderParty();
+}
+function pointToward(a, b) { a.face = (b.x >= a.x) ? 1 : -1; }
+
+async function doAttack(att, tgt) {
+  busy = true; activeHero = att.side === "hero" ? att : null; renderParty();
+  const P = POSES[att.base] || {};
+  cam.focus.x = (att.x + tgt.x)/2; cam.focus.z = (att.z + tgt.z)/2;
+  if (att.style === "melee") {
+    pointToward(att, tgt);
+    const sx = att.x, sz = att.z, dirx = Math.sign(tgt.x - att.x) || 1;
+    const stopX = tgt.x - dirx * 1.7, stopZ = tgt.z;
+    await setPose(att, P.run || "Run", { fps: 16 });
+    await tween(0.42, t => { cam.focus.push = easeOut(t)*.8; const e = ease(t); att.x = lerp(sx, stopX, e); att.z = lerp(sz, stopZ, e); att.lift = Math.abs(Math.sin(t*Math.PI*5))*.12*(1-t); });
+    att.lift = 0;
+    const SW = 0.78;
+    await setPose(att, P.melee || "Melee", { once:true, fps: NFRAMES / SW });
+    await wait(SW * .42); applyHit(att, tgt); att.x += dirx*.35; await wait(SW * .58);
+    // run back
+    att.face = -dirx; await setPose(att, P.run || "Run", { fps: 16 });
+    const ex = att.x, ez = att.z;
+    await tween(0.38, t => { cam.focus.push = (1-t)*.8; att.x = lerp(ex, sx, ease(t)); att.z = lerp(ez, sz, ease(t)); });
+    att.face = (att.side==="hero") ? -1 : 1;
+  } else {
+    pointToward(att, tgt);
+    const SW = 0.85;
+    await setPose(att, P.ranged || "Idle", { once:true, fps: NFRAMES / SW });
+    cam.focus.push = 0;
+    await tween(SW*.5, t => { cam.focus.push = t*.55; });
+    // projectile: glowing bolt flying through real 3D space
+    const from = [att.x + att.face*.7, CHAR_H*.62, att.z], to = [tgt.x, CHAR_H*.55, tgt.z];
+    const col = att.base === "Sera" ? [.55,1,.7] : att.base === "Lyra" ? [.7,.55,1] : [1,.85,.45];
+    const dist = V.len(V.sub(to, from));
+    await tween(Math.max(.22, dist/22), t => {
+      const e = easeOut(t); const p = [lerp(from[0],to[0],e), lerp(from[1],to[1],e) + Math.sin(e*Math.PI)*.9, lerp(from[2],to[2],e)];
+      spawnFx({ tex:TEX.glow.tex, pos:p, size:1.15, tint:[col[0],col[1],col[2],1], life:.35, grow:-.8 });
+      spawnFx({ tex:TEX.glow.tex, pos:[...p], size:.55, tint:[1,1,1,1], life:.1 });
+    });
+    applyHit(att, tgt, 1.1);
+    await wait(SW*.5);
+    att.face = (att.side==="hero") ? -1 : 1;
+  }
+  cam.focus.push = 0;
+  await setPose(att, "Idle", { fps: 8 });
+  await wait(.15);
+  activeHero = null; busy = false; renderParty();
+}
+
+/* ---------- turn loop ---------- */
+async function battleLoop() {
+  while (!battleOver) {
+    for (const hero of fighters.filter(f => f.side==="hero")) {
+      if (!hero.alive || battleOver) continue;
+      hero.defend = false;
+      activeHero = hero; renderParty();
+      const choice = await playerChoice(hero);
+      if (choice.type === "defend") { hero.defend = true; hero.flash = .5; hero.flashc=[.5,.7,1]; say(hero.name + " defends"); spawnFx({tex:TEX.ring.tex, pos:[hero.x,.05,hero.z], flat:true, size:2.8, tint:[.5,.7,1,1], life:.6, grow:1.5}); await wait(.55); }
+      else await doAttack(hero, choice.target);
+      activeHero = null; checkEnd(); if (battleOver) return;
+    }
+    for (const en of fighters.filter(f => f.side==="enemy")) {
+      if (!en.alive || battleOver) continue;
+      const tgt = alive("hero")[Math.floor(Math.random()*alive("hero").length)];
+      if (!tgt) break; say(en.name + " attacks " + tgt.name, 900);
+      await wait(.25); await doAttack(en, tgt); checkEnd(); if (battleOver) return;
+    }
+  }
+}
+function checkEnd() {
+  if (!alive("enemy").length) endBattle("VICTORY"); else if (!alive("hero").length) endBattle("DEFEAT");
+}
+function endBattle(txt) {
+  battleOver = true; setTimeout(() => { document.getElementById("endt").textContent = txt; document.getElementById("end").style.display = "flex"; }, 900);
+}
+function playerChoice(hero) {
+  return new Promise(resolve => {
+    const cmd = document.getElementById("cmd"); cmd.style.display = "block";
+    cmd.innerHTML = `<div class="who">${hero.name}'s turn</div><button id="b-atk">Attack</button><button id="b-def">Defend</button>`;
+    const done = (v) => { cmd.style.display = "none"; picking = null; hoverTarget = null; resolve(v); };
+    document.getElementById("b-def").onclick = () => done({ type:"defend" });
+    document.getElementById("b-atk").onclick = () => {
+      picking = { cb: (t) => done({ type:"attack", target:t }) };
+      cmd.innerHTML = `<div class="who">Choose a target &mdash; click an enemy</div><button id="b-back">Back</button>`;
+      document.getElementById("b-back").onclick = () => { picking = null; hoverTarget = null; resolve(playerChoice(hero)); };
+    };
+  });
+}
+
+/* ---------- input: orbit, zoom, click-to-target (screen-space hit test on projected sprite boxes) ---------- */
+function fighterScreenRect(f) {
+  const sh = f._sheet; const halfW = Math.max(.7, (sh && sh.bw ? sh.bw : 1.2) * .55);
+  const r = cam.right; const pts = [
+    [f.x - r[0]*halfW, f.lift, f.z - r[2]*halfW], [f.x + r[0]*halfW, f.lift, f.z + r[2]*halfW],
+    [f.x - r[0]*halfW, f.lift+CHAR_H, f.z - r[2]*halfW], [f.x + r[0]*halfW, f.lift+CHAR_H, f.z + r[2]*halfW] ].map(project);
+  return { x0:Math.min(...pts.map(p=>p.x)), x1:Math.max(...pts.map(p=>p.x)), y0:Math.min(...pts.map(p=>p.y)), y1:Math.max(...pts.map(p=>p.y)) };
+}
+function pick(mx, my) {
+  let best = null, bestD = 1e9;
+  for (const f of alive("enemy")) { const r = fighterScreenRect(f);
+    if (mx>=r.x0 && mx<=r.x1 && my>=r.y0 && my<=r.y1) { const d = V.len(V.sub([f.x,0,f.z], cam.pos)); if (d<bestD) { bestD=d; best=f; } } }
+  return best;
+}
+let drag = null;
+canvas.addEventListener("pointerdown", e => { drag = { x:e.clientX, y:e.clientY, moved:false, yaw:cam.g.yaw, pitch:cam.g.pitch }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener("pointermove", e => {
+  if (drag) { const dx=e.clientX-drag.x, dy=e.clientY-drag.y; if (Math.abs(dx)+Math.abs(dy) > 5) drag.moved = true;
+    if (drag.moved) { cam.g.yaw = clamp(drag.yaw - dx*.25, -70, 70); cam.g.pitch = clamp(drag.pitch + dy*.18, 2, 60); } }
+  hoverTarget = picking ? pick(e.clientX, e.clientY) : null; canvas.style.cursor = hoverTarget ? "pointer" : (drag&&drag.moved ? "grabbing" : "default");
+});
+canvas.addEventListener("pointerup", e => {
+  const wasDrag = drag && drag.moved; drag = null;
+  if (!wasDrag && picking) { const t = pick(e.clientX, e.clientY); if (t) picking.cb(t); }
+});
+canvas.addEventListener("wheel", e => { e.preventDefault(); cam.g.dist = clamp(cam.g.dist * (1 + Math.sign(e.deltaY)*.08), 8, 44); }, { passive:false });
+window.addEventListener("keydown", e => { const names=Object.keys(PRESETS); const i = parseInt(e.key,10); if (i>=1 && i<=names.length) setPreset(names[i-1]);
+  if (e.key==="Escape" && picking) document.getElementById("b-back")?.click(); });
+
+/* ---------- render ---------- */
+function resize() { const dpr = Math.min(window.devicePixelRatio||1, 2); cam.w = window.innerWidth; cam.h = window.innerHeight;
+  canvas.width = Math.round(cam.w*dpr); canvas.height = Math.round(cam.h*dpr); cam.aspect = cam.w/cam.h; gl.viewport(0,0,canvas.width,canvas.height); }
+window.addEventListener("resize", resize);
+
+let bgTex = null, bgImg = null;
+function drawBackdrop() {
+  // camera-facing painting, parallaxed a little by yaw so orbiting still reads as depth
+  const dist = 60, vh = 2*dist*Math.tan(cam.fov*Math.PI/360), vw = vh*cam.aspect;
+  const scale = Math.max(vw*1.14, vh*1.14);             // cover the viewport
+  const center = V.add(cam.pos, V.mul(cam.fwd, dist));
+  const par = -cam.yaw * .018 * (vw/20);
+  const lift = -cam.pitch * .012 * vh;
+  const o = V.add(V.add(center, V.mul(cam.camX, par)), V.mul(cam.camY, BG_Y*scale + lift));
+  BLEND_NORMAL();
+  drawQuad({ tex: bgTex || TEX.white.tex, origin:o, right:cam.camX, up:cam.camY, w:scale, h:scale, ax:.5, ay:.5, tint: bgTex ? [.95,.95,1,1] : [.12,.08,.22,1] });
+}
+let BG_Y = -0.06;
+
+function drawScene(now) {
+  gl.clearColor(.03,.02,.06,1); gl.clear(gl.COLOR_BUFFER_BIT);
+  drawBackdrop();
+
+  // arena platform
+  BLEND_NORMAL();
+  drawQuad({ tex: TEX.disc.tex, origin:[0,0,0], right:[1,0,0], up:[0,0,-1], w:21, h:21, ax:.5, ay:.5, tint:[1,1,1,1] });
+
+  // target ring(s)
+  if (picking) for (const f of alive("enemy")) { const hot = f === hoverTarget; const pulse = .75 + .25*Math.sin(now*6);
+    BLEND_ADD(); drawQuad({ tex:TEX.ring.tex, origin:[f.x,.04,f.z], right:[1,0,0], up:[0,0,-1], w:2.6, h:2.6, ax:.5, ay:.5,
+      tint: hot ? [1,.45,.35,1] : [.9,.8,.4,pulse*.8] }); }
+  if (activeHero && !picking) { BLEND_ADD(); drawQuad({ tex:TEX.ring.tex, origin:[activeHero.x,.04,activeHero.z], right:[1,0,0], up:[0,0,-1], w:2.4, h:2.4, ax:.5, ay:.5, tint:[1,.9,.4,.55] }); }
+
+  // blob shadows
+  BLEND_NORMAL();
+  for (const f of fighters) { if (f.alpha <= .02) continue; drawQuad({ tex:TEX.shadow.tex, origin:[f.x,.02,f.z], right:[1,0,0], up:[0,0,-1], w:2.2, h:1.1, ax:.5, ay:.5, tint:[1,1,1,f.alpha*(1 - f.lift*1.5)] }); }
+
+  // fighters, farthest first
+  const order = fighters.slice().sort((a,b) => V.dot(V.sub([b.x,0,b.z],cam.pos), cam.fwd) - V.dot(V.sub([a.x,0,a.z],cam.pos), cam.fwd));
+  for (const f of order) {
+    const sh = f._sheet; if (!sh || f.alpha <= .01) continue;
+    const fi = FRAME(f, now), col = fi % COLS, row = Math.floor(fi / COLS);
+    const kick = f.hitKick ? Math.sin(f.hitKick*Math.PI*6)*.12*f.hitKick : 0;
+    const breath = f.pose === "Idle" ? Math.sin(now*2 + f.seed)*.015 : 0;
+    const gray = f.alive ? 1 : .55;
+    const tint = [f.tint[0]*gray, f.tint[1]*gray, f.tint[2]*gray, f.alpha];
+    BLEND_NORMAL();
+    drawQuad({ tex: sh.tex, origin:[f.x + cam.right[0]*kick, f.lift, f.z + cam.right[2]*kick], right:cam.right, up:[0,1,0],
+      w: sh.w, h: sh.h*(1+breath), ax: sh.ax, ay: sh.ay,
+      rect: sh.placeholder ? [0,0,1,1] : [col/COLS, row/ROWS, 1/COLS, 1/ROWS], epsx: sh.placeholder?0:.5/sh.imgW, epsy: sh.placeholder?0:.5/sh.imgH,
+      flip: f.face < 0, tint, flash: f.flash, flashc: f.flashc || [1,1,1] });
+  }
+
+  // fx
+  for (let i = fx.length-1; i >= 0; i--) { const e = fx[i]; const t = (now - e.t0)/e.life; if (t >= 1) { fx.splice(i,1); continue; }
+    const sz = Math.max(.02, e.size + e.grow*t*e.life*3); const p = [e.pos[0]+e.vel[0]*t*e.life, e.pos[1]+e.vel[1]*t*e.life - 3*t*t*e.life*(e.vel[1]?1:0), e.pos[2]+e.vel[2]*t*e.life];
+    e.add ? BLEND_ADD() : BLEND_NORMAL();
+    const a = (1-t);
+    if (e.flat) drawQuad({ tex:e.tex, origin:[p[0],p[1],p[2]], right:[1,0,0], up:[0,0,-1], w:sz, h:sz, ax:.5, ay:.5, tint:[e.tint[0],e.tint[1],e.tint[2],a] });
+    else drawQuad({ tex:e.tex, origin:p, right:cam.camX, up:cam.camY, w:sz, h:sz, ax:.5, ay:.5, tint:[e.tint[0],e.tint[1],e.tint[2],a] });
+  }
+}
+
+function updateHud() {
+  for (const f of fighters) { const el = f.tagEl; if (!el) continue;
+    const p = project([f.x, CHAR_H + .35 + f.lift, f.z]); el.style.left = p.x + "px"; el.style.top = p.y + "px";
+    el.querySelector(".hp i").style.width = Math.max(0, f.hp/f.max*100) + "%";
+    el.classList.toggle("ko", !f.alive); el.classList.toggle("active", f === activeHero); el.classList.toggle("target", f === hoverTarget);
+    const scale = clamp(14 / Math.max(6, p.w), .75, 1.25) * 1; el.style.transform = `translate(-50%,-100%) scale(${scale.toFixed(2)})`; }
+}
+
+let last = performance.now();
+function frame(tms) {
+  const dt = Math.min(.05, (tms - last)/1000); last = tms; clock += dt;
+  for (let i = tickers.length-1; i >= 0; i--) if (tickers[i]()) tickers.splice(i,1);
+  for (const f of fighters) {
+    if (f.flash > 0) f.flash = Math.max(0, f.flash - dt*4.5); else f.flashc = null;
+    if (f.hitKick > 0) f.hitKick = Math.max(0, f.hitKick - dt*2.2);
+    if (!f.alive) { const t = clock - f.koAt; f.alpha = f.side==="enemy" ? clamp(1 - t/.9, 0, 1) : .45; f.lift = 0; }
+  }
+  if (!busy) cam.focus.push = Math.max(0, cam.focus.push - dt*1.5);
+  updateCamera(dt); drawScene(clock); updateHud();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- boot ---------- */
+async function boot() {
+  resize(); buildProceduralTextures();
+  const presets = document.getElementById("presets");
+  Object.keys(PRESETS).forEach((n,i) => { const b=document.createElement("button"); b.textContent=(i+1)+" "+n; b.dataset.p=n; b.onclick=()=>setPreset(n); presets.appendChild(b); });
+  setPreset("3/4 view"); Object.assign(cam, PRESETS["3/4 view"]); cam.tz = 0;
+
+  const bg = await loadImage(`${ASSETS}/Artwork/Background.webp`); if (bg) bgTex = makeTexture(bg);
+  HEROES.forEach((d,i) => fighters.push(makeFighter(d,"hero",i,HEROES.length)));
+  ENEMIES.forEach((d,i) => fighters.push(makeFighter(d,"enemy",i,ENEMIES.length)));
+  fighters.forEach(makeTag);
+  await Promise.all(fighters.map(f => setPose(f, "Idle", { fps: 8 })));
+  // preload action poses so the first attack doesn't hitch
+  await Promise.all(fighters.flatMap(f => { const P = POSES[f.base] || {}; return [P.run, P.melee, P.ranged].filter(Boolean).map(p => getSheet(f.base, p)); }));
+  renderParty();
+  document.getElementById("loading").style.opacity = 0; setTimeout(()=>document.getElementById("loading").remove(), 600);
+  requestAnimationFrame(frame);
+  battleLoop();
+}
+document.getElementById("again").onclick = () => location.reload();
+boot().catch(e => { document.getElementById("loading").textContent = "Error: " + e.message; console.error(e); });
+</script>
+</body>
+</html>

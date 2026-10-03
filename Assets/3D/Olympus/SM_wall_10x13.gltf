@@ -1,0 +1,200 @@
+{
+	"asset":
+	{
+		"version": "2.0",
+		"generator": "Unreal Engine 5.7.4"
+	},
+	"scene": 0,
+	"accessors": [
+		{
+			"bufferView": 0,
+			"count": 36,
+			"type": "SCALAR",
+			"componentType": 5121
+		},
+		{
+			"bufferView": 1,
+			"count": 24,
+			"type": "VEC3",
+			"componentType": 5126,
+			"min": [
+				-2.00816131,
+				-9.97500992,
+				-13.0062847
+			],
+			"max": [
+				-0.00816126633,
+				0.0249916948,
+				-0.00628339825
+			]
+		},
+		{
+			"bufferView": 2,
+			"count": 24,
+			"type": "VEC3",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 3,
+			"count": 24,
+			"type": "VEC4",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 4,
+			"count": 24,
+			"type": "VEC2",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 5,
+			"count": 24,
+			"type": "VEC2",
+			"componentType": 5126
+		}
+	],
+	"buffers": [
+		{
+			"uri": "SM_wall_10x13.bin",
+			"byteLength": 1380
+		}
+	],
+	"bufferViews": [
+		{
+			"buffer": 0,
+			"byteLength": 36,
+			"target": 34963
+		},
+		{
+			"buffer": 0,
+			"byteLength": 288,
+			"byteOffset": 36,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 288,
+			"byteOffset": 324,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 384,
+			"byteOffset": 612,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 192,
+			"byteOffset": 996,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 192,
+			"byteOffset": 1188,
+			"target": 34962
+		}
+	],
+	"images": [
+		{
+			"uri": "MI_bricks_SM_wall_10x13_BaseColor.png"
+		},
+		{
+			"uri": "MI_bricks_SM_wall_10x13_MetallicRoughness.png"
+		},
+		{
+			"uri": "MI_bricks_SM_wall_10x13_Normal.png"
+		},
+		{
+			"uri": "MI_bricks_SM_wall_10x13_Occlusion.png"
+		}
+	],
+	"materials": [
+		{
+			"name": "MI_bricks_SM_wall_10x13",
+			"pbrMetallicRoughness":
+			{
+				"baseColorTexture":
+				{
+					"index": 0,
+					"texCoord": 1
+				},
+				"metallicRoughnessTexture":
+				{
+					"index": 1,
+					"texCoord": 1
+				}
+			},
+			"normalTexture":
+			{
+				"index": 2,
+				"texCoord": 1
+			},
+			"occlusionTexture":
+			{
+				"index": 3,
+				"texCoord": 1
+			}
+		}
+	],
+	"meshes": [
+		{
+			"name": "SM_wall_10x13",
+			"primitives": [
+				{
+					"attributes":
+					{
+						"POSITION": 1,
+						"NORMAL": 2,
+						"TANGENT": 3,
+						"TEXCOORD_0": 4,
+						"TEXCOORD_1": 5
+					},
+					"indices": 0,
+					"material": 0
+				}
+			]
+		}
+	],
+	"nodes": [
+		{
+			"mesh": 0
+		}
+	],
+	"samplers": [
+		{
+			"minFilter": 9987,
+			"magFilter": 9729
+		}
+	],
+	"scenes": [
+		{
+			"nodes": [
+				0
+			]
+		}
+	],
+	"textures": [
+		{
+			"name": "MI_bricks_SM_wall_10x13_BaseColor",
+			"sampler": 0,
+			"source": 0
+		},
+		{
+			"name": "MI_bricks_SM_wall_10x13_MetallicRoughness",
+			"sampler": 0,
+			"source": 1
+		},
+		{
+			"name": "MI_bricks_SM_wall_10x13_Normal",
+			"sampler": 0,
+			"source": 2
+		},
+		{
+			"name": "MI_bricks_SM_wall_10x13_Occlusion",
+			"sampler": 0,
+			"source": 3
+		}
+	]
+}

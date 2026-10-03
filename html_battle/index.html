@@ -325,6 +325,7 @@
   #dbg-enemy .dbg-fill { background: #e0455a; }
   .dbg-total { border-top: 1px solid var(--panel-border); padding-top: 5px; margin-top: 4px; font-weight: 700; display: flex; justify-content: space-between; }
 </style>
+<script src="/hub3d/appmode.js"></script>
 </head>
 <body>
 
@@ -369,10 +370,13 @@
       <div id="end-reward" style="font-size:16px;margin:6px 0;"></div>
       <button id="btn-next" onclick="nextBattle()" style="display:none;margin-top:8px;">Fight Next Battle</button>
       <button id="btn-again" onclick="location.reload()" style="margin-top:8px;">Fight Again</button>
+      <button id="btn-restart" onclick="restartDungeon()" style="display:none;margin-top:8px;">Restart Dungeon</button>
     </div>
   </div>
 </div>
 
+<script src="/battle/battlemap.js"></script>
+<script src="/battle/battle3d.js"></script>
 <script>
 /* ---------------------------------------------------------------------
    Layout constants -- a single staggered zigzag column per side (Andrew's
@@ -388,6 +392,10 @@ const HUB_URL = "http://127.0.0.1:8767/"; // hub_server.py's own fixed HTTP_PORT
 // Colosseum hub -- see returnToHub() below. Anything else (the hub's own "Enter Battle", a boss
 // challenge, the debug screen) omits this param and keeps the old behavior.
 const RETURN_TARGET = new URLSearchParams(window.location.search).get("return");
+// "?return=hub3d&scene=<id>&key=<id>" comes from a 3D hub scene's `battle` action (island dungeon):
+// returnToHub() sends the player back into that scene, adding &cleared=<key> after a win so the
+// scene can remove the monster (see html_hub/3d/hub3d.js).
+let lastBattleResult = "";
 
 /* ---------------------------------------------------------------------
    Sound: fire-and-forget SFX one-shots + a single persistent looping music
@@ -420,6 +428,26 @@ function playMusic(url, vol) {
 function stopMusic() {
   if (_musicEl) { try { _musicEl.pause(); } catch (e) {} }
   _musicEl = null; _musicUrl = null;
+}
+// Arena music: a battle map (html_battle/maps/<id>.json, edited in /builder3d) may set `music` and `bossMusic` = {url, intro?}.
+function playTrack(m) {
+  if (!m || !m.url) return false;
+  if (!m.intro) { playMusic(m.url, m.volume); return true; }
+  stopMusic();
+  try {
+    const ia = new Audio(m.intro); ia.volume = m.volume != null ? m.volume : MUSIC_VOLUME; _musicEl = ia; _musicUrl = m.intro;
+    ia.onended = () => { if (_musicEl !== ia) return; const la = new Audio(m.url); la.loop = true; la.volume = ia.volume; _musicEl = la; _musicUrl = m.url; la.play().catch(() => {}); };
+    ia.play().catch(() => {});
+  } catch (e) {}
+  return true;
+}
+async function startBattleMusic(isBoss) {
+  let m = null;
+  try {
+    const q = new URLSearchParams(location.search); let id = q.get("map"); if (!id) { try { id = localStorage.getItem("battleMap"); } catch (e) {} }
+    if (id && id !== "painted") { const def = await (await fetch("/battle/maps/" + encodeURIComponent(id) + ".json")).json(); m = (isBoss && def.bossMusic) || def.music || null; }
+  } catch (e) {}
+  if (!playTrack(m)) playMusic(isBoss ? MUSIC.boss : MUSIC.battle);
 }
 const SFX = {
   slash:    "/assets/SFX/10_Battle_SFX/22_Slash_04.wav",       // melee impact (default for melee AND physical ranged)
@@ -483,6 +511,7 @@ STAGE_H = window.innerHeight;
 STAGE_W = window.innerWidth;
 
 function columnLayout(combatants, anchorX, facingRight) {
+  if (window.B3D && B3D.on) return B3D.layout(combatants, facingRight);   // 3D view: arena-centred virtual layout
   // Returns [{x, y, z}], one per entry in `combatants` (in the same order). Fixed 2x3 formation
   // grid, depth running horizontally: combatants are grouped by their formation row (front/middle/
   // rear -- unrecognized or missing values fall back to middle), each row's line sits at a fixed X
@@ -967,8 +996,9 @@ function spawnFloat(id, html, cls, color, delay) {
     el.className = "dmgfloat " + cls;
     el.style.setProperty("--c", color);
     el.innerHTML = html;
-    el.style.left = `${sp.x + (Math.random() * 30 - 15)}px`;
-    el.style.top = `${sp.y - SPRITE_H * sp.hScale * (cls.includes("status") ? 0.85 : 0.6) + (Math.random() * 14 - 7)}px`;
+    const fp = screenPt(sp, cls.includes("status") ? 0.85 : 0.6);
+    el.style.left = `${fp.x + (Math.random() * 30 - 15)}px`;
+    el.style.top = `${fp.y + (Math.random() * 14 - 7)}px`;
     spriteLayer.appendChild(el);
     setTimeout(() => el.remove(), 1300);
   }, wait);
@@ -1489,7 +1519,7 @@ function handleState(state) {
   if (!battleAudioStarted) {
     // First state snapshot of the fight: now we know whether it's a boss fight or not.
     battleAudioStarted = true;
-    playMusic(bosses.length ? MUSIC.boss : MUSIC.battle);
+    startBattleMusic(bosses.length > 0);
     playSfx(SFX.encounter);
   }
   const bb = document.getElementById("boss-bar");
@@ -1585,8 +1615,9 @@ function handleFx(msg) {
       el.className = "callout";
       el.textContent = msg.text || "";
       el.style.color = msg.color || "#ffe27a";
-      el.style.left = `${sp.x}px`;
-      el.style.top = `${sp.y - SPRITE_H * sp.hScale - 8}px`;
+      const cp = screenPt(sp, 1);
+      el.style.left = `${cp.x}px`;
+      el.style.top = `${cp.y - 8}px`;
       el.style.zIndex = 400;
       spriteLayer.appendChild(el);
       setTimeout(() => el.remove(), 1400);
@@ -1744,14 +1775,19 @@ const HEAL_FX = "puffAndStars";
 const STATUS_FX = "constellation";
 
 // Chest-height anchor point for a sprite, in stage-space -- SpriteView.x/y is the FEET position.
+// In the 3D view the same call returns the PROJECTED screen point (DOM effects always live in screen space).
+function screenPt(sprite, frac) {
+  if (window.B3D && B3D.on) return B3D.screenPt(sprite, frac);
+  return { x: sprite.x, y: sprite.y - SPRITE_H * sprite.hScale * frac };
+}
 function fxAnchor(sprite, frac) {
-  return { x: sprite.x, y: sprite.y - SPRITE_H * sprite.hScale * (frac === undefined ? 0.5 : frac) };
+  return screenPt(sprite, frac === undefined ? 0.5 : frac);
 }
 
 // FX are sized as a fraction of the SPECIFIC sprite they're playing on/at, not a flat pixel guess --
 // so an effect reads at the right proportion whether it's on a normal hero or a scaled-up boss.
 function fxSize(sprite, frac) {
-  return SPRITE_H * sprite.hScale * frac;
+  return SPRITE_H * sprite.hScale * frac * ((window.B3D && B3D.on) ? B3D.persp(sprite) : 1);
 }
 
 async function playImpactFx(defKey, x, y, tintKey, size) {
@@ -1838,6 +1874,7 @@ let cashingOut = false;
 let debugBattle = false;
 function handleBattleEnd(msg) {
   const result = msg.result;
+  lastBattleResult = result;
   playMusic(MUSIC.main);   // swap straight back to hub music for the results screen (simple cut, no crossfade)
   document.getElementById("command-panel").style.display = "none";
   const overlay = document.getElementById("end-overlay");
@@ -1849,7 +1886,7 @@ function handleBattleEnd(msg) {
   const hubBtn = document.getElementById("btn-hub");
   // "Return to Colosseum" is only accurate for a hub-started fight; a from_world fight (or any page
   // opened with ?return=world) actually sends the player back to /world -- see returnToHub() below.
-  const returnLabel = (msg.from_world || RETURN_TARGET === "world") ? "Return to the Overworld" : "Return to Colosseum";
+  const returnLabel = RETURN_TARGET === "hub3d" ? "Continue Exploring" : (msg.from_world || RETURN_TARGET === "world") ? "Return to the Overworld" : "Return to Colosseum";
   if (result === "victory") {
     let t = `This win: ${fmtReward(msg)}`;
     if (msg.multiplier > 1) t += ` (x${msg.multiplier} streak bonus)`;
@@ -1922,6 +1959,16 @@ function handleBattleEnd(msg) {
   // "one battle, then back to the world" means. "Return to Colosseum" (relabeled to /world by
   // RETURN_TARGET below) stays the only way out.
   document.getElementById("btn-again").style.display = (msg.can_continue || msg.from_world) ? "none" : "";
+  // Lost a fight in a 3D scene (island / dungeon): nothing is lost -- choose to retry the same battle or, in a
+  // dungeon, start it over from the entrance. (The server already put everyone's HP/MP back to how it was.)
+  const againBtn = document.getElementById("btn-again"), restartBtn = document.getElementById("btn-restart");
+  againBtn.textContent = "Fight Again"; againBtn.onclick = function () { location.reload(); }; restartBtn.style.display = "none";
+  if (msg.hub3d && result === "defeat" && !msg.debug) {
+    const hasRestart = !!new URLSearchParams(window.location.search).get("restart");
+    againBtn.textContent = "Retry Battle"; againBtn.style.display = ""; againBtn.onclick = retryBattle;
+    if (hasRestart) { restartBtn.style.display = ""; document.getElementById("btn-hub").style.display = "none"; }
+    else { hubBtn.textContent = { olympus: "Back to the Colosseum", asteroid: "Back to the Base", vault: "Back to the Base" }[new URLSearchParams(window.location.search).get("scene")] || "Back to the Village"; }
+  }
   cashingOut = msg.can_continue;
   overlay.style.display = "flex";
 }
@@ -1982,11 +2029,30 @@ function nextBattle() {
   socket.send(JSON.stringify({type: "continue"}));
 }
 
+// Defeat in a 3D scene: re-run the very same fight (the server remembers the last request), or leave and
+// restart the dungeon (hub3d.js resets that dungeon's progress and puts the party back at the entrance).
+function retryBattle() {
+  document.getElementById("btn-again").disabled = true;
+  fetch("/api/world/hub_battle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ retry: true }) })
+    .then(function () { location.reload(); }, function () { location.reload(); });
+}
+function restartDungeon() {
+  const P = new URLSearchParams(window.location.search);
+  window.location.href = HUB_URL + "?view=3d&scene=" + encodeURIComponent(P.get("scene") || "olympus") + "&restart=" + encodeURIComponent(P.get("restart") || "");
+}
+
 function returnToHub() {
   if (cashingOut) {
     // Wait for the server to confirm the payout is saved before leaving.
     try { socket.send(JSON.stringify({type: "leave"})); } catch (e) {}
     document.getElementById("btn-hub").disabled = true;
+    return;
+  }
+  if (!debugBattle && RETURN_TARGET === "hub3d") {
+    const P = new URLSearchParams(window.location.search);
+    let u = HUB_URL + "?view=3d&scene=" + encodeURIComponent(P.get("scene") || "olympus");
+    if (lastBattleResult === "victory" && P.get("key")) u += "&cleared=" + encodeURIComponent(P.get("key"));
+    window.location.href = u;
     return;
   }
   window.location.href = debugBattle ? HUB_URL + "debug" : (RETURN_TARGET === "world" ? HUB_URL + "world" : HUB_URL);
@@ -2035,6 +2101,7 @@ async function dispatchMessage(msg) {
 
 function animationLoop(now) {
   sprites.forEach((s) => s.tick(now));
+  if (window.B3D && B3D.on) B3D.frame(now);
   requestAnimationFrame(animationLoop);
 }
 
@@ -2049,6 +2116,11 @@ fitStage();
 document.getElementById("stage").style.backgroundImage = "url(/assets/Artwork/Background.webp)";
 
 requestAnimationFrame(animationLoop);
+if (window.B3D) B3D.init({
+  sprites, SPRITE_H, NAMED_POSE_CFG, ROW_DEPTH_X, ROW_SLOT_GAP_Y,
+  // re-run the layout after switching 2D <-> 3D (the two use different coordinate spaces)
+  relayout: () => { layoutAllSprites(); sprites.forEach((s) => s.setPosition(s.homeX, s.homeY)); },
+});
 connect();
 </script>
 

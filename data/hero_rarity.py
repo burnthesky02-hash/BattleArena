@@ -155,7 +155,23 @@ LEVEL_CAP_BASE = 10
 LEVEL_CAP_STEP = 10
 
 
+# --- Story heroes vs Colosseum heroes ---------------------------------------------------------------
+# Mythic heroes are the STORY cast (Kael, Lyra, Rook, Sera, Yulia): they fight everything outside the
+# Colosseum (the 3D story scenes, dungeons, world bosses), are never summoned, never wounded, can't be
+# sacrificed, and climb a much longer, steeper arc to level 99. Every other rarity is a Colosseum hero
+# (ladder fights, summons, wounds, legacy sacrifice) with the old per-rarity caps.
+STORY_RARITY = "mythic"
+STORY_LEVEL_CAP = 99
+STORY_GROWTH_MULT = 1.3      # story heroes gain 30% more of their class's per-level stat growth
+
+
+def is_story_rarity(rarity: str) -> bool:
+    return rarity == STORY_RARITY
+
+
 def level_cap_for(rarity: str) -> int:
+    if rarity == STORY_RARITY:
+        return STORY_LEVEL_CAP
     idx = HERO_RARITIES.index(rarity) if rarity in HERO_RARITIES else 0
     return LEVEL_CAP_BASE + LEVEL_CAP_STEP * idx
 

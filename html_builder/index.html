@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Battle Arena -- Map Builder</title>
+<style>
+  :root { --ink: #eae6da; --accent: #f2d98a; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; background: #10120e; color: var(--ink);
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif; overflow: hidden;
+  }
+  * { box-sizing: border-box; }
+  button, select, input {
+    font-family: inherit; font-size: .9em; color: var(--ink);
+    background: #2b2f22; border: 1px solid #545a41; border-radius: 6px; padding: 5px 9px;
+  }
+  button { cursor: pointer; }
+  button:hover { background: #394026; }
+  button.active { background: #5a6e2f; border-color: #8ab24a; color: #fff; }
+  button:disabled { opacity: .4; cursor: default; }
+  label { font-size: .78em; opacity: .75; display: block; margin: 8px 0 3px; }
+  #app { display: flex; flex-direction: column; height: 100%; }
+  #topbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 8px 14px; background: linear-gradient(#20241c, #171a13);
+    border-bottom: 2px solid #3a3f2f; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  }
+  #topbar h1 { font-size: 1em; margin: 0 10px 0 0; color: var(--accent); white-space: nowrap; }
+  #topbar .spacer { flex: 1; }
+  #main { flex: 1; display: flex; min-height: 0; }
+  #toolbar {
+    width: 190px; flex: none; background: #171a13; border-right: 2px solid #3a3f2f;
+    padding: 10px; overflow-y: auto;
+  }
+  #toolbar h2 { font-size: .8em; text-transform: uppercase; letter-spacing: .05em; color: #b9b39a; margin: 14px 0 6px; }
+  #toolbar h2:first-child { margin-top: 0; }
+  .brush-row { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 4px; padding: 5px 8px; text-align: left; }
+  .brush-swatch { width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(0,0,0,.5); background-size: cover; flex: none; }
+  .tool-btn { width: 100%; margin-bottom: 4px; text-align: left; }
+  #canvas-wrap { flex: 1; overflow: auto; background: radial-gradient(ellipse at center, #1c2016 0%, #0b0d08 100%); position: relative; }
+  #canvas { position: relative; margin: 24px; box-shadow: 0 0 0 3px #3a3f2f, 0 10px 30px rgba(0,0,0,.6); }
+  .cell { position: absolute; box-sizing: border-box; border: 1px solid rgba(0,0,0,.18); cursor: crosshair;
+          background-repeat: no-repeat; background-color: #2a2c20; }
+  .marker { position: absolute; display: flex; align-items: center; justify-content: center; pointer-events: none; text-shadow: 0 1px 3px #000; }
+  .marker-npc { color: #8fd6ff; }
+  .marker-warp { color: #f2d98a; }
+  .marker-spawn { color: #7dff8f; }
+  #inspector { width: 260px; flex: none; background: #171a13; border-left: 2px solid #3a3f2f; padding: 12px; overflow-y: auto; }
+  #inspector h2 { font-size: .8em; text-transform: uppercase; letter-spacing: .05em; color: #b9b39a; margin: 14px 0 6px; }
+  #inspector h2:first-child { margin-top: 0; }
+  #inspector input, #inspector select { width: 100%; }
+  #inspector input[readonly] { opacity: .55; cursor: not-allowed; }
+  .row2 { display: flex; gap: 6px; }
+  .row2 > * { flex: 1; min-width: 0; }
+  #status-line { font-size: .82em; opacity: .8; margin-top: 10px; line-height: 1.4; }
+  #modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(5,6,4,.7);
+    align-items: center; justify-content: center; z-index: 50;
+  }
+  #modal-box {
+    width: 420px; max-width: 92vw; max-height: 86vh; overflow-y: auto;
+    background: #1a1d14; border: 2px solid #5a6142; border-radius: 10px;
+    padding: 18px 20px; box-shadow: 0 8px 30px rgba(0,0,0,.6);
+  }
+  #modal-box h3 { margin: 0 0 10px; color: var(--accent); }
+  #modal-box textarea {
+    width: 100%; min-height: 70px; font-family: inherit; font-size: .9em; color: var(--ink);
+    background: #2b2f22; border: 1px solid #545a41; border-radius: 6px; padding: 6px 8px; resize: vertical;
+  }
+  #modal-box .field { margin-bottom: 10px; }
+  #modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  #modal-actions .danger { background: #5a2222; border-color: #7a3a3a; }
+  #modal-actions .danger:hover { background: #6e2a2a; }
+  #toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    background: rgba(20,22,16,.95); border: 1px solid #545a41; border-radius: 8px;
+    padding: 9px 18px; font-size: .9em; opacity: 0; pointer-events: none; transition: opacity .25s;
+    z-index: 60;
+  }
+  #toast.show { opacity: 1; }
+  #toast.error { border-color: #a94444; color: #ffb4b4; }
+  .hint { font-size: .75em; opacity: .6; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <h1>&#128506; Map Builder</h1>
+    <select id="map-select"></select>
+    <button id="btn-new-map">+ New Map</button>
+    <button id="btn-make-start" title="Make this the map a brand-new save spawns into">Set as Start Map</button>
+    <div class="spacer"></div>
+    <span id="start-indicator" class="hint"></span>
+    <button id="btn-play">&#9654; Play</button>
+    <button id="btn-save" style="background:#3d5a26;border-color:#6fae3c;">&#128190; Save Map</button>
+  </div>
+  <div id="main">
+    <div id="toolbar">
+      <h2>Terrain</h2>
+      <div id="terrain-brushes"></div>
+      <button id="btn-open-chooser" style="width:100%;margin-top:4px;background:#3d5a26;border-color:#6fae3c;">&#128065; Tile Chooser&hellip;</button>
+      <div class="hint">Click, or click-and-drag, to paint. Use the Tile Chooser to add more tiles from the sheets.</div>
+
+      <h2>Props</h2>
+      <select id="prop-select"></select>
+      <button class="tool-btn" data-tool="prop" style="margin-top:4px;">&#127795; Place Prop</button>
+      <div class="hint">Pick a prop above, then click a cell to place it (replaces any prop already there).</div>
+
+      <h2>Events</h2>
+      <button class="tool-btn" data-tool="npc">&#128100; Place / Edit NPC</button>
+      <button class="tool-btn" data-tool="warp">&#10132; Place / Edit Warp</button>
+      <button class="tool-btn" data-tool="spawn">&#11088; Set Spawn Point</button>
+      <button class="tool-btn" data-tool="erase">&#10060; Erase NPC / Warp / Prop</button>
+      <div class="hint">NPC/Warp tools open an edit panel; click an existing one to edit it.</div>
+    </div>
+    <div id="canvas-wrap"><div id="canvas"></div></div>
+    <div id="inspector">
+      <h2>Map</h2>
+      <label>Name</label>
+      <input id="f-name" type="text" />
+      <label>ID (used in code/links)</label>
+      <input id="f-id" type="text" />
+      <label>Size</label>
+      <div class="row2">
+        <input id="f-width" type="number" min="3" max="80" />
+        <input id="f-height" type="number" min="3" max="80" />
+      </div>
+      <button id="btn-resize" style="width:100%;margin-top:6px;">Resize</button>
+      <label>Spawn facing</label>
+      <select id="f-spawn-facing">
+        <option value="down">Down</option>
+        <option value="up">Up</option>
+        <option value="left">Left</option>
+        <option value="right">Right</option>
+      </select>
+      <label>Encounter chance (grass tiles)</label>
+      <input id="f-encounter" type="number" min="0" max="1" step="0.01" />
+      <div id="status-line"></div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-overlay"><div id="modal-box"></div></div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var TILE = 48;   // editor's own display scale -- independent of the live overworld's TILE (192)
+
+  // ------------------------------------------------------------------
+  // Tile/prop palette (GET /api/palette -- same source html_overworld/index.html reads, see its
+  // comment and game/world.py's module docstring). Every map cell is a palette id string now, not a
+  // fixed character; the terrain button list and the Tile Chooser below are both built from
+  // whatever's in these two objects, so adding a palette entry (via the chooser) makes it paintable
+  // immediately without touching this file's code.
+  // ------------------------------------------------------------------
+  var TILE_PALETTE = {};   // id -> {id,label,category,sheet_url,sheet_w,sheet_h,x,y,size}
+  var PROP_PALETTE = {};   // id -> {id,label,image_url,image_w,image_h,height_tiles,blocking}
+  // The two sheets the Tile Chooser lets you pick tile crops out of. Standalone prop images (the
+  // big tree, plant, stump) are discovered separately -- see openTileChooser()'s prop tab.
+  var CHOOSER_SHEETS = [
+    { url: "/assets/tilesets/forest/forestground06dv5.png", w: 629, h: 679, label: "Ground" },
+    { url: "/assets/tilesets/forest/watertileset3qb2tg0.png", w: 410, h: 331, label: "Water" },
+  ];
+  var CHOOSER_PROP_IMAGES = [
+    { url: "/assets/tilesets/forest/big_tree_bshadow.png", w: 281, h: 255, label: "Big Tree" },
+    { url: "/assets/tilesets/forest/plant2.png", w: 225, h: 205, label: "Plant" },
+    { url: "/assets/tilesets/forest/treetrunk2006bu8.png", w: 143, h: 122, label: "Tree Stump" },
+  ];
+  var CHOOSER_GRID = 40;      // matches the crop size every hand-picked default tile already uses
+  var CHOOSER_SCALE = 1.6;    // display zoom so a 40px grid cell is comfortably clickable
+
+  function applyTileBackground(el, tileId, tileSize) {
+    var t = TILE_PALETTE[tileId];
+    if (!t) { el.style.backgroundImage = ""; el.style.backgroundColor = "#000"; return; }
+    var scale = tileSize / t.size;
+    el.style.backgroundImage = "url(" + t.sheet_url + ")";
+    el.style.backgroundSize = (t.sheet_w * scale) + "px " + (t.sheet_h * scale) + "px";
+    el.style.backgroundPosition = (-(t.x * scale)) + "px " + (-(t.y * scale)) + "px";
+  }
+  function loadPalette() {
+    return fetch("/api/palette").then(function (r) { return r.json(); }).then(function (data) {
+      TILE_PALETTE = {}; PROP_PALETTE = {};
+      (data.tiles || []).forEach(function (t) { TILE_PALETTE[t.id] = t; });
+      (data.props || []).forEach(function (p) { PROP_PALETTE[p.id] = p; });
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // State
+  // ------------------------------------------------------------------
+  var state = null;        // the map currently being edited (see blankMap())
+  var mapList = [];        // [{id,name,width,height}] from /api/builder/maps
+  var startMapId = null;
+  var tool = "brush";
+  var brush = "floor1";     // active tile-palette id -- set once the palette loads, see initBrushes()
+  var activeProp = null;    // active prop-palette id for the "prop" tool
+  var painting = false;
+  var dirty = false;
+
+  function defaultTileId() {
+    var ids = Object.keys(TILE_PALETTE);
+    var floor = ids.filter(function (id) { return TILE_PALETTE[id].category === "floor"; });
+    return floor[0] || ids[0] || "floor1";
+  }
+
+  function blankMap(id, name, w, h) {
+    var fillId = defaultTileId();
+    var tiles = [];
+    for (var y = 0; y < h; y++) {
+      var row = [];
+      for (var x = 0; x < w; x++) row.push(fillId);
+      tiles.push(row);
+    }
+    return { id: id, name: name, tiles: tiles, npcs: [], warps: [], props: [],
+             spawn: [Math.floor(w / 2), Math.floor(h / 2)], spawn_facing: "down", encounter_chance: 0.12,
+             _isNew: true };   // client-only flag, stripped before POSTing -- see saveMap()
+  }
+
+  function showToast(msg, isError) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className = isError ? "show error" : "show";
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { t.className = ""; }, 2600);
+  }
+
+  function markDirty() {
+    dirty = true;
+    document.getElementById("status-line").textContent = "Unsaved changes.";
+  }
+
+  // ------------------------------------------------------------------
+  // Rendering
+  // ------------------------------------------------------------------
+  var canvasEl = document.getElementById("canvas");
+
+  function render() {
+    canvasEl.innerHTML = "";
+    var w = state.tiles[0].length, h = state.tiles.length;
+    canvasEl.style.width = (w * TILE) + "px";
+    canvasEl.style.height = (h * TILE) + "px";
+    for (var y = 0; y < h; y++) {
+      var row = state.tiles[y];
+      for (var x = 0; x < w; x++) {
+        var cell = document.createElement("div");
+        cell.className = "cell";
+        cell.style.width = TILE + "px"; cell.style.height = TILE + "px";
+        cell.style.left = (x * TILE) + "px"; cell.style.top = (y * TILE) + "px";
+        cell.dataset.x = x; cell.dataset.y = y;
+        applyTileBackground(cell, row[x], TILE);
+        canvasEl.appendChild(cell);
+      }
+    }
+    (state.props || []).forEach(function (p) {
+      var kind = PROP_PALETTE[p.prop_id];
+      if (!kind) return;
+      var img = document.createElement("img");
+      img.src = kind.image_url;
+      img.style.position = "absolute"; img.style.pointerEvents = "none";
+      var propH = TILE * kind.height_tiles;
+      img.style.height = propH + "px";
+      img.style.left = (p.x * TILE) + "px";
+      img.style.top = (p.y * TILE + TILE - propH) + "px";   // anchor bottom on its cell
+      img.style.width = "auto";
+      canvasEl.appendChild(img);
+    });
+    state.warps.forEach(function (wobj, i) {
+      var m = document.createElement("div");
+      m.className = "marker marker-warp";
+      m.style.width = TILE + "px"; m.style.height = TILE + "px";
+      m.style.left = (wobj.x * TILE) + "px"; m.style.top = (wobj.y * TILE) + "px";
+      m.style.fontSize = (TILE * 0.55) + "px";
+      m.textContent = wobj.target_map === "__COLOSSEUM__" ? "🏛" : "➡";
+      m.title = wobj.label || wobj.target_map;
+      canvasEl.appendChild(m);
+    });
+    state.npcs.forEach(function (n) {
+      var m = document.createElement("div");
+      m.className = "marker marker-npc";
+      m.style.width = TILE + "px"; m.style.height = TILE + "px";
+      m.style.left = (n.x * TILE) + "px"; m.style.top = (n.y * TILE) + "px";
+      m.style.fontSize = (TILE * 0.5) + "px";
+      m.textContent = "👤";
+      m.title = n.name;
+      canvasEl.appendChild(m);
+    });
+    var sm = document.createElement("div");
+    sm.className = "marker marker-spawn";
+    sm.style.width = TILE + "px"; sm.style.height = TILE + "px";
+    sm.style.left = (state.spawn[0] * TILE) + "px"; sm.style.top = (state.spawn[1] * TILE) + "px";
+    sm.style.fontSize = (TILE * 0.45) + "px";
+    sm.textContent = "⭐";
+    sm.title = "Spawn point";
+    canvasEl.appendChild(sm);
+  }
+
+  function syncInspector() {
+    document.getElementById("f-name").value = state.name;
+    var idField = document.getElementById("f-id");
+    idField.value = state.id;
+    // The ID picks which data/maps/<id>.json file gets written. Once a map has been saved at least
+    // once, changing it here would write a *second* file under the new name and leave the old one
+    // behind as an orphaned duplicate (there's no rename/delete in this first pass) -- so it's only
+    // editable for a map that hasn't been saved yet.
+    idField.readOnly = !state._isNew;
+    idField.title = state._isNew ? "" : "Saved maps can't be renamed here -- create a new map instead.";
+    document.getElementById("f-width").value = state.tiles[0].length;
+    document.getElementById("f-height").value = state.tiles.length;
+    document.getElementById("f-spawn-facing").value = state.spawn_facing;
+    document.getElementById("f-encounter").value = state.encounter_chance;
+    document.getElementById("start-indicator").textContent =
+      (startMapId === state.id) ? "★ current start map" : "";
+  }
+
+  // ------------------------------------------------------------------
+  // Painting / tools
+  // ------------------------------------------------------------------
+  function activateTool(btn) {
+    tool = btn.dataset.tool;
+    if (btn.dataset.tile) brush = btn.dataset.tile;
+    document.querySelectorAll(".tool-btn").forEach(function (b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+  }
+  document.querySelectorAll(".tool-btn").forEach(function (btn) {
+    // Terrain buttons are (re)built by initBrushes() once the palette loads, so they get their
+    // listener there instead of here -- this covers the static Events/Props buttons.
+    if (btn.dataset.tool === "brush") return;
+    btn.addEventListener("click", function () { activateTool(btn); });
+  });
+
+  // Builds the Terrain brush list from TILE_PALETTE -- called once after the palette loads, and
+  // again any time the Tile Chooser adds a new tile so it's paintable right away without a reload.
+  function initBrushes() {
+    var wrap = document.getElementById("terrain-brushes");
+    wrap.innerHTML = "";
+    Object.keys(TILE_PALETTE).forEach(function (id) {
+      var t = TILE_PALETTE[id];
+      var btn = document.createElement("button");
+      btn.className = "brush-row tool-btn";
+      btn.dataset.tool = "brush";
+      btn.dataset.tile = id;
+      var sw = document.createElement("span");
+      sw.className = "brush-swatch";
+      applyTileBackground(sw, id, 22);
+      btn.appendChild(sw);
+      var label = t.label + (t.category === "blocked" ? " (blocked)" : "");
+      btn.appendChild(document.createTextNode(label));
+      btn.addEventListener("click", function () { activateTool(btn); });
+      if (id === brush) btn.classList.add("active");
+      wrap.appendChild(btn);
+    });
+    if (!TILE_PALETTE[brush]) brush = defaultTileId();
+  }
+
+  function initPropSelect() {
+    var sel = document.getElementById("prop-select");
+    sel.innerHTML = Object.keys(PROP_PALETTE).map(function (id) {
+      return '<option value="' + id + '">' + PROP_PALETTE[id].label + '</option>';
+    }).join("");
+    if (activeProp && PROP_PALETTE[activeProp]) sel.value = activeProp;
+    activeProp = sel.value || null;
+    sel.onchange = function () { activeProp = sel.value || null; };
+  }
+
+  function paintCell(x, y) {
+    var row = state.tiles[y];
+    if (row[x] === brush) return;
+    row[x] = brush;
+    markDirty();
+    render();
+  }
+
+  function npcAt(x, y) { return state.npcs.find(function (n) { return n.x === x && n.y === y; }); }
+  function warpAt(x, y) { return state.warps.find(function (w) { return w.x === x && w.y === y; }); }
+  function propAt(x, y) { return (state.props || []).find(function (p) { return p.x === x && p.y === y; }); }
+
+  function cellFromEvent(ev) {
+    var rect = canvasEl.getBoundingClientRect();
+    var x = Math.floor((ev.clientX - rect.left) / TILE);
+    var y = Math.floor((ev.clientY - rect.top) / TILE);
+    var w = state.tiles[0].length, h = state.tiles.length;
+    if (x < 0 || y < 0 || x >= w || y >= h) return null;
+    return { x: x, y: y };
+  }
+
+  canvasEl.addEventListener("pointerdown", function (ev) {
+    var c = cellFromEvent(ev);
+    if (!c) return;
+    if (tool === "brush") {
+      painting = true;
+      paintCell(c.x, c.y);
+    } else if (tool === "npc") {
+      openNpcModal(npcAt(c.x, c.y), c.x, c.y);
+    } else if (tool === "warp") {
+      openWarpModal(warpAt(c.x, c.y), c.x, c.y);
+    } else if (tool === "spawn") {
+      state.spawn = [c.x, c.y];
+      markDirty(); render(); syncInspector();
+    } else if (tool === "prop") {
+      if (!activeProp) { showToast("Pick a prop first", true); return; }
+      state.props = (state.props || []).filter(function (p) { return !(p.x === c.x && p.y === c.y); });
+      state.props.push({ prop_id: activeProp, x: c.x, y: c.y });
+      markDirty(); render();
+    } else if (tool === "erase") {
+      var n = npcAt(c.x, c.y), w2 = warpAt(c.x, c.y), p2 = propAt(c.x, c.y);
+      if (n) { state.npcs = state.npcs.filter(function (x2) { return x2 !== n; }); markDirty(); render(); }
+      else if (w2) { state.warps = state.warps.filter(function (x2) { return x2 !== w2; }); markDirty(); render(); }
+      else if (p2) { state.props = state.props.filter(function (x2) { return x2 !== p2; }); markDirty(); render(); }
+    }
+  });
+  canvasEl.addEventListener("pointermove", function (ev) {
+    if (!painting || tool !== "brush") return;
+    var c = cellFromEvent(ev);
+    if (c) paintCell(c.x, c.y);
+  });
+  window.addEventListener("pointerup", function () { painting = false; });
+
+  // ------------------------------------------------------------------
+  // NPC / Warp modals
+  // ------------------------------------------------------------------
+  var overlay = document.getElementById("modal-overlay");
+  var modalBox = document.getElementById("modal-box");
+  var battlerNames = [];
+  var worldBosses = [];
+
+  function closeModal() { overlay.style.display = "none"; modalBox.innerHTML = ""; modalBox.style.width = ""; }
+  overlay.addEventListener("click", function (ev) { if (ev.target === overlay) closeModal(); });
+
+  function slugify(s) {
+    return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "event";
+  }
+
+  function openNpcModal(existing, x, y) {
+    var editing = !!existing;
+    var opts = battlerNames.map(function (n) { return '<option value="' + n + '">' + n + "</option>"; }).join("");
+    var bossOpts = '<option value="">(none -- plain dialogue)</option>' +
+      worldBosses.map(function (b) { return '<option value="' + b.id + '">' + b.name + "</option>"; }).join("");
+    modalBox.innerHTML =
+      '<h3>' + (editing ? "Edit NPC" : "New NPC") + " @ (" + x + ", " + y + ')</h3>' +
+      '<div class="field"><label>Name</label><input id="m-name" type="text" value="' +
+        (existing ? existing.name : "") + '"></div>' +
+      '<div class="field"><label>Sprite (battler folder reused as their look)</label>' +
+        '<select id="m-sprite">' + opts + '</select></div>' +
+      '<div class="field"><label>Facing</label><select id="m-facing">' +
+        ["down","up","left","right"].map(function (f) {
+          return '<option value="' + f + '"' + ((existing && existing.facing === f) ? " selected" : "") + '>' + f + '</option>';
+        }).join("") + '</select></div>' +
+      '<div class="field"><label>Dialogue (one line per line)</label>' +
+        '<textarea id="m-lines">' + (existing ? existing.lines.join("\n") : "") + '</textarea></div>' +
+      '<div class="field"><label>Boss fight (talking to them starts this scripted boss)</label>' +
+        '<select id="m-boss">' + bossOpts + '</select></div>' +
+      '<div class="field"><label><input id="m-battle" type="checkbox" style="width:auto;"' +
+        (existing && existing.battle ? " checked" : "") + '> Plain battle on talk (no boss script)</label></div>' +
+      '<div class="field"><label>Navigate to (optional, e.g. /shop)</label>' +
+        '<input id="m-navigate" type="text" value="' + (existing && existing.navigate ? existing.navigate : "") + '"></div>' +
+      '<div id="modal-actions">' +
+        (editing ? '<button class="danger" id="m-delete">Delete</button>' : "") +
+        '<button id="m-cancel">Cancel</button><button id="m-save">Save</button></div>';
+    if (existing) {
+      modalBox.querySelector("#m-sprite").value = existing.sprite;
+      modalBox.querySelector("#m-boss").value = existing.boss_id || "";
+    }
+    overlay.style.display = "flex";
+    modalBox.querySelector("#m-cancel").onclick = closeModal;
+    if (editing) modalBox.querySelector("#m-delete").onclick = function () {
+      state.npcs = state.npcs.filter(function (n) { return n !== existing; });
+      markDirty(); render(); closeModal();
+    };
+    modalBox.querySelector("#m-save").onclick = function () {
+      var name = modalBox.querySelector("#m-name").value.trim();
+      if (!name) { showToast("NPC needs a name", true); return; }
+      var lines = modalBox.querySelector("#m-lines").value.split("\n").map(function (l) { return l.trim(); }).filter(Boolean);
+      var rec = existing || { id: state.id + "_" + slugify(name), x: x, y: y };
+      rec.name = name;
+      rec.sprite = modalBox.querySelector("#m-sprite").value;
+      rec.facing = modalBox.querySelector("#m-facing").value;
+      rec.lines = lines;
+      rec.boss_id = modalBox.querySelector("#m-boss").value || null;
+      rec.battle = modalBox.querySelector("#m-battle").checked;
+      rec.navigate = modalBox.querySelector("#m-navigate").value.trim() || null;
+      if (!existing) state.npcs.push(rec);
+      markDirty(); render(); closeModal();
+    };
+  }
+
+  function openWarpModal(existing, x, y) {
+    var editing = !!existing;
+    var mapOpts = '<option value="__COLOSSEUM__">Colosseum (exit to hub)</option>' +
+      mapList.filter(function (m) { return m.id !== state.id || editing; })
+        .map(function (m) { return '<option value="' + m.id + '">' + m.name + "</option>"; }).join("");
+    modalBox.innerHTML =
+      '<h3>' + (editing ? "Edit Warp" : "New Warp") + " @ (" + x + ", " + y + ')</h3>' +
+      '<div class="field"><label>Destination</label><select id="m-target">' + mapOpts + '</select></div>' +
+      '<div class="field row2"><div><label>Target X</label><input id="m-tx" type="number" min="0" value="' +
+        (existing ? existing.target_x : 0) + '"></div>' +
+        '<div><label>Target Y</label><input id="m-ty" type="number" min="0" value="' +
+        (existing ? existing.target_y : 0) + '"></div></div>' +
+      '<div class="field"><label>Facing on arrival</label><select id="m-tfacing">' +
+        ["down","up","left","right"].map(function (f) {
+          return '<option value="' + f + '"' + ((existing && existing.target_facing === f) ? " selected" : "") + '>' + f + '</option>';
+        }).join("") + '</select></div>' +
+      '<div class="field"><label>Label (tooltip on the map icon)</label>' +
+        '<input id="m-label" type="text" value="' + (existing ? existing.label : "") + '"></div>' +
+      '<div id="modal-actions">' +
+        (editing ? '<button class="danger" id="m-delete">Delete</button>' : "") +
+        '<button id="m-cancel">Cancel</button><button id="m-save">Save</button></div>';
+    if (existing) modalBox.querySelector("#m-target").value = existing.target_map;
+    overlay.style.display = "flex";
+    modalBox.querySelector("#m-cancel").onclick = closeModal;
+    if (editing) modalBox.querySelector("#m-delete").onclick = function () {
+      state.warps = state.warps.filter(function (w) { return w !== existing; });
+      markDirty(); render(); closeModal();
+    };
+    modalBox.querySelector("#m-save").onclick = function () {
+      var rec = existing || { x: x, y: y };
+      rec.target_map = modalBox.querySelector("#m-target").value;
+      rec.target_x = parseInt(modalBox.querySelector("#m-tx").value, 10) || 0;
+      rec.target_y = parseInt(modalBox.querySelector("#m-ty").value, 10) || 0;
+      rec.target_facing = modalBox.querySelector("#m-tfacing").value;
+      rec.label = modalBox.querySelector("#m-label").value.trim();
+      if (!existing) state.warps.push(rec);
+      markDirty(); render(); closeModal();
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // Tile Chooser -- lets Andrew click any cell of the ground/water sheets (on the same 40px
+  // reference grid the coordinate-marked preview images used) to add it as a new paintable tile, or
+  // pick one of the standalone prop images to add as a new placeable prop. Posts each addition to
+  // POST /api/builder/palette (validated + persisted + hot-reloaded server-side -- see hub_server.py
+  // and game/world.py's reload_tile_palette()/reload_prop_palette()), then refreshes the local
+  // palette and the brush/prop lists so it's usable immediately without closing the modal -- since
+  // "I'm going to need to use most all of the tiles" means adding several in one sitting.
+  // ------------------------------------------------------------------
+  function openTileChooser() {
+    var addedThisSession = [];
+    var activeTab = "tiles";
+    var pendingTile = null;   // {sheet, x, y}
+    var pendingProp = null;   // one of CHOOSER_PROP_IMAGES
+
+    function tilesTabHtml() {
+      return CHOOSER_SHEETS.map(function (sheet, i) {
+        var dispW = Math.round(sheet.w * CHOOSER_SCALE), dispH = Math.round(sheet.h * CHOOSER_SCALE);
+        var gridPx = Math.round(CHOOSER_GRID * CHOOSER_SCALE);
+        return '<div style="margin-bottom:14px;">' +
+          '<div class="hint">' + sheet.label + ' -- click a grid cell to pick a ' + CHOOSER_GRID + 'x' + CHOOSER_GRID + ' tile</div>' +
+          '<div class="chooser-wrap" data-sheet="' + i + '" style="position:relative;width:' + dispW + 'px;height:' + dispH +
+            'px;max-width:100%;max-height:260px;overflow:auto;border:1px solid #3a3f2f;cursor:crosshair;">' +
+          '<img src="' + sheet.url + '" draggable="false" style="display:block;width:' + dispW + 'px;height:' + dispH + 'px;">' +
+          '<div style="position:absolute;left:0;top:0;width:' + dispW + 'px;height:' + dispH +
+            'px;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px),' +
+            'linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px);background-size:' + gridPx + 'px ' + gridPx + 'px;"></div>' +
+          '</div></div>';
+      }).join("") +
+        '<div id="ch-tile-form" style="display:none;">' +
+        '<div class="field"><label>New tile</label><div style="display:flex;gap:8px;align-items:center;">' +
+        '<span id="ch-preview" style="width:32px;height:32px;border:1px solid #545a41;background-repeat:no-repeat;flex:none;"></span>' +
+        '<input id="ch-label" type="text" placeholder="Label (e.g. Mossy Path)" style="flex:1;"></div></div>' +
+        '<div class="field"><label>Category</label><select id="ch-category">' +
+        '<option value="floor">Floor (walkable)</option>' +
+        '<option value="encounter">Encounter (walkable, rolls fights)</option>' +
+        '<option value="blocked">Blocked</option></select></div>' +
+        '<button id="ch-add-tile">Add to Palette</button></div>';
+    }
+
+    function propsTabHtml() {
+      return '<div style="display:flex;flex-wrap:wrap;gap:10px;">' +
+        CHOOSER_PROP_IMAGES.map(function (img, i) {
+          return '<div class="chooser-prop" data-img="' + i + '" style="cursor:pointer;text-align:center;' +
+            'border:1px solid #3a3f2f;padding:6px;border-radius:6px;width:100px;">' +
+            '<img src="' + img.url + '" style="max-width:80px;max-height:80px;display:block;margin:0 auto;">' +
+            '<div style="font-size:.75em;margin-top:4px;">' + img.label + '</div></div>';
+        }).join("") + '</div>' +
+        '<div id="ch-prop-form" style="display:none;margin-top:12px;">' +
+        '<div class="field"><label>Label</label><input id="ch-plabel" type="text"></div>' +
+        '<div class="field row2"><div><label>Height (tiles)</label>' +
+        '<input id="ch-pheight" type="number" min="0.2" max="4" step="0.1" value="1.2"></div>' +
+        '<div><label><input id="ch-pblocking" type="checkbox" checked style="width:auto;"> Blocks movement</label></div></div>' +
+        '<button id="ch-add-prop">Add to Palette</button></div>';
+    }
+
+    function wireTilesTab() {
+      modalBox.querySelectorAll(".chooser-wrap").forEach(function (wrap) {
+        wrap.addEventListener("click", function (ev) {
+          var rect = wrap.getBoundingClientRect();
+          var px = ev.clientX - rect.left + wrap.scrollLeft;
+          var py = ev.clientY - rect.top + wrap.scrollTop;
+          var sheet = CHOOSER_SHEETS[parseInt(wrap.dataset.sheet, 10)];
+          var sx = Math.min(Math.floor(px / CHOOSER_SCALE / CHOOSER_GRID) * CHOOSER_GRID, sheet.w - CHOOSER_GRID);
+          var sy = Math.min(Math.floor(py / CHOOSER_SCALE / CHOOSER_GRID) * CHOOSER_GRID, sheet.h - CHOOSER_GRID);
+          pendingTile = { sheet: sheet, x: Math.max(0, sx), y: Math.max(0, sy) };
+          modalBox.querySelector("#ch-tile-form").style.display = "block";
+          var preview = modalBox.querySelector("#ch-preview");
+          preview.style.backgroundImage = "url(" + sheet.url + ")";
+          preview.style.backgroundPosition = (-pendingTile.x) + "px " + (-pendingTile.y) + "px";
+          preview.style.backgroundSize = sheet.w + "px " + sheet.h + "px";
+        });
+      });
+      var addBtn = modalBox.querySelector("#ch-add-tile");
+      if (addBtn) addBtn.onclick = function () {
+        if (!pendingTile) { showToast("Click a tile cell first", true); return; }
+        var label = modalBox.querySelector("#ch-label").value.trim();
+        if (!label) { showToast("Give the tile a label", true); return; }
+        postPaletteEntry({
+          kind: "tile", id: slugify(label) + "_" + Math.random().toString(36).slice(2, 6), label: label,
+          category: modalBox.querySelector("#ch-category").value,
+          sheet_url: pendingTile.sheet.url, sheet_w: pendingTile.sheet.w, sheet_h: pendingTile.sheet.h,
+          x: pendingTile.x, y: pendingTile.y, size: CHOOSER_GRID,
+        }, label);
+      };
+    }
+
+    function wirePropsTab() {
+      modalBox.querySelectorAll(".chooser-prop").forEach(function (el) {
+        el.addEventListener("click", function () {
+          pendingProp = CHOOSER_PROP_IMAGES[parseInt(el.dataset.img, 10)];
+          modalBox.querySelector("#ch-prop-form").style.display = "block";
+          modalBox.querySelector("#ch-plabel").value = pendingProp.label;
+        });
+      });
+      var addBtn = modalBox.querySelector("#ch-add-prop");
+      if (addBtn) addBtn.onclick = function () {
+        if (!pendingProp) { showToast("Pick a prop image first", true); return; }
+        var label = modalBox.querySelector("#ch-plabel").value.trim() || pendingProp.label;
+        postPaletteEntry({
+          kind: "prop", id: slugify(label) + "_" + Math.random().toString(36).slice(2, 6), label: label,
+          image_url: pendingProp.url, image_w: pendingProp.w, image_h: pendingProp.h,
+          height_tiles: parseFloat(modalBox.querySelector("#ch-pheight").value) || 1,
+          blocking: modalBox.querySelector("#ch-pblocking").checked,
+        }, label);
+      };
+    }
+
+    function postPaletteEntry(body, label) {
+      fetch("/api/builder/palette", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        if (!res.ok) { showToast(res.error || "Could not add to palette.", true); return; }
+        TILE_PALETTE = {}; PROP_PALETTE = {};
+        res.tiles.forEach(function (t) { TILE_PALETTE[t.id] = t; });
+        res.props.forEach(function (p) { PROP_PALETTE[p.id] = p; });
+        initBrushes(); initPropSelect(); render();
+        addedThisSession.push(label);
+        showToast('"' + label + '" added to the palette.');
+        renderChooser();
+      }).catch(function () { showToast("Lost touch with the server.", true); });
+    }
+
+    function renderChooser() {
+      modalBox.style.width = "760px";
+      modalBox.innerHTML =
+        '<h3>Tile Chooser</h3>' +
+        '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
+        '<button id="ch-tab-tiles" class="' + (activeTab === "tiles" ? "active" : "") + '">Ground / Water Tiles</button>' +
+        '<button id="ch-tab-props" class="' + (activeTab === "props" ? "active" : "") + '">Props</button>' +
+        '</div>' +
+        '<div id="ch-body">' + (activeTab === "tiles" ? tilesTabHtml() : propsTabHtml()) + '</div>' +
+        '<div class="hint">' + (addedThisSession.length ? "Added this session: " + addedThisSession.join(", ") : "") + '</div>' +
+        '<div id="modal-actions"><button id="m-close">Done</button></div>';
+      overlay.style.display = "flex";
+      modalBox.querySelector("#ch-tab-tiles").onclick = function () { activeTab = "tiles"; pendingTile = null; renderChooser(); };
+      modalBox.querySelector("#ch-tab-props").onclick = function () { activeTab = "props"; pendingProp = null; renderChooser(); };
+      modalBox.querySelector("#m-close").onclick = closeModal;
+      if (activeTab === "tiles") wireTilesTab(); else wirePropsTab();
+    }
+    renderChooser();
+  }
+  document.getElementById("btn-open-chooser").addEventListener("click", openTileChooser);
+
+  function openNewMapModal() {
+    modalBox.innerHTML =
+      '<h3>New Map</h3>' +
+      '<div class="field"><label>Name</label><input id="m-name" type="text" value="New Area"></div>' +
+      '<div class="field"><label>ID (lowercase, underscores)</label><input id="m-id" type="text" value="new_area"></div>' +
+      '<div class="field row2"><div><label>Width</label><input id="m-w" type="number" min="3" max="80" value="13"></div>' +
+        '<div><label>Height</label><input id="m-h" type="number" min="3" max="80" value="9"></div></div>' +
+      '<div id="modal-actions"><button id="m-cancel">Cancel</button><button id="m-save">Create</button></div>';
+    overlay.style.display = "flex";
+    modalBox.querySelector("#m-cancel").onclick = closeModal;
+    modalBox.querySelector("#m-save").onclick = function () {
+      var id = modalBox.querySelector("#m-id").value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+      var name = modalBox.querySelector("#m-name").value.trim() || id;
+      var w = Math.max(3, Math.min(80, parseInt(modalBox.querySelector("#m-w").value, 10) || 13));
+      var h = Math.max(3, Math.min(80, parseInt(modalBox.querySelector("#m-h").value, 10) || 9));
+      if (!id || mapList.some(function (m) { return m.id === id; })) {
+        showToast("Pick a unique, non-empty map ID", true); return;
+      }
+      state = blankMap(id, name, w, h);
+      dirty = true;
+      render(); syncInspector();
+      closeModal();
+      showToast('New map "' + name + '" -- click Save Map to write it to disk.');
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // Map-level inspector actions
+  // ------------------------------------------------------------------
+  document.getElementById("f-name").addEventListener("input", function () { state.name = this.value; markDirty(); });
+  document.getElementById("f-spawn-facing").addEventListener("change", function () { state.spawn_facing = this.value; markDirty(); });
+  document.getElementById("f-encounter").addEventListener("change", function () {
+    state.encounter_chance = Math.max(0, Math.min(1, parseFloat(this.value) || 0)); markDirty();
+  });
+  document.getElementById("btn-resize").addEventListener("click", function () {
+    var w = Math.max(3, Math.min(80, parseInt(document.getElementById("f-width").value, 10) || state.tiles[0].length));
+    var h = Math.max(3, Math.min(80, parseInt(document.getElementById("f-height").value, 10) || state.tiles.length));
+    var old = state.tiles, ow = old[0].length, oh = old.length;
+    var fillId = defaultTileId();
+    var tiles = [];
+    for (var y = 0; y < h; y++) {
+      var srcRow = y < oh ? old[y] : [];
+      var row = [];
+      for (var x = 0; x < w; x++) row.push((x < ow && y < oh) ? srcRow[x] : fillId);
+      tiles.push(row);
+    }
+    state.tiles = tiles;
+    // Drop events/spawn/props that no longer fit rather than silently save something invalid.
+    var before = state.npcs.length + state.warps.length + (state.props || []).length;
+    state.npcs = state.npcs.filter(function (n) { return n.x < w && n.y < h; });
+    state.warps = state.warps.filter(function (wp) { return wp.x < w && wp.y < h; });
+    state.props = (state.props || []).filter(function (p) { return p.x < w && p.y < h; });
+    if (state.spawn[0] >= w || state.spawn[1] >= h) state.spawn = [Math.min(state.spawn[0], w - 1), Math.min(state.spawn[1], h - 1)];
+    if (before !== state.npcs.length + state.warps.length + state.props.length) showToast("Resize dropped events that no longer fit on the map.", true);
+    markDirty(); render(); syncInspector();
+  });
+  document.getElementById("btn-new-map").addEventListener("click", openNewMapModal);
+  document.getElementById("btn-play").addEventListener("click", function () { window.open("/world", "_blank"); });
+  document.getElementById("btn-make-start").addEventListener("click", function () {
+    fetch("/api/builder/meta", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start_map: state.id }),
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (res.ok) { startMapId = res.start_map; syncInspector(); showToast("Start map set to " + state.name + "."); }
+      else showToast(res.error || "Could not set start map.", true);
+    }).catch(function () { showToast("Lost touch with the server.", true); });
+  });
+  document.getElementById("btn-save").addEventListener("click", function () {
+    document.getElementById("f-id").value = document.getElementById("f-id").value || state.id;
+    var newId = document.getElementById("f-id").value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    if (!newId) { showToast("Map needs an ID", true); return; }
+    state.id = newId;
+    fetch("/api/builder/maps", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(state),
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (res.ok) {
+        dirty = false;
+        document.getElementById("status-line").textContent = "Saved.";
+        showToast('"' + state.name + '" saved.');
+        loadMapList(state.id);
+      } else {
+        showToast(res.error || "Save failed.", true);
+      }
+    }).catch(function () { showToast("Lost touch with the server.", true); });
+  });
+
+  window.addEventListener("beforeunload", function (ev) {
+    if (dirty) { ev.preventDefault(); ev.returnValue = ""; }
+  });
+
+  // ------------------------------------------------------------------
+  // Loading
+  // ------------------------------------------------------------------
+  function loadMapList(selectId) {
+    return fetch("/api/builder/maps").then(function (r) { return r.json(); }).then(function (data) {
+      mapList = data.maps;
+      var sel = document.getElementById("map-select");
+      sel.innerHTML = mapList.map(function (m) {
+        return '<option value="' + m.id + '">' + m.name + " (" + m.id + ")</option>";
+      }).join("");
+      if (selectId) sel.value = selectId;
+      return loadMap(sel.value);
+    });
+  }
+  function loadMap(id) {
+    if (!id) return Promise.resolve();
+    return fetch("/api/builder/maps/" + encodeURIComponent(id)).then(function (r) { return r.json(); }).then(function (data) {
+      state = data; dirty = false;
+      render(); syncInspector();
+    });
+  }
+  document.getElementById("map-select").addEventListener("change", function () {
+    if (dirty && !confirm("Discard unsaved changes to this map?")) {
+      this.value = state.id; return;
+    }
+    loadMap(this.value);
+  });
+
+  Promise.all([
+    fetch("/api/builder/meta").then(function (r) { return r.json(); }).then(function (d) { startMapId = d.start_map; }),
+    fetch("/api/builder/battlers").then(function (r) { return r.json(); }).then(function (d) { battlerNames = d.battlers; }),
+    fetch("/api/builder/world_bosses").then(function (r) { return r.json(); }).then(function (d) { worldBosses = d.world_bosses; }),
+    // Palette must be loaded (and the brush/prop UI built from it) before loadMapList()'s first
+    // render(), or that render happens against an empty palette and every cell paints black.
+    loadPalette().then(function () { initBrushes(); initPropSelect(); }).then(loadMapList),
+  ]).then(function () {
+    syncInspector();
+  }).catch(function () {
+    showToast("Could not reach the hub server.", true);
+  });
+})();
+</script>
+</body>
+</html>

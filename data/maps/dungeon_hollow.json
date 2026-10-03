@@ -1,0 +1,202 @@
+{
+  "id": "dungeon_hollow",
+  "name": "Hollow Depths",
+  "tiles": [
+    [
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1"
+    ],
+    [
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "dirt_k3nm",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "dirt_k3nm",
+      "dirt_k3nm",
+      "right_stone_nvho"
+    ],
+    [
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "right_stone_nvho",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "right_stone_nvho"
+    ],
+    [
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "right_stone_nvho",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "right_stone_nvho"
+    ],
+    [
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "right_stone_nvho",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "right_stone_nvho"
+    ],
+    [
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "right_stone_nvho",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "right_stone_nvho"
+    ],
+    [
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "dirt_k3nm",
+      "right_stone_nvho"
+    ],
+    [
+      "left_stone_9y4q",
+      "dirt_k3nm",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "better_grass_comt",
+      "dirt_k3nm",
+      "right_stone_nvho"
+    ],
+    [
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "floor1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1",
+      "stone1"
+    ]
+  ],
+  "npcs": [
+    {
+      "id": "guardian_hollow",
+      "name": "Ancient Guardian",
+      "x": 6,
+      "y": 4,
+      "sprite": "Yulia",
+      "facing": "down",
+      "lines": [
+        "Ancient Guardian: You've come far enough, traveler.",
+        "Ancient Guardian: Prove your party is worth the rest of this dungeon!"
+      ],
+      "battle": false,
+      "boss_id": "ancient_guardian_boss",
+      "navigate": null
+    }
+  ],
+  "warps": [
+    {
+      "x": 6,
+      "y": 8,
+      "target_map": "field_road",
+      "target_x": 16,
+      "target_y": 11,
+      "target_facing": "down",
+      "label": "Field Road"
+    }
+  ],
+  "props": [
+    {
+      "prop_id": "tree1",
+      "x": 4,
+      "y": 3
+    },
+    {
+      "prop_id": "tree1",
+      "x": 6,
+      "y": 3
+    },
+    {
+      "prop_id": "tree1",
+      "x": 8,
+      "y": 3
+    },
+    {
+      "prop_id": "tree1",
+      "x": 5,
+      "y": 1
+    },
+    {
+      "prop_id": "tree1",
+      "x": 7,
+      "y": 1
+    }
+  ],
+  "spawn": [
+    6,
+    7
+  ],
+  "spawn_facing": "up",
+  "encounter_chance": 0.2
+}

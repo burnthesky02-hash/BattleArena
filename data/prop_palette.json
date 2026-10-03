@@ -1,0 +1,26 @@
+{
+  "tree1": {
+    "label": "Big Tree",
+    "image_url": "/assets/tilesets/forest/big_tree_bshadow.png",
+    "image_w": 281,
+    "image_h": 255,
+    "height_tiles": 1.6,
+    "blocking": true
+  },
+  "plant1": {
+    "label": "Plant",
+    "image_url": "/assets/tilesets/forest/plant2.png",
+    "image_w": 225,
+    "image_h": 205,
+    "height_tiles": 1.0,
+    "blocking": false
+  },
+  "stump1": {
+    "label": "Tree Stump",
+    "image_url": "/assets/tilesets/forest/treetrunk2006bu8.png",
+    "image_w": 143,
+    "image_h": 122,
+    "height_tiles": 0.8,
+    "blocking": true
+  }
+}

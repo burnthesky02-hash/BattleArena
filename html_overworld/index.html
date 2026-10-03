@@ -6,7 +6,9 @@
 <title>Battle Arena -- World Map</title>
 <style>
   :root {
-    --tile: 48px;
+    /* Kept in sync with the JS TILE constant below by hand -- 2x the original 48px per Andrew's
+       call (halved back down from an earlier 4x/192px pass). */
+    --tile: 96px;
     --ink: #eae6da;
   }
   html, body {
@@ -18,6 +20,7 @@
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 16px; background: linear-gradient(#20241c, #171a13);
     border-bottom: 2px solid #3a3f2f; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    position: relative; z-index: 100000;   /* see #dialogue-overlay's comment below */
   }
   #map-name { font-size: 1.15em; font-weight: bold; letter-spacing: .03em; color: #f2d98a; }
   #menu-btns { display: flex; gap: 8px; }
@@ -41,18 +44,28 @@
     position: absolute;
     background: #142010;
     box-shadow: 0 0 0 4px #3a3f2f, 0 10px 40px rgba(0,0,0,.6);
-    image-rendering: pixelated;
+    /* The forest tileset and battler art are both smooth painted art, not crisp pixel art, so
+       (unlike a retro tileset) nearest-neighbor scaling just looks chunky at 4x+ -- left un-set
+       for normal smooth scaling instead of the old "pixelated". */
     transition: left .16s linear, top .16s linear;
   }
   .tile {
     position: absolute; box-sizing: border-box;
+    background-repeat: no-repeat;
+    border: 1px solid rgba(0,0,0,.18);
+    /* Same-tone fallback that shows through if a tileset image fails to load or a cell's palette id
+       isn't recognized; the real look is the cropped swatch applied inline by applyTileBackground(). */
+    background-color: #2a2c20;
   }
-  .tile.wall { background: #2a2c22; border: 1px solid #1a1c16; }
-  .tile.floor { background: #4c5a3a; border: 1px solid #46532f; }
-  .tile.grass { background: #395a2a; border: 1px solid #335225; }
-  .tile.grass::after {
-    content: ""; position: absolute; inset: 30%;
-    background: #588a3e; border-radius: 2px;
+  .tile-prop {
+    position: absolute; pointer-events: none;
+    display: flex; align-items: flex-end; justify-content: center;
+    /* z-index is set per-instance in JS (depthZ()) so a prop sorts against actors by row --
+       something standing in front of/below it on the map draws on top, and vice versa. */
+  }
+  .tile-prop img {
+    display: block; width: auto;
+    filter: drop-shadow(0 6px 6px rgba(0,0,0,.5));
   }
   .warp-marker {
     position: absolute; display: flex; align-items: center; justify-content: center;
@@ -76,6 +89,14 @@
   #dialogue-overlay {
     display: none; position: absolute; left: 0; right: 0; bottom: 0;
     padding: 18px 22px 22px; background: linear-gradient(rgba(10,12,8,0), rgba(10,12,8,.95) 30%);
+    /* #topbar/#dialogue-overlay/#toast/#hint-bar are siblings of #stage-wrap, not descendants of it,
+       so they only stay above the map if they out-rank it in the SAME stacking context -- #stage
+       itself doesn't establish one (position:absolute with no z-index), so a prop/actor's per-row
+       depthZ() z-index (the builder caps map width/height at 80, so normally at most ~800, but
+       nothing server-side enforces that on a hand-edited map file) competes directly against these.
+       100000 keeps every UI layer above anything the map could ever produce, with a lot of room to
+       spare either way. */
+    z-index: 100000;
   }
   #dialogue-box {
     max-width: 720px; margin: 0 auto; background: #1a1d14; border: 2px solid #5a6142;
@@ -89,13 +110,16 @@
     background: rgba(20,22,16,.92); border: 1px solid #545a41; border-radius: 8px;
     padding: 8px 16px; font-size: .9em; opacity: 0; pointer-events: none;
     transition: opacity .25s;
+    z-index: 100000;   /* see #dialogue-overlay's comment above */
   }
   #toast.show { opacity: 1; }
   #hint-bar {
     position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
     font-size: .85em; opacity: .65; white-space: nowrap;
+    z-index: 100000;   /* see #dialogue-overlay's comment above */
   }
 </style>
+<script src="/hub3d/appmode.js"></script>
 </head>
 <body>
 <div id="topbar">
@@ -123,7 +147,7 @@
 (function () {
   "use strict";
 
-  var TILE = 48;
+  var TILE = 96;   // 2x the original 48px, per Andrew's call -- keep in sync with CSS --tile above
   var FRAME_COLS = 6, FRAME_ROWS = 6;             // NPC battler sheets (Idle/Run, mirrored L/R)
   var WALK_FRAME_COLS = 4, WALK_FRAME_ROWS = 4;   // player's real walk-cycle sheets (4x4 each)
   var DEFAULT_BATTLER = "Draven";
@@ -152,6 +176,49 @@
     });
     sheetCache.set(key, p);
     return p;
+  }
+
+  // ------------------------------------------------------------------
+  // Tile/prop palette (GET /api/palette, fetched once at load -- see hub_server.py and
+  // game/world.py's module docstring). Each map cell is now a palette *id* string (e.g. "grass1")
+  // rather than a fixed character, looked up here for its crop rect; a prop is a separate
+  // {prop_id,x,y} sitting on top of a tile, same idea as an NPC or a warp. Andrew's source art is a
+  // handful of whole pre-composed terrain "islands" (cliff rings, a pond) and standalone prop images
+  // (a big tree, a plant, a stump), not a clean per-cell grid, so tile palette entries are small
+  // hand-picked crop rects rather than a uniform tileset index -- html_builder/index.html's Tile
+  // Chooser is what lets Andrew add more of those crops without editing code.
+  // ------------------------------------------------------------------
+  var TILE_PALETTE = {};   // id -> {id,label,category,sheet_url,sheet_w,sheet_h,x,y,size}
+  var PROP_PALETTE = {};   // id -> {id,label,image_url,image_w,image_h,height_tiles,blocking}
+
+  function loadPalette() {
+    return fetch("/api/palette").then(function (r) { return r.json(); }).then(function (data) {
+      TILE_PALETTE = {}; PROP_PALETTE = {};
+      (data.tiles || []).forEach(function (t) { TILE_PALETTE[t.id] = t; });
+      (data.props || []).forEach(function (p) { PROP_PALETTE[p.id] = p; });
+    });
+  }
+  function applyTileBackground(el, tileId) {
+    var t = TILE_PALETTE[tileId];
+    if (!t) { el.style.backgroundColor = "#000"; return; }   // unknown id -- render as an obvious gap
+    var scale = TILE / t.size;
+    el.style.backgroundImage = "url(" + t.sheet_url + ")";
+    el.style.backgroundSize = (t.sheet_w * scale) + "px " + (t.sheet_h * scale) + "px";
+    el.style.backgroundPosition = (-(t.x * scale)) + "px " + (-(t.y * scale)) + "px";
+  }
+
+  // ------------------------------------------------------------------
+  // Depth sorting: nothing here has real 3D height, so "in front of" is approximated the way most
+  // top-down JRPGs do it -- whoever's *lower* on the map (bigger row/y) draws on top, since that's
+  // what "standing closer to the camera" would look like. Applied as an inline z-index (overriding
+  // the flat CSS default) to anything that can visually overlap its neighbor: props (whose art can
+  // rise well above their own tile -- see PROP_PALETTE's height_tiles) and actors (the player and
+  // NPCs). The *10 headroom plus a same-row actor bonus means an actor standing on the very same
+  // row as a prop draws in front of it (you're "in the doorway", not behind the bush), while a row
+  // above/below sorts strictly by y like everything else.
+  // ------------------------------------------------------------------
+  function depthZ(y, actorBonus) {
+    return y * 10 + (actorBonus ? 5 : 0);
   }
 
   var WALK_DIR_NAMES = { up: "North", down: "South", left: "West", right: "East" };
@@ -228,6 +295,7 @@
   Actor.prototype.place = function () {
     this.el.style.left = (this.x * TILE) + "px";
     this.el.style.top = (this.y * TILE) + "px";
+    this.el.style.zIndex = String(depthZ(this.y, true));   // see depthZ() -- keeps depth right as it moves
   };
   Actor.prototype.setPose = function (pose) {
     if (this.pose === pose) return;
@@ -331,12 +399,6 @@
     showToast._t = setTimeout(function () { toastEl.classList.remove("show"); }, 1200);
   }
 
-  function tileClass(ch) {
-    if (ch === ",") return "grass";
-    if (ch === "#" || ch === "T" || ch === "~") return "wall";
-    return "floor";
-  }
-
   // ------------------------------------------------------------------
   // Camera: positions #stage (left/top, in px) inside #stage-wrap so the player stays roughly
   // centered on a map bigger than the viewport (Field Road, the one map built to need this --
@@ -370,12 +432,27 @@
       var row = map.tiles[y];
       for (var x = 0; x < map.width; x++) {
         var t = document.createElement("div");
-        t.className = "tile " + tileClass(row[x]);
+        t.className = "tile";
         t.style.width = TILE + "px"; t.style.height = TILE + "px";
         t.style.left = (x * TILE) + "px"; t.style.top = (y * TILE) + "px";
+        applyTileBackground(t, row[x]);
         stageEl.appendChild(t);
       }
     }
+    (map.props || []).forEach(function (p) {
+      var kind = PROP_PALETTE[p.prop_id];
+      if (!kind) return;   // unknown/removed prop id -- just don't draw it, rather than crash
+      var prop = document.createElement("div");
+      prop.className = "tile-prop";
+      prop.style.left = (p.x * TILE) + "px"; prop.style.top = (p.y * TILE) + "px";
+      prop.style.width = TILE + "px"; prop.style.height = TILE + "px";
+      prop.style.zIndex = String(depthZ(p.y, false));
+      var propImg = document.createElement("img");
+      propImg.src = kind.image_url;
+      propImg.style.height = (TILE * kind.height_tiles) + "px";   // may rise above the cell it's on
+      prop.appendChild(propImg);
+      stageEl.appendChild(prop);
+    });
     (map.warps || []).forEach(function (w) {
       var m = document.createElement("div");
       m.className = "warp-marker";
@@ -454,7 +531,16 @@
     ArrowRight: "right", d: "right", D: "right",
   };
 
-  function applyMoveResult(res) {
+  // Matches the CSS position transition on .actor/#stage (left/top .16s linear). A local hub
+  // server answers /api/world/move in a handful of milliseconds -- far under tick()'s 125ms
+  // (8fps) frame-advance window -- so if "moving" flipped back to false as soon as the response
+  // came back, the walk-cycle would reset to frame 0 before it ever got to advance even once: the
+  // sprite would turn to face the right way and slide, but never visibly animate its legs. move()
+  // instead holds the moving/busy state open for at least this long regardless of server latency,
+  // so the walk cycle always gets its window to play out alongside the slide.
+  var MOVE_MS = 160;
+
+  function applyMoveResult(res, moveStartedAt) {
     if (res.player) {
       player.x = res.player.x; player.y = res.player.y;
       player.setFacing(res.player.facing);
@@ -478,8 +564,18 @@
       setTimeout(function () { window.location.href = "/battle?return=world"; }, 350);
       return;
     }
-    busy = false;
-    player.setMoving(false);
+    if (res.moved === false) {
+      // Bumped into something -- didn't actually go anywhere, so there's nothing to hold the walk
+      // cycle open for; release input right away instead of waiting out MOVE_MS for no reason.
+      busy = false;
+      player.setMoving(false);
+      return;
+    }
+    var elapsed = performance.now() - moveStartedAt;
+    setTimeout(function () {
+      busy = false;
+      player.setMoving(false);
+    }, Math.max(0, MOVE_MS - elapsed));
   }
 
   function move(direction) {
@@ -487,10 +583,13 @@
     busy = true;
     player.setFacing(direction);
     player.setMoving(true);
+    var startedAt = performance.now();
     fetch("/api/world/move", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ direction: direction }),
-    }).then(function (r) { return r.json(); }).then(applyMoveResult).catch(function () {
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      applyMoveResult(res, startedAt);
+    }).catch(function () {
       busy = false; player.setMoving(false); showToast("Lost touch with the server.");
     });
   }
@@ -534,7 +633,7 @@
       .then(function () { showToast("Saved!"); }).catch(function () { showToast("Could not reach the server."); });
   });
 
-  loadState().catch(function () { mapNameEl.textContent = "Could not reach the hub server."; });
+  loadPalette().then(loadState).catch(function () { mapNameEl.textContent = "Could not reach the hub server."; });
 })();
 </script>
 </body>

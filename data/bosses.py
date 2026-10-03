@@ -547,7 +547,7 @@ BOSSES: Dict[str, BossDef] = {COLOSSEUM_CHAMPION.id: COLOSSEUM_CHAMPION, UNBROKE
 # ======================================================================
 # THE ANCIENT GUARDIAN -- Hollow Depths dungeon boss (game/world.py's overworld, not the Colosseum
 # ladder). Kept in a separate WORLD_BOSSES dict rather than added to BOSSES/RANK_BOSSES above: this
-# fight is reached by walking up to the guardian NPC in data/world_data.DUNGEON_HOLLOW and talking to
+# fight is reached by walking up to the guardian NPC in data/maps/dungeon_hollow.json and talking to
 # it, not by renown/rank (game/renown.py never sees this id, so it can't affect rank-gate derivation
 # or show up in the Colosseum's boss card/pool), though it uses the exact same BossDef/BossRunner
 # machinery -- hub_server.py's run_battle treats "a boss NPC talked to in the overworld" and "a rank
@@ -605,4 +605,194 @@ ANCIENT_GUARDIAN = BossDef(
     sprite_color=(150, 150, 165),
 )
 
-WORLD_BOSSES: Dict[str, BossDef] = {ANCIENT_GUARDIAN.id: ANCIENT_GUARDIAN}
+
+# ======================================================================
+# THE DROWNED SOVEREIGN -- final boss of the island dungeon (html_hub/3d/dungeon.json). Started from a
+# 3D hub scene's `battle` action with boss "drowned_sovereign_boss" (hub_server.py /api/world/hub_battle);
+# same machinery as the Ancient Guardian above. Tougher than the Guardian: a mid-game wall, not a
+# starter fight.
+# ======================================================================
+DROWNED_SOVEREIGN = BossDef(
+    id="drowned_sovereign_boss",
+    name="Drowned Sovereign",
+    sprite={"file": "Bosses/ColliseumChamp/ColliseumChamp-Idle.png", "scale": 2.0, "native_left": False, "idle_only": True},
+    base_stats=Stats(max_hp=190, max_mp=120, atk=27, def_=22, mag=14, res=18, spd=10, luk=10),
+    growth=Stats(max_hp=18, max_mp=0, atk=2, def_=2, mag=1, res=2, spd=1, luk=0),
+    hp_mult=3.0,
+    level_offset=2,
+    skill_ids=["power_strike", "sunder", "tremor_slam", "arena_slam"],
+    persona=(
+        "The long-dead king of the island, bound to his flooded throne room: grave, courtly, bitterly "
+        "proud. Opens with Sunder on the hardest-hitting hero, Power Strike on whoever is weakest, and "
+        "Arena Slam when several heroes are healthy. Raises Counter Stance when wounded and, near the "
+        "end, brings the whole sunken hall down with Tremor Slam."
+    ),
+    script={
+        "intro": [
+            {"shake": True},
+            {"say": ("Drowned Sovereign", "Who wakes the king beneath the tide?")},
+            {"say": ("Drowned Sovereign", "Kneel, or sink with the rest of my court.")},
+            {"announce": "THE DROWNED SOVEREIGN RISES"},
+        ],
+        "triggers": [
+            {"id": "tide_tell", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
+                {"announce": "THE TIDE SURGES"},
+                {"log": "Black water pours across the floor -- the Sovereign winds up a crushing blow."},
+                {"force_skill": {"skill": "arena_slam", "target": "all"}},
+            ]},
+            {"id": "ward", "when": {"hp_below": 0.6}, "steps": [
+                {"shake": True},
+                {"say": ("Drowned Sovereign", "My crown has outlived a hundred challengers.")},
+                {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}},
+                {"force_skill": {"skill": "counter_stance", "target": "all"}},
+            ]},
+            {"id": "last_stand", "when": {"hp_below": 0.3}, "steps": [
+                {"shake": True},
+                {"flash": "#223a55"},
+                {"say": ("Drowned Sovereign", "Then let the sea take the hall -- and you with it!")},
+                {"heal_boss_pct": 0.08},
+                {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}},
+                {"announce": "THE HALL COLLAPSES"},
+                {"force_skill": {"skill": "tremor_slam", "target": "all"}},
+            ]},
+        ],
+        "victory": [
+            {"say": ("Drowned Sovereign", "...The tide... lets me go. Take the crown, hero.")},
+        ],
+        "defeat": [
+            {"say": ("Drowned Sovereign", "The sea keeps what it takes.")},
+        ],
+    },
+    rewards_first={"money": 900, "gems": 30, "xp": 260},
+    rewards_repeat={"money": 220, "gems": 6, "xp": 70},
+    sprite_color=(70, 110, 150),
+)
+
+
+VAULT_WARDEN = BossDef(
+    id="vault_warden_boss",
+    name="Vault Warden",
+    sprite={"file": "Bosses/ColliseumChamp/ColliseumChamp-Idle.png", "scale": 2.1, "native_left": False, "idle_only": True},
+    base_stats=Stats(max_hp=210, max_mp=140, atk=29, def_=24, mag=18, res=20, spd=12, luk=10),
+    growth=Stats(max_hp=20, max_mp=0, atk=2, def_=2, mag=2, res=2, spd=1, luk=0),
+    hp_mult=3.2,
+    level_offset=2,
+    skill_ids=["power_strike", "sunder", "shield_bash", "arena_slam", "tremor_slam"],
+    persona=(
+        "An ancient guardian construct that keeps the Shard: flat, mechanical, relentless. Opens with Sunder on the "
+        "hardest-hitting hero, uses Shield Bash on whoever looks most dangerous, Power Strike on the weakest, and "
+        "Arena Slam when several heroes are healthy. When damaged it overloads and brings the whole core down with Tremor Slam."
+    ),
+    script={
+        "intro": [
+            {"shake": True},
+            {"say": ("Vault Warden", "THE SHARD IS NOT TO BE CARRIED. THE SHARD IS NOT TO BE TOUCHED.")},
+            {"say": ("Vault Warden", "VISITORS WITHOUT A KEY ARE TO BE UNMADE.")},
+            {"announce": "THE VAULT WARDEN ACTIVATES"},
+        ],
+        "triggers": [
+            {"id": "pulse", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
+                {"announce": "CORE PULSE"},
+                {"log": "The Shard flares -- the Warden channels a crushing pulse through the floor."},
+                {"force_skill": {"skill": "arena_slam", "target": "all"}},
+            ]},
+            {"id": "overclock", "when": {"hp_below": 0.6}, "steps": [
+                {"shake": True},
+                {"say": ("Vault Warden", "THREAT LEVEL RAISED. SAFEGUARDS RELEASED.")},
+                {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}},
+            ]},
+            {"id": "meltdown", "when": {"hp_below": 0.3}, "steps": [
+                {"shake": True},
+                {"flash": "#3a2266"},
+                {"say": ("Vault Warden", "CORE BREACH. IF THE SHARD IS LOST, THE VAULT IS LOST WITH IT.")},
+                {"heal_boss_pct": 0.08},
+                {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}},
+                {"announce": "THE CORE DESTABILISES"},
+                {"force_skill": {"skill": "tremor_slam", "target": "all"}},
+            ]},
+        ],
+        "victory": [
+            {"say": ("Vault Warden", "...GUARD DUTY... CONCLUDED... THE SHARD... IS YOURS TO ANSWER FOR.")},
+        ],
+        "defeat": [
+            {"say": ("Vault Warden", "UNMADE. RESUME POST.")},
+        ],
+    },
+    rewards_first={"money": 1400, "gems": 45, "xp": 420},
+    rewards_repeat={"money": 320, "gems": 9, "xp": 110},
+    sprite_color=(140, 100, 200),
+)
+
+
+def _guardian(id_, name, sprite_file, scale, stats, growth, hp_mult, lvoff, skills, persona, intro, triggers, victory, defeat, rf, rr, color):
+    return BossDef(id=id_, name=name, sprite={"file": sprite_file, "scale": scale, "native_left": False, "idle_only": True},
+                   base_stats=stats, growth=growth, hp_mult=hp_mult, level_offset=lvoff, skill_ids=skills, persona=persona,
+                   script={"intro": intro, "triggers": triggers, "victory": victory, "defeat": defeat},
+                   rewards_first=rf, rewards_repeat=rr, sprite_color=color)
+
+
+VAULT_SENTINEL = _guardian(
+    "vault_sentinel_boss", "Vault Sentinel", "Battlers/Draven/Draven-Idle.png", 1.7,
+    Stats(max_hp=170, max_mp=100, atk=24, def_=26, mag=12, res=16, spd=9, luk=8),
+    Stats(max_hp=16, max_mp=0, atk=2, def_=2, mag=1, res=1, spd=1, luk=0), 2.5, 0,
+    ["shield_bash", "power_strike", "iron_stance", "ground_slam", "self_repair"],
+    "A sealed-gate construct: methodical and defensive. Shield Bash on the most dangerous hero, Power Strike on the weakest, Iron Stance when hurt, Ground Slam when the party is healthy.",
+    [{"shake": True}, {"say": ("Vault Sentinel", "EAST GATE PROTOCOL ENGAGED. INTRUDERS WILL BE HELD.")}, {"announce": "THE VAULT SENTINEL ACTIVATES"}],
+    [{"id": "lockdown", "when": {"every_n_rounds": 3, "from": 3}, "once": False, "steps": [
+        {"announce": "LOCKDOWN"}, {"log": "The Sentinel slams its shield into the floor and the gate-lattice shudders."},
+        {"force_skill": {"skill": "ground_slam", "target": "all"}}]},
+     {"id": "bulwark", "when": {"hp_below": 0.5}, "steps": [
+        {"shake": True}, {"say": ("Vault Sentinel", "SHIELD ARRAY AT FULL OUTPUT.")},
+        {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}}]},
+     {"id": "repairs", "when": {"hp_below": 0.25}, "steps": [
+        {"say": ("Vault Sentinel", "INTEGRITY CRITICAL. EMERGENCY REPAIR.")}, {"heal_boss_pct": 0.08},
+        {"announce": "THE SENTINEL REPAIRS ITSELF"}]}],
+    [{"say": ("Vault Sentinel", "GATE... SEALED. THE INTRUDERS... REMAIN.")}],
+    [{"say": ("Vault Sentinel", "...GATE... OPEN. PROCEED... TO YOUR ENDING.")}],
+    {"money": 520, "gems": 14, "xp": 170}, {"money": 150, "gems": 3, "xp": 50}, (90, 150, 210))
+
+PHASE_STALKER = _guardian(
+    "phase_stalker_boss", "Phase Stalker", "Battlers/Kael/Kael-Idle.png", 1.6,
+    Stats(max_hp=140, max_mp=110, atk=27, def_=15, mag=16, res=18, spd=17, luk=14),
+    Stats(max_hp=14, max_mp=0, atk=3, def_=1, mag=1, res=1, spd=2, luk=1), 2.4, 0,
+    ["rending_strike", "piercing_shot", "poison_dart", "reckless_swing", "quick_shot"],
+    "A fast rift predator that flickers in and out of phase. Poisons the healthiest hero, Rending Strike on the weakest, Reckless Swing when it smells blood, quick Quick Shots to finish wounded heroes.",
+    [{"shake": True}, {"say": ("Phase Stalker", "Two steps behind you. Always. Every step.")}, {"announce": "THE PHASE STALKER SLIPS IN"}],
+    [{"id": "phase", "when": {"every_n_rounds": 4, "from": 2}, "once": False, "steps": [
+        {"announce": "PHASE SHIFT"}, {"log": "The Stalker blinks out of sight and strikes from every angle."},
+        {"force_skill": {"skill": "poison_dart", "target": "all"}}]},
+     {"id": "frenzy", "when": {"hp_below": 0.55}, "steps": [
+        {"shake": True}, {"say": ("Phase Stalker", "Hold still. It is easier if you hold still.")},
+        {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}}]},
+     {"id": "desperate", "when": {"hp_below": 0.25}, "steps": [
+        {"flash": "#2a1a55"}, {"say": ("Phase Stalker", "The rift takes me back. It takes you too.")},
+        {"apply_status": {"target": "boss", "status": "atk_up", "duration": 3}},
+        {"force_skill": {"skill": "reckless_swing", "target": "lowest_hp"}}]}],
+    [{"say": ("Phase Stalker", "No one leaves. No one... ever leaves...")}],
+    [{"say": ("Phase Stalker", "Back... to the other side. Tell it I was loyal.")}],
+    {"money": 600, "gems": 16, "xp": 200}, {"money": 170, "gems": 4, "xp": 60}, (170, 110, 230))
+
+RIFT_COLOSSUS = _guardian(
+    "rift_colossus_boss", "Rift Colossus", "Battlers/Yulia/Yulia-Idle.png", 2.0,
+    Stats(max_hp=230, max_mp=120, atk=28, def_=22, mag=22, res=14, spd=8, luk=8),
+    Stats(max_hp=22, max_mp=0, atk=2, def_=2, mag=2, res=1, spd=1, luk=0), 2.8, 0,
+    ["crushing_blow", "ground_slam", "warcry", "firestorm", "power_strike"],
+    "A towering core-forged giant. Slow and brutal: Crushing Blow on the strongest hero, Power Strike on the weakest, Ground Slam against healthy parties, and Firestorm when the core overheats.",
+    [{"shake": True}, {"say": ("Rift Colossus", "THE CORE IS HEAVY. THE CORE IS HOT. THE CORE IS MINE.")}, {"announce": "THE RIFT COLOSSUS AWAKENS"}],
+    [{"id": "meltcore", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
+        {"announce": "CORE SURGE"}, {"log": "The Colossus's chest-core flares white-hot."},
+        {"force_skill": {"skill": "firestorm", "target": "all"}}]},
+     {"id": "warcry", "when": {"hp_below": 0.6}, "steps": [
+        {"shake": True}, {"say": ("Rift Colossus", "GRIND THEM TO SLAG.")},
+        {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}}]},
+     {"id": "overload", "when": {"hp_below": 0.3}, "steps": [
+        {"shake": True}, {"flash": "#5a2a10"}, {"say": ("Rift Colossus", "CORE... OVERLOAD. TAKE IT ALL WITH ME.")},
+        {"heal_boss_pct": 0.06}, {"announce": "THE CORE OVERLOADS"},
+        {"force_skill": {"skill": "ground_slam", "target": "all"}}]}],
+    [{"say": ("Rift Colossus", "THE CORE... ENDURES. YOU DO NOT.")}],
+    [{"say": ("Rift Colossus", "...CORE... COOLING. THE WAY... IS OPEN.")}],
+    {"money": 720, "gems": 20, "xp": 260}, {"money": 200, "gems": 5, "xp": 75}, (230, 140, 70))
+
+
+WORLD_BOSSES: Dict[str, BossDef] = {ANCIENT_GUARDIAN.id: ANCIENT_GUARDIAN, DROWNED_SOVEREIGN.id: DROWNED_SOVEREIGN, VAULT_WARDEN.id: VAULT_WARDEN,
+                                VAULT_SENTINEL.id: VAULT_SENTINEL, PHASE_STALKER.id: PHASE_STALKER, RIFT_COLOSSUS.id: RIFT_COLOSSUS}

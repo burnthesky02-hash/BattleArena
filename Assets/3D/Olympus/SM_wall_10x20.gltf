@@ -1,0 +1,411 @@
+{
+	"asset":
+	{
+		"version": "2.0",
+		"generator": "Unreal Engine 5.7.4"
+	},
+	"scene": 0,
+	"accessors": [
+		{
+			"bufferView": 0,
+			"count": 36,
+			"type": "SCALAR",
+			"componentType": 5121
+		},
+		{
+			"bufferView": 1,
+			"count": 24,
+			"type": "VEC3",
+			"componentType": 5126,
+			"min": [
+				-2,
+				-10.0000029,
+				-20
+			],
+			"max": [
+				0,
+				-4.7480043e-07,
+				1.62920674e-06
+			]
+		},
+		{
+			"bufferView": 2,
+			"count": 24,
+			"type": "VEC3",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 3,
+			"count": 24,
+			"type": "VEC4",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 4,
+			"count": 24,
+			"type": "VEC2",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 5,
+			"count": 24,
+			"type": "VEC2",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 6,
+			"count": 936,
+			"type": "SCALAR",
+			"componentType": 5123
+		},
+		{
+			"bufferView": 7,
+			"count": 456,
+			"type": "VEC3",
+			"componentType": 5126,
+			"min": [
+				-0.501235187,
+				-9.97144222,
+				-17.9519901
+			],
+			"max": [
+				0.663844883,
+				-0.0292552412,
+				-2.01745772
+			]
+		},
+		{
+			"bufferView": 8,
+			"count": 456,
+			"type": "VEC3",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 9,
+			"count": 456,
+			"type": "VEC4",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 10,
+			"count": 456,
+			"type": "VEC2",
+			"componentType": 5126
+		},
+		{
+			"bufferView": 11,
+			"count": 456,
+			"type": "VEC2",
+			"componentType": 5126
+		}
+	],
+	"buffers": [
+		{
+			"uri": "SM_wall_10x20.bin",
+			"byteLength": 28788
+		}
+	],
+	"bufferViews": [
+		{
+			"buffer": 0,
+			"byteLength": 36,
+			"target": 34963
+		},
+		{
+			"buffer": 0,
+			"byteLength": 288,
+			"byteOffset": 36,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 288,
+			"byteOffset": 324,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 384,
+			"byteOffset": 612,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 192,
+			"byteOffset": 996,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 192,
+			"byteOffset": 1188,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 1872,
+			"byteOffset": 1380,
+			"target": 34963
+		},
+		{
+			"buffer": 0,
+			"byteLength": 5472,
+			"byteOffset": 3252,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 5472,
+			"byteOffset": 8724,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 7296,
+			"byteOffset": 14196,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 3648,
+			"byteOffset": 21492,
+			"target": 34962
+		},
+		{
+			"buffer": 0,
+			"byteLength": 3648,
+			"byteOffset": 25140,
+			"target": 34962
+		}
+	],
+	"images": [
+		{
+			"uri": "MI_bricks_03_SM_wall_10x20_BaseColor.png"
+		},
+		{
+			"uri": "MI_bricks_03_SM_wall_10x20_MetallicRoughness.png"
+		},
+		{
+			"uri": "MI_bricks_03_SM_wall_10x20_Normal.png"
+		},
+		{
+			"uri": "MI_bricks_03_SM_wall_10x20_Occlusion.png"
+		},
+		{
+			"uri": "MI_trim_SM_wall_10x20_BaseColor.png"
+		},
+		{
+			"uri": "MI_trim_SM_wall_10x20_MetallicRoughness.png"
+		},
+		{
+			"uri": "MI_trim_SM_wall_10x20_Normal.png"
+		},
+		{
+			"uri": "MI_trim_SM_wall_10x20_Occlusion.png"
+		}
+	],
+	"materials": [
+		{
+			"name": "MI_bricks_03_SM_wall_10x20",
+			"pbrMetallicRoughness":
+			{
+				"baseColorTexture":
+				{
+					"index": 0,
+					"texCoord": 1,
+					"extensions":
+					{
+						"KHR_texture_transform":
+						{
+							"offset": [
+								-0,
+								-0.485672832
+							],
+							"scale": [
+								1.13904333,
+								1.48567283
+							]
+						}
+					}
+				},
+				"metallicRoughnessTexture":
+				{
+					"index": 1,
+					"texCoord": 1,
+					"extensions":
+					{
+						"KHR_texture_transform":
+						{
+							"offset": [
+								-0,
+								-0.485672832
+							],
+							"scale": [
+								1.13904333,
+								1.48567283
+							]
+						}
+					}
+				}
+			},
+			"normalTexture":
+			{
+				"index": 2,
+				"texCoord": 1,
+				"extensions":
+				{
+					"KHR_texture_transform":
+					{
+						"offset": [
+							-0,
+							-0.485672832
+						],
+						"scale": [
+							1.13904333,
+							1.48567283
+						]
+					}
+				}
+			},
+			"occlusionTexture":
+			{
+				"index": 3,
+				"texCoord": 1,
+				"extensions":
+				{
+					"KHR_texture_transform":
+					{
+						"offset": [
+							-0,
+							-0.485672832
+						],
+						"scale": [
+							1.13904333,
+							1.48567283
+						]
+					}
+				}
+			}
+		},
+		{
+			"name": "MI_trim_SM_wall_10x20",
+			"pbrMetallicRoughness":
+			{
+				"baseColorTexture":
+				{
+					"index": 4,
+					"texCoord": 1
+				},
+				"metallicRoughnessTexture":
+				{
+					"index": 5,
+					"texCoord": 1
+				}
+			},
+			"normalTexture":
+			{
+				"index": 6,
+				"texCoord": 1
+			},
+			"occlusionTexture":
+			{
+				"index": 7,
+				"texCoord": 1
+			}
+		}
+	],
+	"meshes": [
+		{
+			"name": "SM_wall_10x20",
+			"primitives": [
+				{
+					"attributes":
+					{
+						"POSITION": 1,
+						"NORMAL": 2,
+						"TANGENT": 3,
+						"TEXCOORD_0": 4,
+						"TEXCOORD_1": 5
+					},
+					"indices": 0,
+					"material": 0
+				},
+				{
+					"attributes":
+					{
+						"POSITION": 7,
+						"NORMAL": 8,
+						"TANGENT": 9,
+						"TEXCOORD_0": 10,
+						"TEXCOORD_1": 11
+					},
+					"indices": 6,
+					"material": 1
+				}
+			]
+		}
+	],
+	"nodes": [
+		{
+			"mesh": 0
+		}
+	],
+	"samplers": [
+		{
+			"minFilter": 9987,
+			"magFilter": 9729
+		}
+	],
+	"scenes": [
+		{
+			"nodes": [
+				0
+			]
+		}
+	],
+	"textures": [
+		{
+			"name": "MI_bricks_03_SM_wall_10x20_BaseColor",
+			"sampler": 0,
+			"source": 0
+		},
+		{
+			"name": "MI_bricks_03_SM_wall_10x20_MetallicRoughness",
+			"sampler": 0,
+			"source": 1
+		},
+		{
+			"name": "MI_bricks_03_SM_wall_10x20_Normal",
+			"sampler": 0,
+			"source": 2
+		},
+		{
+			"name": "MI_bricks_03_SM_wall_10x20_Occlusion",
+			"sampler": 0,
+			"source": 3
+		},
+		{
+			"name": "MI_trim_SM_wall_10x20_BaseColor",
+			"sampler": 0,
+			"source": 4
+		},
+		{
+			"name": "MI_trim_SM_wall_10x20_MetallicRoughness",
+			"sampler": 0,
+			"source": 5
+		},
+		{
+			"name": "MI_trim_SM_wall_10x20_Normal",
+			"sampler": 0,
+			"source": 6
+		},
+		{
+			"name": "MI_trim_SM_wall_10x20_Occlusion",
+			"sampler": 0,
+			"source": 7
+		}
+	],
+	"extensionsUsed": [
+		"KHR_texture_transform"
+	]
+}

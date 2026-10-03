@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Battle Arena - 2.5D forest prototype</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root { --panel: rgba(10,18,12,.7); --edge: rgba(190,255,180,.28); --txt:#eaf6e4; --dim:#9db894; }
+  html,body { margin:0; height:100%; background:#0a1510; overflow:hidden; color:var(--txt); font-family:"Segoe UI",system-ui,sans-serif; user-select:none; }
+  canvas { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  #vig { position:fixed; inset:0; pointer-events:none;
+         background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 50%, rgba(2,10,4,.62) 100%),
+                     linear-gradient(rgba(255,230,150,.07), rgba(0,0,0,0) 40%); }
+  #hud { position:fixed; inset:0; pointer-events:none; overflow:hidden; }
+  .panel { position:absolute; background:var(--panel); border:1px solid var(--edge); border-radius:12px; backdrop-filter:blur(3px); }
+  #help { left:16px; top:14px; padding:10px 12px; font-size:12.5px; line-height:1.55; }
+  #help b { color:#fff; } #help .t { color:var(--dim); margin-bottom:4px; }
+  #help button { pointer-events:auto; margin:3px 3px 0 0; padding:4px 9px; font-size:12px; color:var(--txt); cursor:pointer;
+                 background:rgba(70,120,60,.4); border:1px solid var(--edge); border-radius:7px; }
+  #help button.on { background:rgba(110,190,90,.6); }
+  #loc { left:50%; top:14px; transform:translateX(-50%); padding:6px 18px; font-size:14px; letter-spacing:.04em; }
+  .label { position:absolute; transform:translate(-50%,-100%); font-size:12px; white-space:nowrap; padding:2px 8px; border-radius:8px;
+           background:rgba(10,18,12,.7); border:1px solid var(--edge); text-shadow:0 1px 2px #000; }
+  #loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#0a1510; font-size:18px; color:var(--dim); z-index:5; transition:opacity .5s; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="vig"></div>
+<div id="hud">
+  <div id="help" class="panel">
+    <div class="t">2.5D overworld prototype &mdash; Field Road</div>
+    <b>WASD / arrows</b> walk (free movement, camera-relative)<br>
+    <b>Q / E</b> or drag: rotate camera &middot; <b>wheel</b>: zoom<br>
+    <div style="margin-top:4px">Camera: <span id="presets"></span></div>
+  </div>
+  <div id="loc" class="panel">Field Road</div>
+</div>
+<div id="loading">Loading forest&hellip;</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   Overworld 2.5D prototype -- raw WebGL, no libraries.
+   Reads the game's real map JSON + tile/prop palettes + art. Ground is baked
+   from the palette's tile crops; trees/props/player are upright billboards.
+   Extra "forest" density (border/outer trees, plants, fireflies) is decoration
+   added only by this prototype -- it is not saved anywhere.
+   ===================================================================== */
+const MAP_URL = "/data/maps/field_road.json";
+const PLAYER_H = 1.45;           // world height of the player (1 tile = 1 unit)
+const TREE_SCALE = 1.5;          // palette says 1.6 tiles tall; bumped so trees read as canopy next to a 3D camera
+const MARGIN = 12;               // forest ring baked/scattered outside the map
+
+/* ---------- math ---------- */
+const V = { sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]], add:(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], mul:(a,s)=>[a[0]*s,a[1]*s,a[2]*s],
+  dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2], cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],
+  norm:(a)=>{const l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l];}, len:(a)=>Math.hypot(a[0],a[1],a[2]) };
+const perspective=(fovy,asp,n,f)=>{const t=1/Math.tan(fovy/2);return [t/asp,0,0,0,0,t,0,0,0,0,(f+n)/(n-f),-1,0,0,2*f*n/(n-f),0];};
+function lookAt(e,c,up){const z=V.norm(V.sub(e,c)),x=V.norm(V.cross(up,z)),y=V.cross(z,x);
+  return {m:[x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-V.dot(x,e),-V.dot(y,e),-V.dot(z,e),1],x,y,z};}
+function mul4(a,b){const o=new Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];return o;}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t;
+let _seed = 1337; const rnd = () => (_seed = (_seed*1664525 + 1013904223) >>> 0) / 4294967296; const rr=(a,b)=>a+rnd()*(b-a);
+
+/* ---------- GL ---------- */
+const canvas=document.getElementById("gl");
+const gl=canvas.getContext("webgl",{antialias:true,alpha:false});
+if(!gl){document.getElementById("loading").textContent="WebGL isn't available.";throw new Error("no webgl");}
+const VS=`
+attribute vec2 a;
+uniform mat4 u_vp; uniform vec3 u_o,u_r,u_u,u_cam; uniform vec2 u_size,u_anchor; uniform float u_sway;
+varying vec2 v_uv; varying float v_d;
+void main(){
+  vec2 p=(a-u_anchor)*u_size;
+  p.x += u_sway * a.y * a.y;
+  vec3 w=u_o+u_r*p.x+u_u*p.y;
+  gl_Position=u_vp*vec4(w,1.0); v_uv=a; v_d=distance(w,u_cam);
+}`;
+const FS=`
+precision mediump float;
+uniform sampler2D u_tex; uniform vec4 u_rect,u_tint; uniform vec2 u_eps; uniform float u_flip; uniform vec3 u_fog; uniform vec2 u_fogr;
+varying vec2 v_uv; varying float v_d;
+void main(){
+  vec2 uv=v_uv; if(u_flip>.5) uv.x=1.0-uv.x;
+  vec2 t=u_rect.xy+vec2(uv.x,1.0-uv.y)*u_rect.zw;
+  t=clamp(t,u_rect.xy+u_eps,u_rect.xy+u_rect.zw-u_eps);
+  vec4 c=texture2D(u_tex,t);            // premultiplied
+  c.rgb*=u_tint.rgb; c*=u_tint.a;
+  float f=clamp((v_d-u_fogr.x)/(u_fogr.y-u_fogr.x),0.0,1.0);
+  c.rgb=mix(c.rgb,u_fog*c.a,f);
+  gl_FragColor=c;
+}`;
+const sh=(t,s)=>{const x=gl.createShader(t);gl.shaderSource(x,s);gl.compileShader(x);if(!gl.getShaderParameter(x,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(x));return x;};
+const prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));gl.useProgram(prog);
+const U={};["u_vp","u_o","u_r","u_u","u_cam","u_size","u_anchor","u_sway","u_tex","u_rect","u_tint","u_eps","u_flip","u_fog","u_fogr"].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+const qb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,qb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([0,0,1,0,0,1,1,1]),gl.STATIC_DRAW);
+const al=gl.getAttribLocation(prog,"a");gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
+gl.disable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);
+const NORMAL=()=>gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA), ADD=()=>gl.blendFunc(gl.ONE,gl.ONE);
+const FOG=[.07,.13,.09];
+function mkTex(src,repeat){const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,src);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);return t;}
+function canvasTex(w,h,fn){const c=document.createElement("canvas");c.width=w;c.height=h;fn(c.getContext("2d"),w,h);return {tex:mkTex(c),w,h,canvas:c};}
+function draw(o){
+  gl.uniformMatrix4fv(U.u_vp,false,cam.vp);gl.uniform3fv(U.u_o,o.origin);gl.uniform3fv(U.u_r,o.right);gl.uniform3fv(U.u_u,o.up);gl.uniform3fv(U.u_cam,cam.pos);
+  gl.uniform2f(U.u_size,o.w,o.h);gl.uniform2f(U.u_anchor,o.ax??.5,o.ay??0);gl.uniform1f(U.u_sway,o.sway||0);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,o.tex);gl.uniform1i(U.u_tex,0);
+  const r=o.rect||[0,0,1,1];gl.uniform4f(U.u_rect,r[0],r[1],r[2],r[3]);gl.uniform2f(U.u_eps,o.ex||0,o.ey||0);gl.uniform1f(U.u_flip,o.flip?1:0);
+  const t=o.tint||[1,1,1,1];gl.uniform4f(U.u_tint,t[0],t[1],t[2],t[3]);
+  const fg=o.nofog?[1e5,1e6]:[FOGR[0],FOGR[1]];gl.uniform3f(U.u_fog,FOG[0],FOG[1],FOG[2]);gl.uniform2f(U.u_fogr,fg[0],fg[1]);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+}
+let FOGR=[22,58];
+
+/* ---------- loading helpers ---------- */
+const imgCache=new Map();
+const loadImg=(u)=>{if(!imgCache.has(u))imgCache.set(u,new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=u;}));return imgCache.get(u);};
+const getJSON=(u)=>fetch(u).then(r=>r.json());
+
+/* ---------- camera ---------- */
+const cam={yaw:0,pitch:42,dist:15,fov:32,tx:0,tz:0,vp:null,pos:[0,0,0],camX:[1,0,0],camY:[0,1,0],fwd:[0,0,-1],right:[1,0,0],flat:[0,0,-1],w:1,h:1,aspect:1,
+  g:{yaw:0,pitch:42,dist:15,fov:32}};
+const PRESETS={ "Classic":{pitch:50,dist:15,fov:30}, "Octopath":{pitch:34,dist:13,fov:34}, "Low":{pitch:16,dist:11,fov:42}, "Top-down":{pitch:72,dist:17,fov:30} };
+let presetName="Octopath";
+function setPreset(n){presetName=n;Object.assign(cam.g,PRESETS[n]);[...document.querySelectorAll("#presets button")].forEach(b=>b.classList.toggle("on",b.dataset.p===n));}
+function updateCamera(dt){
+  const k=1-Math.pow(.003,dt);
+  cam.yaw=lerp(cam.yaw,cam.g.yaw,k);cam.pitch=lerp(cam.pitch,cam.g.pitch,k);cam.dist=lerp(cam.dist,cam.g.dist,k);cam.fov=lerp(cam.fov,cam.g.fov,k);
+  const f=1-Math.pow(.02,dt);cam.tx=lerp(cam.tx,player.x,f);cam.tz=lerp(cam.tz,player.z,f);
+  const ya=cam.yaw*Math.PI/180,pi=cam.pitch*Math.PI/180,tgt=[cam.tx,PLAYER_H*.45,cam.tz];
+  const pos=V.add(tgt,[Math.sin(ya)*Math.cos(pi)*cam.dist,Math.sin(pi)*cam.dist,Math.cos(ya)*Math.cos(pi)*cam.dist]);
+  const L=lookAt(pos,tgt,[0,1,0]);cam.pos=pos;cam.camX=L.x;cam.camY=L.y;cam.fwd=V.mul(L.z,-1);
+  cam.right=V.norm([L.x[0],0,L.x[2]]);cam.flat=V.norm([cam.fwd[0],0,cam.fwd[2]]);
+  cam.vp=mul4(perspective(cam.fov*Math.PI/180,cam.aspect,.1,200),L.m);
+}
+function project(p){const m=cam.vp,x=p[0],y=p[1],z=p[2];const cx=m[0]*x+m[4]*y+m[8]*z+m[12],cy=m[1]*x+m[5]*y+m[9]*z+m[13],cw=m[3]*x+m[7]*y+m[11]*z+m[15];
+  return {x:(cx/cw*.5+.5)*cam.w,y:(1-(cy/cw*.5+.5))*cam.h,w:cw};}
+
+/* ---------- world ---------- */
+let MAP,TILES,PROPS,W,H,ox,oz,groundTex,glowTex,shadowTex,ringTex;
+const objs=[];            // billboards: {tex,x,z,w,h,ax,ay,tint,sway,phase,blocking}
+const blockedProp=new Set();
+const tileAt=(tx,ty)=>(MAP.tiles[ty]&&MAP.tiles[ty][tx])||null;
+const worldX=(tx)=>tx+.5-W/2, worldZ=(ty)=>ty+.5-H/2;
+function walkable(x,z){
+  const tx=Math.floor(x+W/2),ty=Math.floor(z+H/2);
+  const id=tileAt(tx,ty); if(!id) return false;
+  const t=TILES[id]; if(!t||t.category==="blocked") return false;
+  if(blockedProp.has(tx+","+ty)) return false;
+  return true;
+}
+async function buildWorld(){
+  MAP=await getJSON(MAP_URL);const tp=await getJSON("/data/tile_palette.json"),pp=await getJSON("/data/prop_palette.json");
+  TILES=tp;PROPS=pp;H=MAP.tiles.length;W=MAP.tiles[0].length;ox=-W/2;oz=-H/2;
+  document.getElementById("loc").textContent=MAP.name;
+
+  // procedural helper textures
+  glowTex=canvasTex(128,128,(g,w,h)=>{const r=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);r.addColorStop(0,"rgba(255,255,255,1)");r.addColorStop(.3,"rgba(255,255,255,.5)");r.addColorStop(1,"rgba(255,255,255,0)");g.fillStyle=r;g.fillRect(0,0,w,h);});
+  shadowTex=canvasTex(128,128,(g,w,h)=>{const r=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);r.addColorStop(0,"rgba(0,0,0,.6)");r.addColorStop(.6,"rgba(0,0,0,.28)");r.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=r;g.fillRect(0,0,w,h);});
+  ringTex=canvasTex(256,256,(g,w,h)=>{g.strokeStyle="#fff";g.lineWidth=9;g.beginPath();g.arc(w/2,h/2,w/2-14,0,7);g.stroke();g.strokeStyle="rgba(255,255,255,.3)";g.lineWidth=24;g.beginPath();g.arc(w/2,h/2,w/2-20,0,7);g.stroke();});
+
+  // sheets used by the palettes
+  const sheets={};const urls=new Set([...Object.values(TILES).map(t=>t.sheet_url),...Object.values(PROPS).map(p=>p.image_url)]);
+  await Promise.all([...urls].map(async u=>sheets[u]=await loadImg(u)));
+
+  // bake ground (map + a grass margin all around) into one texture
+  const CELL=48,GW=W+MARGIN*2,GH=H+MARGIN*2;
+  const grassIds=Object.keys(TILES).filter(k=>/grass/.test(k)||TILES[k].label.toLowerCase().includes("grass"));
+  groundTex=canvasTex(GW*CELL,GH*CELL,(g)=>{
+    g.imageSmoothingEnabled=true;
+    const avg={};
+    const avgOf=(id)=>{if(avg[id])return avg[id];const t=TILES[id],img=sheets[t.sheet_url];const c=document.createElement("canvas");c.width=c.height=t.size;
+      const cg=c.getContext("2d",{willReadFrequently:true});cg.drawImage(img,t.x,t.y,t.size,t.size,0,0,t.size,t.size);const d=cg.getImageData(0,0,t.size,t.size).data;
+      let r=0,gg=0,b=0,n=0;for(let i=0;i<d.length;i+=4)if(d[i+3]>200){r+=d[i];gg+=d[i+1];b+=d[i+2];n++;}
+      return avg[id]=n?`rgb(${r/n|0},${gg/n|0},${b/n|0})`:"#1c3a1c";};
+    const cell=(id,gx,gy,dark)=>{const t=TILES[id],img=t&&sheets[t.sheet_url];
+      if(!img){g.fillStyle="#223";g.fillRect(gx*CELL,gy*CELL,CELL,CELL);return;}
+      g.fillStyle=avgOf(id);g.fillRect(gx*CELL,gy*CELL,CELL+1,CELL+1);
+      g.drawImage(img,t.x,t.y,t.size,t.size,gx*CELL,gy*CELL,CELL+1,CELL+1);
+      if(dark){g.fillStyle=`rgba(4,18,8,${dark})`;g.fillRect(gx*CELL,gy*CELL,CELL+1,CELL+1);}};
+    for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+      const mx=x-MARGIN,my=y-MARGIN;
+      if(mx>=0&&mx<W&&my>=0&&my<H) cell(MAP.tiles[my][mx],x,y,0);
+      else { const d=Math.max(0,Math.abs(mx-(W-1)/2)-W/2,Math.abs(my-(H-1)/2)-H/2); cell(grassIds[0]||"grass1",x,y,Math.min(.55,d*.04)); }
+    }
+  });
+
+  // ---- billboards ----
+  const addProp=(pid,x,z,opts={})=>{const p=PROPS[pid],img=sheets[p.image_url];if(!img)return;
+    const tex=opts.tex||(p._tex||(p._tex=mkTex(img)));
+    const hh=p.height_tiles*(pid==="tree1"?TREE_SCALE:1)*(opts.scale||1),ww=hh*img.width/img.height;
+    objs.push({tex,x,z,w:ww,h:hh,ax:.5,ay:pid==="tree1"?.07:.04,tint:opts.tint||[1,1,1,1],sway:pid==="tree1"?.05:.03,phase:rnd()*10,shadow:pid==="tree1"?1.7*(opts.scale||1):.8});};
+  // the map's real props
+  (MAP.props||[]).forEach(p=>{const d=PROPS[p.prop_id];addProp(p.prop_id,worldX(p.x),worldZ(p.y)+.35);if(d&&d.blocking)blockedProp.add(p.x+","+p.y);});
+
+  // prototype-only forest dressing: dense trees on the stone border and out into the margin, plants on grass
+  const occupied=new Set([...(MAP.props||[]).map(p=>p.x+","+p.y)]);
+  for(let y=-MARGIN;y<H+MARGIN;y++)for(let x=-MARGIN;x<W+MARGIN;x++){
+    const inMap=x>=0&&x<W&&y>=0&&y<H; const id=inMap?MAP.tiles[y][x]:null; const cat=id?TILES[id].category:"outside";
+    const edge=!inMap||cat==="blocked"&&TILES[id].label.toLowerCase().includes("stone");
+    if(edge&&!(inMap&&(MAP.warps||[]).some(w=>w.x===x&&w.y===y))){
+      const dist=inMap?0:Math.max(0,Math.abs(x-(W-1)/2)-W/2+.5,Math.abs(y-(H-1)/2)-H/2+.5);
+      // leave the gap in the border where the road exits (row of the west/east warps)
+      const gap=!inMap&&(MAP.warps||[]).some(w=>(w.x===0||w.x===W-1)&&Math.abs(w.y-y)<=1)&&dist<5;
+      if(!gap&&rnd()<(dist>6?.62:.8)){const s=rr(.85,1.5);addProp("tree1",worldX(x)+rr(-.35,.35),worldZ(y)+rr(-.3,.3)+.4,{scale:s,tint:[rr(.78,1),rr(.88,1),rr(.75,1),1]});}
+    } else if(inMap&&cat==="encounter"&&rnd()<.16&&!occupied.has(x+","+y)){
+      addProp("plant1",worldX(x)+rr(-.3,.3),worldZ(y)+rr(-.2,.2)+.3,{scale:rr(.7,1.2)});
+    } else if(inMap&&TILES[id]&&TILES[id].category==="floor"&&rnd()<.025&&!occupied.has(x+","+y)){
+      addProp("plant1",worldX(x)+rr(-.3,.3),worldZ(y)+rr(-.2,.2)+.3,{scale:rr(.5,.8)});
+    }
+  }
+  // water glints (decoration)
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const t=TILES[MAP.tiles[y][x]];if(t&&/water/i.test(t.label)&&rnd()<.5)
+    objs.push({glint:true,x:worldX(x)+rr(-.4,.4),z:worldZ(y)+rr(-.4,.4),phase:rnd()*20,sp:rr(.6,1.4)});}
+  // fireflies / pollen
+  for(let i=0;i<70;i++) objs.push({fly:true,x:rr(-W/2,W/2),z:rr(-H/2,H/2),y:rr(.3,2.6),phase:rnd()*20,sp:rr(.2,.6)});
+}
+
+/* ---------- player (4x4 walk sheets per facing) ---------- */
+const WALK={};   // facing -> sheet
+const player={x:0,z:0,face:"down",moving:false,t:0};
+async function loadPlayer(){
+  const dirs={up:"North",down:"South",left:"West",right:"East"};
+  await Promise.all(Object.entries(dirs).map(async([k,n])=>{
+    const img=await loadImg(`/assets/walking/Walk-${n}.png`);if(!img)return;
+    const fw=Math.floor(img.width/4),fh=Math.floor(img.height/4);
+    const c=document.createElement("canvas");c.width=fw;c.height=fh;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(img,0,0,fw,fh,0,0,fw,fh);
+    const d=g.getImageData(0,0,fw,fh).data;let x0=fw,x1=0,y0=fh,y1=0;
+    for(let y=0;y<fh;y++)for(let x=0;x<fw;x++)if(d[(y*fw+x)*4+3]>24){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+    const s=PLAYER_H/(y1-y0+1);
+    WALK[k]={tex:mkTex(img),fw,fh,iw:img.width,ih:img.height,w:fw*s,h:fh*s,ax:((x0+x1)/2)/fw,ay:1-(y1+1)/fh};
+  }));
+  player.x=worldX(MAP.spawn[0]);player.z=worldZ(MAP.spawn[1]);
+}
+
+/* ---------- input ---------- */
+const keys=new Set();
+addEventListener("keydown",e=>{keys.add(e.key.toLowerCase());const i=parseInt(e.key,10);const n=Object.keys(PRESETS);if(i>=1&&i<=n.length)setPreset(n[i-1]);});
+addEventListener("keyup",e=>keys.delete(e.key.toLowerCase()));
+let drag=null;
+canvas.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,yaw:cam.g.yaw,pitch:cam.g.pitch};canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener("pointermove",e=>{if(!drag)return;cam.g.yaw=drag.yaw-(e.clientX-drag.x)*.3;cam.g.pitch=clamp(drag.pitch+(e.clientY-drag.y)*.2,10,80);});
+canvas.addEventListener("pointerup",()=>drag=null);
+canvas.addEventListener("wheel",e=>{e.preventDefault();cam.g.dist=clamp(cam.g.dist*(1+Math.sign(e.deltaY)*.08),6,32);},{passive:false});
+
+function facingFromMove(dx,dz){
+  // choose the sprite sheet relative to the camera, so rotating the view still shows the right side of the character
+  const r=dx*cam.right[0]+dz*cam.right[2], f=dx*cam.flat[0]+dz*cam.flat[2];
+  return Math.abs(r)>Math.abs(f)?(r>0?"right":"left"):(f>0?"up":"down");
+}
+function updatePlayer(dt){
+  if(keys.has("q"))cam.g.yaw-=70*dt; if(keys.has("e"))cam.g.yaw+=70*dt;
+  let mx=0,mz=0; // camera-relative: W = away from camera
+  const up=keys.has("w")||keys.has("arrowup"),dn=keys.has("s")||keys.has("arrowdown"),lf=keys.has("a")||keys.has("arrowleft"),rt=keys.has("d")||keys.has("arrowright");
+  const f=(up?1:0)-(dn?1:0),r=(rt?1:0)-(lf?1:0);
+  mx=cam.flat[0]*f+cam.right[0]*r; mz=cam.flat[2]*f+cam.right[2]*r;
+  const l=Math.hypot(mx,mz);player.moving=l>.01;
+  if(player.moving){mx/=l;mz/=l;const sp=(keys.has("shift")?6.2:3.8)*dt;
+    const nx=player.x+mx*sp,nz=player.z+mz*sp;
+    if(walkable(nx,player.z))player.x=nx; if(walkable(player.x,nz))player.z=nz;
+    player.face=facingFromMove(mx,mz);player.t+=dt;}
+}
+
+/* ---------- render ---------- */
+let clock=0;
+function drawScene(){
+  gl.clearColor(FOG[0],FOG[1],FOG[2],1);gl.clear(gl.COLOR_BUFFER_BIT);
+  const GW=W+MARGIN*2,GH=H+MARGIN*2;
+  NORMAL();draw({tex:groundTex.tex,origin:[0,0,0],right:[1,0,0],up:[0,0,-1],w:GW,h:GH,ax:.5,ay:.5});
+
+  // warp markers
+  ADD();(MAP.warps||[]).forEach(w=>{const pulse=.65+.35*Math.sin(clock*3+w.x);draw({tex:ringTex.tex,origin:[worldX(w.x),.02,worldZ(w.y)],right:[1,0,0],up:[0,0,-1],w:1.5,h:1.5,ax:.5,ay:.5,tint:[.5,.9,1,pulse*.9]});});
+
+  // shadows
+  NORMAL();
+  for(const o of objs){if(o.fly||o.glint||!o.shadow)continue;draw({tex:shadowTex.tex,origin:[o.x,.015,o.z-.05],right:[1,0,0],up:[0,0,-1],w:o.shadow,h:o.shadow*.55,ax:.5,ay:.5,tint:[1,1,1,.8]});}
+  draw({tex:shadowTex.tex,origin:[player.x,.015,player.z],right:[1,0,0],up:[0,0,-1],w:1.1,h:.6,ax:.5,ay:.5});
+
+  // billboards back-to-front
+  const list=objs.filter(o=>!o.fly&&!o.glint);list.push({player:true,x:player.x,z:player.z});
+  const depth=o=>(o.x-cam.pos[0])*cam.flat[0]+(o.z-cam.pos[2])*cam.flat[2];
+  list.sort((a,b)=>depth(b)-depth(a));
+  for(const o of list){
+    if(o.player){const s=WALK[player.face]||WALK.down;if(!s)continue;
+      const fi=player.moving?(Math.floor(player.t*11)%16):0,c=fi%4,r=Math.floor(fi/4);
+      NORMAL();draw({tex:s.tex,origin:[player.x,0,player.z],right:cam.right,up:[0,1,0],w:s.w,h:s.h,ax:s.ax,ay:s.ay,rect:[c/4,r/4,1/4,1/4],ex:.5/s.iw,ey:.5/s.ih});continue;}
+    if(depth(o)<-2)continue;
+    NORMAL();draw({tex:o.tex,origin:[o.x,0,o.z],right:cam.right,up:[0,1,0],w:o.w,h:o.h,ax:o.ax,ay:o.ay,tint:o.tint,sway:o.sway*Math.sin(clock*1.3+o.phase)*o.h*.6});
+  }
+  // water glints, flat on the surface
+  ADD();for(const o of objs){if(!o.glint)continue;const a=Math.max(0,Math.sin(clock*o.sp+o.phase));if(a<.05)continue;
+    draw({tex:glowTex.tex,origin:[o.x,.03,o.z],right:[1,0,0],up:[0,0,-1],w:.5*a+.1,h:.18*a+.05,ax:.5,ay:.5,tint:[.7,.95,1,a*.8]});}
+  // fireflies
+  ADD();for(const o of objs){if(!o.fly)continue;
+    const x=o.x+Math.sin(clock*o.sp+o.phase)*1.2,z=o.z+Math.cos(clock*o.sp*.8+o.phase)*1.2,y=o.y+Math.sin(clock*o.sp*2+o.phase)*.35;
+    const tw=.4+.6*Math.abs(Math.sin(clock*1.5+o.phase));
+    draw({tex:glowTex.tex,origin:[x,y,z],right:cam.camX,up:cam.camY,w:.2,h:.2,ax:.5,ay:.5,tint:[1,.95,.55,tw],nofog:true});}
+}
+function resize(){const d=Math.min(devicePixelRatio||1,2);cam.w=innerWidth;cam.h=innerHeight;canvas.width=Math.round(cam.w*d);canvas.height=Math.round(cam.h*d);cam.aspect=cam.w/cam.h;gl.viewport(0,0,canvas.width,canvas.height);}
+addEventListener("resize",resize);
+
+// warp labels (HTML overlay)
+const labelEls=[];
+function updateLabels(){(MAP.warps||[]).forEach((w,i)=>{let el=labelEls[i];if(!el){el=document.createElement("div");el.className="label";el.textContent=w.label||w.target_map;document.getElementById("hud").appendChild(el);labelEls[i]=el;}
+  const p=project([worldX(w.x),1.1,worldZ(w.y)]);el.style.left=p.x+"px";el.style.top=p.y+"px";el.style.opacity=p.w>0&&p.w<30?1:0;});}
+
+let last=performance.now();
+function frame(t){const dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
+  updatePlayer(dt);updateCamera(dt);drawScene();updateLabels();requestAnimationFrame(frame);}
+
+(async function boot(){
+  try{
+    resize();
+    const pre=document.getElementById("presets");Object.keys(PRESETS).forEach((n,i)=>{const b=document.createElement("button");b.textContent=(i+1)+" "+n;b.dataset.p=n;b.onclick=()=>setPreset(n);pre.appendChild(b);});
+    await buildWorld();await loadPlayer();
+    setPreset("Octopath");Object.assign(cam,PRESETS["Octopath"]);cam.tx=player.x;cam.tz=player.z;
+    const l=document.getElementById("loading");l.style.opacity=0;setTimeout(()=>l.remove(),600);
+    requestAnimationFrame(frame);
+  }catch(e){document.getElementById("loading").textContent="Error: "+e.message;console.error(e);}
+})();
+</script>
+</body>
+</html>

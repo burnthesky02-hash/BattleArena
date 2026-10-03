@@ -1,0 +1,2332 @@
+{
+ "story": true,
+ "freeRank": 3,
+ "autorun": [
+  {
+   "if": "st_done",
+   "unless": "st_free",
+   "minRank": "freeRank",
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "A thunderous chant shakes the dust from the ceiling. Above you, the whole Colosseum is shouting your name."
+    },
+    {
+     "type": "say",
+     "who": "Overseer Vex",
+     "text": "Rank 2 behind you, and the crowd wants you free. They bought your collar with their cheering. Don't look so surprised."
+    },
+    {
+     "type": "say",
+     "who": "Overseer Vex",
+     "text": "The Colosseum doesn't keep a champion in a cage. The stairs are open. Go on, before I change my mind."
+    },
+    {
+     "type": "say",
+     "who": "",
+     "text": "The collar clicks open and falls away. Light spills down the stairs from the sands above."
+    },
+    {
+     "type": "flag",
+     "key": "st_free"
+    },
+    {
+     "type": "warp",
+     "scene": "olympus",
+     "x": 0,
+     "z": 11
+    }
+   ]
+  },
+  {
+   "unless": "st_jailed",
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "The violet light fades. Cold stone against your back, iron bars humming in the dark. Somewhere above, a crowd roars."
+    },
+    {
+     "type": "say",
+     "who": "Overseer Vex",
+     "text": "On your feet, islander. That portal dropped a fresh one into my pit."
+    },
+    {
+     "type": "say",
+     "who": "Overseer Vex",
+     "text": "You belong to the Colosseum now. You fight when I say, you bleed when they cheer."
+    },
+    {
+     "type": "say",
+     "who": "Overseer Vex",
+     "text": "Rise past Rank 2 and the crowd may buy your collar. Until then you are property. Speak to me when you are ready to fight."
+    },
+    {
+     "type": "flag",
+     "key": "st_jailed"
+    }
+   ]
+  }
+ ],
+ "name": "The Pit",
+ "kit": "",
+ "tile": 4,
+ "pieces": [
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -32,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -32,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -32,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -28,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -28,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -28,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -24,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -24,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -24,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -20,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -16,
+   -4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -16,
+   0,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -16,
+   4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -16,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -16,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -16,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -16,
+   20,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -12,
+   4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -12,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -12,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -12,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -12,
+   20,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -8,
+   -4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -8,
+   0,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -8,
+   4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -8,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -8,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -8,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -8,
+   20,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -4,
+   4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -4,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -4,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -4,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   -4,
+   20,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   0,
+   -4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   0,
+   0,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   0,
+   4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   0,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   0,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   0,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   0,
+   20,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   4,
+   4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   4,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   4,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   4,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   4,
+   20,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   8,
+   -4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   8,
+   0,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   8,
+   4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   8,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   8,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   8,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   8,
+   20,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   12,
+   4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   12,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   12,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   12,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   12,
+   20,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   16,
+   -4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   16,
+   0,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   16,
+   4,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   16,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   16,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   16,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   16,
+   20,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   20,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   24,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   24,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   24,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   28,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   28,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   28,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   32,
+   8,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   32,
+   12,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_floor",
+   32,
+   16,
+   0,
+   0,
+   4
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -36,
+   4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -36,
+   8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -36,
+   12,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -36,
+   16,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -36,
+   20,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -32,
+   4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -32,
+   20,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -28,
+   4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -28,
+   20,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -24,
+   4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -24,
+   20,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -20,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -20,
+   -4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -20,
+   0,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -20,
+   4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -20,
+   8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -20,
+   16,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -20,
+   20,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -20,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -16,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -16,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -12,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -12,
+   -4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -12,
+   0,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -12,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -8,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -8,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -4,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -4,
+   -4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -4,
+   0,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   -4,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   0,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   4,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   4,
+   -4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   4,
+   0,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   4,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   8,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   8,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   12,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   12,
+   -4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   12,
+   0,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   12,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   16,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   16,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   20,
+   -8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   20,
+   -4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   20,
+   0,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   20,
+   4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   20,
+   8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   20,
+   16,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   20,
+   20,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   20,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   24,
+   4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   24,
+   20,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   28,
+   4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   28,
+   20,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   32,
+   4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   32,
+   20,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   36,
+   4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   36,
+   8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   36,
+   16,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_wall",
+   36,
+   20,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_gate",
+   -16,
+   2,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_gate",
+   -8,
+   2,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_gate",
+   8,
+   2,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_gate",
+   16,
+   2,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_gate",
+   0,
+   24,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_gate",
+   36,
+   12,
+   90,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_pillar",
+   -8,
+   8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_pillar",
+   -8,
+   16,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_pillar",
+   8,
+   8,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_pillar",
+   8,
+   16,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_brazier",
+   -17,
+   20.4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_flame",
+   -17,
+   20.4,
+   0,
+   1.55,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_brazier",
+   17,
+   20.4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_flame",
+   17,
+   20.4,
+   0,
+   1.55,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_brazier",
+   -17,
+   3.6,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_flame",
+   -17,
+   3.6,
+   0,
+   1.55,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_brazier",
+   17,
+   3.6,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_flame",
+   17,
+   3.6,
+   0,
+   1.55,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_brazier",
+   -3.2,
+   11,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_flame",
+   -3.2,
+   11,
+   0,
+   1.55,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_brazier",
+   3.2,
+   11,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_flame",
+   3.2,
+   11,
+   0,
+   1.55,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_dais",
+   0,
+   11,
+   0,
+   0,
+   0.45
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_block",
+   -31.4,
+   7.6,
+   0,
+   0,
+   1.2
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_block",
+   -30,
+   7.4,
+   0,
+   0,
+   0.9
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_block",
+   -31.4,
+   17,
+   0,
+   0,
+   1.2
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_block",
+   -29.8,
+   17.2,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_brazier",
+   -23.4,
+   11.6,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_flame",
+   -23.4,
+   11.6,
+   0,
+   1.55,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_brazier",
+   33,
+   8.4,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_flame",
+   33,
+   8.4,
+   0,
+   1.55,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_brazier",
+   33,
+   15.6,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_flame",
+   33,
+   15.6,
+   0,
+   1.55,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_block",
+   24.8,
+   7.8,
+   0,
+   0,
+   1.3
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_crystal",
+   25,
+   16.8,
+   20,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_tablet",
+   6,
+   21.3,
+   0,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_dais",
+   0,
+   -5,
+   0,
+   0,
+   0.34
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_block",
+   0,
+   -6,
+   0,
+   0,
+   0.8
+  ]
+ ],
+ "colliders": [
+  {
+   "x": 0,
+   "z": -8,
+   "w": 44,
+   "d": 4
+  },
+  {
+   "x": -20,
+   "z": -4,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -12,
+   "z": -4,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -4,
+   "z": -4,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": 4,
+   "z": -4,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": 12,
+   "z": -4,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": 20,
+   "z": -4,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -20,
+   "z": 0,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -12,
+   "z": 0,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -4,
+   "z": 0,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": 4,
+   "z": 0,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": 12,
+   "z": 0,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": 20,
+   "z": 0,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -28,
+   "z": 4,
+   "w": 20,
+   "d": 4
+  },
+  {
+   "x": 28,
+   "z": 4,
+   "w": 20,
+   "d": 4
+  },
+  {
+   "x": -36,
+   "z": 8,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -20,
+   "z": 8,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": 20,
+   "z": 8,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": 36,
+   "z": 8,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -36,
+   "z": 12,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -36,
+   "z": 16,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -20,
+   "z": 16,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": 20,
+   "z": 16,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": 36,
+   "z": 16,
+   "w": 4,
+   "d": 4
+  },
+  {
+   "x": -28,
+   "z": 20,
+   "w": 20,
+   "d": 4
+  },
+  {
+   "x": 28,
+   "z": 20,
+   "w": 20,
+   "d": 4
+  },
+  {
+   "x": -12,
+   "z": 24,
+   "w": 20,
+   "d": 4
+  },
+  {
+   "x": 12,
+   "z": 24,
+   "w": 20,
+   "d": 4
+  },
+  {
+   "x": -16,
+   "z": 2,
+   "w": 4,
+   "d": 1
+  },
+  {
+   "x": -8,
+   "z": 2,
+   "w": 4,
+   "d": 1
+  },
+  {
+   "x": 8,
+   "z": 2,
+   "w": 4,
+   "d": 1
+  },
+  {
+   "x": 16,
+   "z": 2,
+   "w": 4,
+   "d": 1
+  },
+  {
+   "x": 0,
+   "z": 24,
+   "w": 4,
+   "d": 1.2
+  },
+  {
+   "x": 36,
+   "z": 12,
+   "w": 1.2,
+   "d": 4
+  },
+  {
+   "x": -8,
+   "z": 8,
+   "w": 1.2,
+   "d": 1.2
+  },
+  {
+   "x": -8,
+   "z": 16,
+   "w": 1.2,
+   "d": 1.2
+  },
+  {
+   "x": 8,
+   "z": 8,
+   "w": 1.2,
+   "d": 1.2
+  },
+  {
+   "x": 8,
+   "z": 16,
+   "w": 1.2,
+   "d": 1.2
+  },
+  {
+   "x": -17,
+   "z": 20.4,
+   "w": 1.1,
+   "d": 1.1
+  },
+  {
+   "x": 17,
+   "z": 20.4,
+   "w": 1.1,
+   "d": 1.1
+  },
+  {
+   "x": -17,
+   "z": 3.6,
+   "w": 1.1,
+   "d": 1.1
+  },
+  {
+   "x": 17,
+   "z": 3.6,
+   "w": 1.1,
+   "d": 1.1
+  },
+  {
+   "x": -3.2,
+   "z": 11,
+   "w": 1.1,
+   "d": 1.1
+  },
+  {
+   "x": 3.2,
+   "z": 11,
+   "w": 1.1,
+   "d": 1.1
+  },
+  {
+   "x": -31.4,
+   "z": 7.6,
+   "w": 1.2,
+   "d": 1.2
+  },
+  {
+   "x": -30,
+   "z": 7.4,
+   "w": 0.9,
+   "d": 0.9
+  },
+  {
+   "x": -31.4,
+   "z": 17,
+   "w": 1.2,
+   "d": 1.2
+  },
+  {
+   "x": -29.8,
+   "z": 17.2,
+   "w": 1,
+   "d": 1
+  },
+  {
+   "x": -23.4,
+   "z": 11.6,
+   "w": 1.1,
+   "d": 1.1
+  },
+  {
+   "x": 33,
+   "z": 8.4,
+   "w": 1.1,
+   "d": 1.1
+  },
+  {
+   "x": 33,
+   "z": 15.6,
+   "w": 1.1,
+   "d": 1.1
+  },
+  {
+   "x": 24.8,
+   "z": 7.8,
+   "w": 1.3,
+   "d": 1.3
+  },
+  {
+   "x": 25,
+   "z": 16.8,
+   "w": 0.9,
+   "d": 0.9
+  },
+  {
+   "x": 6,
+   "z": 21.3,
+   "w": 1.6,
+   "d": 0.5
+  },
+  {
+   "x": 0,
+   "z": -6,
+   "w": 1.9,
+   "d": 1.9
+  }
+ ],
+ "npcs": [
+  {
+   "id": "battle",
+   "name": "Overseer Vex",
+   "title": "Pit Overseer",
+   "sprite": "Draven",
+   "x": 0,
+   "z": 12.6,
+   "line": "Fresh meat. The crowd wants blood and you are what I have. Pick your fight, slave.",
+   "tint": [
+    0.85,
+    0.7,
+    0.7,
+    1
+   ],
+   "reach": 5,
+   "action": "battle",
+   "h": 2.4
+  },
+  {
+   "id": "ladder",
+   "name": "Dagna",
+   "title": "Pit Boss",
+   "sprite": "Yulia",
+   "x": -9.5,
+   "z": 19,
+   "line": "Bouts back to back, bigger purses. The house takes its cut, but a slave can dream.",
+   "tint": [
+    0.8,
+    0.85,
+    0.8,
+    1
+   ],
+   "action": "ladder",
+   "h": 2.4
+  },
+  {
+   "id": "boss",
+   "name": "Gatekeeper Brakk",
+   "title": "Arena Door",
+   "sprite": "Draven",
+   "x": 30.5,
+   "z": 12,
+   "h": 2.7,
+   "tint": [
+    0.7,
+    0.75,
+    1,
+    1
+   ],
+   "action": "challenge",
+   "reach": 5.2,
+   "radius": 1.3
+  },
+  {
+   "id": "heroes",
+   "name": "Old Marek",
+   "title": "Fellow prisoner",
+   "sprite": "Rook",
+   "x": -26.5,
+   "z": 9.4,
+   "line": "Even a slave can sharpen a blade. Let's see to your fighters.",
+   "tint": [
+    0.75,
+    0.8,
+    0.75,
+    1
+   ],
+   "action": "heroes",
+   "h": 2.4
+  },
+  {
+   "id": "shop",
+   "name": "Whisper",
+   "title": "Smuggler",
+   "sprite": "Kael",
+   "x": -26,
+   "z": 15.4,
+   "line": "Psst. Nothing here fell off a cart. Much. Care to browse?",
+   "tint": [
+    0.6,
+    0.6,
+    0.85,
+    1
+   ],
+   "action": "shop",
+   "h": 2.4
+  },
+  {
+   "id": "summon",
+   "name": "Hanna",
+   "title": "Cell-block seer",
+   "sprite": "Sera",
+   "x": 10.5,
+   "z": 18,
+   "line": "The old glyph under my cell still answers. Pay the toll and see who comes.",
+   "tint": [
+    0.85,
+    0.8,
+    1,
+    1
+   ],
+   "action": "summon",
+   "reach": 5,
+   "h": 2.4
+  },
+  {
+   "id": "save",
+   "name": "The Scribe",
+   "title": "Keeper of ledgers",
+   "sprite": "Lyra",
+   "x": 14.5,
+   "z": 5.8,
+   "tint": [
+    0.75,
+    0.88,
+    1.15,
+    1
+   ],
+   "action": "save_and_quit",
+   "h": 2.4
+  },
+  {
+   "id": "pr1",
+   "name": "Brann",
+   "title": "Prisoner",
+   "sprite": "Rook",
+   "x": -16,
+   "z": -4.2,
+   "tint": [
+    0.55,
+    0.55,
+    0.6,
+    1
+   ],
+   "actions": [
+    {
+     "type": "say",
+     "who": "Brann",
+     "text": "Three years in this cell. The cheering above never stops, you stop hearing it."
+    }
+   ],
+   "line": "Three years in this cell. The cheering above never stops, you stop hearing it.",
+   "h": 2.4
+  },
+  {
+   "id": "pr2",
+   "name": "Pale Tessa",
+   "title": "Prisoner",
+   "sprite": "Lyra",
+   "x": -8,
+   "z": -4.2,
+   "tint": [
+    0.55,
+    0.55,
+    0.6,
+    1
+   ],
+   "actions": [
+    {
+     "type": "say",
+     "who": "Pale Tessa",
+     "text": "They take the strong ones to the arena. The strong ones don't come back to the cells."
+    }
+   ],
+   "line": "They take the strong ones to the arena. The strong ones don't come back to the cells.",
+   "h": 2.4
+  },
+  {
+   "id": "pr3",
+   "name": "Little Joss",
+   "title": "Prisoner",
+   "sprite": "Kael",
+   "x": 8,
+   "z": -4.2,
+   "tint": [
+    0.55,
+    0.55,
+    0.6,
+    1
+   ],
+   "actions": [
+    {
+     "type": "say",
+     "who": "Little Joss",
+     "text": "Don't cross Vex. He isn't cruel, he just never forgets."
+    }
+   ],
+   "line": "Don't cross Vex. He isn't cruel, he just never forgets.",
+   "h": 2.4
+  },
+  {
+   "id": "pr4",
+   "name": "The Quiet One",
+   "title": "Prisoner",
+   "sprite": "Draven",
+   "x": 16,
+   "z": -4.2,
+   "tint": [
+    0.55,
+    0.55,
+    0.6,
+    1
+   ],
+   "actions": [
+    {
+     "type": "say",
+     "who": "The Quiet One",
+     "text": "..."
+    }
+   ],
+   "line": "...",
+   "h": 2.4
+  }
+ ],
+ "events": [
+  {
+   "id": "pit_rules",
+   "name": "Rules of the Pit",
+   "x": 6,
+   "z": 19.7,
+   "w": 3.2,
+   "d": 2.4,
+   "trigger": "talk",
+   "prompt": "Read the tablet",
+   "actions": [
+    {
+     "type": "say",
+     "who": "Rules of the Pit",
+     "text": "I. THE COLOSSEUM OWNS WHAT THE PORTAL BRINGS. II. A SLAVE FIGHTS WHEN THE OVERSEER SAYS. III. THE CROWD MAY BUY A CHAMPION'S COLLAR. THE PIT HAS NEVER KEPT ONE LONG."
+    }
+   ]
+  },
+  {
+   "id": "pit_cot",
+   "name": "Your cot",
+   "x": 0,
+   "z": -5,
+   "w": 3.8,
+   "d": 3.4,
+   "trigger": "talk",
+   "prompt": "Sleep on the cot (pass time)",
+   "actions": [
+    {
+     "type": "pass_time"
+    }
+   ]
+  },
+  {
+   "id": "pit_exit",
+   "name": "Stairs up",
+   "x": 0,
+   "z": 21,
+   "w": 6,
+   "d": 3,
+   "trigger": "talk",
+   "prompt": "Try the gate",
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "The gate to the stairs is barred from the other side. Above it, faintly, the crowd roars.",
+     "unless": "st_free"
+    }
+   ]
+  },
+  {
+   "id": "pit_arena",
+   "name": "Arena door",
+   "x": 31,
+   "z": 12,
+   "w": 5,
+   "d": 6,
+   "trigger": "talk",
+   "prompt": "Look through the door",
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "The arena door rumbles with the noise of the crowd. Gatekeeper Brakk opens it when it is your turn. Speak to him to challenge the next rank."
+    }
+   ]
+  }
+ ],
+ "decals": [
+  {
+   "type": "glow",
+   "x": -17,
+   "z": 20.4,
+   "r": 6,
+   "color": [
+    1,
+    0.62,
+    0.25,
+    0.85
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 17,
+   "z": 20.4,
+   "r": 6,
+   "color": [
+    1,
+    0.62,
+    0.25,
+    0.85
+   ]
+  },
+  {
+   "type": "glow",
+   "x": -17,
+   "z": 3.6,
+   "r": 6,
+   "color": [
+    1,
+    0.62,
+    0.25,
+    0.85
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 17,
+   "z": 3.6,
+   "r": 6,
+   "color": [
+    1,
+    0.62,
+    0.25,
+    0.85
+   ]
+  },
+  {
+   "type": "glow",
+   "x": -3.2,
+   "z": 11,
+   "r": 6,
+   "color": [
+    1,
+    0.62,
+    0.25,
+    0.85
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 3.2,
+   "z": 11,
+   "r": 6,
+   "color": [
+    1,
+    0.62,
+    0.25,
+    0.85
+   ]
+  },
+  {
+   "type": "glow",
+   "x": -23.4,
+   "z": 11.6,
+   "r": 5,
+   "color": [
+    1,
+    0.62,
+    0.25,
+    0.85
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 33,
+   "z": 8.4,
+   "r": 6,
+   "color": [
+    1,
+    0.62,
+    0.25,
+    0.85
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 33,
+   "z": 15.6,
+   "r": 6,
+   "color": [
+    1,
+    0.62,
+    0.25,
+    0.85
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 25,
+   "z": 16.8,
+   "r": 4,
+   "color": [
+    0.35,
+    0.75,
+    1,
+    0.8
+   ]
+  },
+  {
+   "type": "glyph",
+   "x": 10.5,
+   "z": 18,
+   "r": 3,
+   "color": [
+    0.6,
+    0.4,
+    1,
+    1
+   ],
+   "spin": 14
+  },
+  {
+   "type": "glow",
+   "x": 0,
+   "z": 12.6,
+   "r": 5,
+   "color": [
+    1,
+    0.45,
+    0.35,
+    1
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 30.5,
+   "z": 12,
+   "r": 5,
+   "color": [
+    0.55,
+    0.75,
+    1,
+    1
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 0,
+   "z": -1.4,
+   "r": 3.5,
+   "color": [
+    1,
+    0.8,
+    0.45,
+    0.9
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 0,
+   "z": -4,
+   "r": 3.5,
+   "color": [
+    0.7,
+    0.55,
+    1,
+    1
+   ]
+  }
+ ],
+ "spawn": {
+  "x": 0,
+  "z": 2
+ },
+ "bounds": {
+  "minX": -33.5,
+  "maxX": 33.5,
+  "minZ": -5.5,
+  "maxZ": 22.4
+ },
+ "playerHeight": 2.4,
+ "light": {
+  "dir": [
+   -0.35,
+   -1,
+   -0.25
+  ],
+  "color": [
+   0.9,
+   0.78,
+   0.7
+  ],
+  "ambient": [
+   0.42,
+   0.38,
+   0.45
+  ]
+ },
+ "fog": {
+  "color": [
+   0.05,
+   0.04,
+   0.07
+  ],
+  "near": 40,
+  "far": 95
+ },
+ "sky": {
+  "type": "gradient",
+  "stops": [
+   [
+    0,
+    "#05070d"
+   ],
+   [
+    1,
+    "#120d18"
+   ]
+  ]
+ },
+ "fx": [
+  {
+   "type": "dust",
+   "amount": 0.25
+  }
+ ]
+}

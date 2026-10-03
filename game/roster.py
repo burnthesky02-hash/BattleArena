@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from data.classes import CLASS_ARCHETYPES
-from data.hero_rarity import HERO_RARITIES, MAX_STARS, level_cap_for, rarity_multiplier, star_multiplier
+from data.hero_rarity import HERO_RARITIES, MAX_STARS, STORY_GROWTH_MULT, is_story_rarity, level_cap_for, rarity_multiplier, star_multiplier
 from data.hero_skills import skill_ids_for
 from data.leveling import MAX_LEVEL, TALENT_POINT_INTERVAL, apply_growth, resolve_level_up
 import engine.formation as formation
@@ -56,6 +56,12 @@ class PlayerCharacter:
     # (game/party.py's confirm_party) and persisted here so it sticks between battles until changed.
     # Defaults to "middle" -- the engine's own DEFAULT_FORMATION -- for a freshly created hero.
     formation: str = formation.DEFAULT_FORMATION
+    # Persistent current HP / MP, None = full. Only fights outside the Colosseum (the island dungeon and the
+    # overworld: hub_server.py's from_world fights) carry damage over; the Colosseum, resting (the menu's Rest
+    # action) and a wound recovery refill them. Read through hub_server._hp_mp_for, which clamps to the
+    # hero's current max (gear and level changes move it).
+    hp: Optional[int] = None
+    mp: Optional[int] = None
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
 
     def __post_init__(self):
@@ -113,6 +119,11 @@ class PlayerCharacter:
         return level_cap_for(self.rarity)
 
     @property
+    def is_story(self) -> bool:
+        """Story heroes (Mythic rarity) fight outside the Colosseum only; see data/hero_rarity.py."""
+        return is_story_rarity(self.rarity)
+
+    @property
     def is_level_maxed(self) -> bool:
         return self.level >= self.level_cap
 
@@ -127,7 +138,7 @@ class PlayerCharacter:
         were gained, so a caller can report "X leveled up!" when it's
         nonzero."""
         self.xp += max(0, amount)
-        self.level, self.xp, levels_gained = resolve_level_up(self.level, self.xp, self.level_cap)
+        self.level, self.xp, levels_gained = resolve_level_up(self.level, self.xp, self.level_cap, self.is_story)
         return levels_gained
 
     def effective_stats(self, equipment_db: Dict[str, Equipment], legacy_db: Optional[Dict[str, "LegacyItem"]] = None) -> Stats:
@@ -146,7 +157,7 @@ class PlayerCharacter:
         everything else -- omit it (the default) for any caller that
         doesn't care about legacy items (e.g. a throwaway debug character)."""
         archetype = self.archetype
-        stats = apply_growth(archetype.base_stats, archetype.growth, self.level)
+        stats = apply_growth(archetype.base_stats, archetype.growth, self.level, STORY_GROWTH_MULT if self.is_story else 1.0)
         mult = star_multiplier(self.stars) * rarity_multiplier(self.rarity)  # higher rarity = better base stats
         if mult != 1.0:
             stats.max_hp = round(stats.max_hp * mult)

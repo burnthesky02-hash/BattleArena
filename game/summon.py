@@ -62,7 +62,7 @@ import random as _random_module
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-from data.hero_rarity import HERO_RARITIES, HERO_RARITY_LABEL, HERO_SUMMON_WEIGHTS, SHARDS_PER_DUPLICATE
+from data.hero_rarity import HERO_RARITIES, HERO_RARITY_LABEL, HERO_SUMMON_WEIGHTS, SHARDS_PER_DUPLICATE, STORY_RARITY
 from data.summon_pool import (
     CHARACTER_SUMMON_COST, EQUIPMENT_SUMMON_COST, RECRUITABLE_BY_RARITY, SUMMON_X10_COUNT,
     COMMON_SUMMON_COST, COMMON_SUMMON_WEIGHTS, RECRUITABLE_ROSTER, TARGET_SHARE,
@@ -114,6 +114,8 @@ def _roll_character(player_state: PlayerState, r: _random_module.Random,
     Summon is rate-up'd for: if the rarity roll lands on the target's tier the target is chosen
     TARGET_SHARE of the time, otherwise uniformly among the tier's other heroes."""
     rarity = r.choices(HERO_RARITIES, weights=weights or _HERO_RARITY_ROLL_WEIGHTS, k=1)[0]
+    if rarity == STORY_RARITY:        # Mythic heroes are the story cast: never summoned, so the pull lands as Legendary
+        rarity = HERO_RARITIES[HERO_RARITIES.index(STORY_RARITY) - 1]
     tier = RECRUITABLE_BY_RARITY[rarity]
     if target is not None and target.rarity == rarity and target in tier:
         others = [h for h in tier if h is not target]
@@ -198,6 +200,8 @@ def summon_character_batch(player_state: PlayerState, count: int,
     target_hero = find_recruitable(target)
     if target and target_hero is None:
         return False, f"Unknown target hero {target!r}.", []
+    if target_hero is not None and target_hero.rarity == STORY_RARITY:
+        return False, f"{target_hero.name} is part of the story and can't be summoned.", []
     err = _pay(player_state, "gems", CHARACTER_SUMMON_COST, count, "premium", pay)
     if err:
         return False, err, []

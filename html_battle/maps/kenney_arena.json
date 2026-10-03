@@ -1,0 +1,1011 @@
+{
+ "name": "Kenney Courtyard",
+ "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+ "scale": 4.0,
+ "offset": [
+  -10,
+  0.0,
+  -6
+ ],
+ "rotY": 0,
+ "props": [
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -10,
+    0.0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -10,
+    0.0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -10,
+    0.0,
+    6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -10,
+    0.0,
+    10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -6,
+    0.0,
+    -6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -6,
+    0.0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -6,
+    0.0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -6,
+    0.0,
+    6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -6,
+    0.0,
+    10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -2,
+    0.0,
+    -6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -2,
+    0.0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -2,
+    0.0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -2,
+    0.0,
+    6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    -2,
+    0.0,
+    10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    2,
+    0.0,
+    -6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    2,
+    0.0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    2,
+    0.0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    2,
+    0.0,
+    6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    2,
+    0.0,
+    10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    6,
+    0.0,
+    -6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    6,
+    0.0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    6,
+    0.0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    6,
+    0.0,
+    6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    6,
+    0.0,
+    10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    10,
+    0.0,
+    -6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    10,
+    0.0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    10,
+    0.0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    10,
+    0.0,
+    6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/floor-flat.glb",
+   "pos": [
+    10,
+    0.0,
+    10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    -10,
+    0.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified-window.glb",
+   "pos": [
+    -6,
+    0.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    -2,
+    0.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified-gate.glb",
+   "pos": [
+    2,
+    0.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    6,
+    0.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified-window.glb",
+   "pos": [
+    10,
+    0.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    -14,
+    0.0,
+    -6
+   ],
+   "rotY": 90,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    14,
+    0.0,
+    -6
+   ],
+   "rotY": 270,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified-window.glb",
+   "pos": [
+    -14,
+    0.0,
+    -2
+   ],
+   "rotY": 90,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified-window.glb",
+   "pos": [
+    14,
+    0.0,
+    -2
+   ],
+   "rotY": 270,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    -14,
+    0.0,
+    2
+   ],
+   "rotY": 90,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    14,
+    0.0,
+    2
+   ],
+   "rotY": 270,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified-window.glb",
+   "pos": [
+    -14,
+    0.0,
+    6
+   ],
+   "rotY": 90,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified-window.glb",
+   "pos": [
+    14,
+    0.0,
+    6
+   ],
+   "rotY": 270,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    -14,
+    0.0,
+    10
+   ],
+   "rotY": 90,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    14,
+    0.0,
+    10
+   ],
+   "rotY": 270,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    -10,
+    0.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    -6,
+    0.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    -2,
+    0.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    2,
+    0.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    6,
+    0.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/wall-fortified.glb",
+   "pos": [
+    10,
+    0.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -10,
+    4.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -10,
+    4.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -6,
+    4.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -6,
+    4.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -2,
+    4.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -2,
+    4.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    2,
+    4.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    2,
+    4.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    6,
+    4.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    6,
+    4.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    10,
+    4.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    10,
+    4.0,
+    14
+   ],
+   "rotY": 180,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -14,
+    4.0,
+    -6
+   ],
+   "rotY": 90,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    14,
+    4.0,
+    -6
+   ],
+   "rotY": 270,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -14,
+    4.0,
+    -2
+   ],
+   "rotY": 90,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    14,
+    4.0,
+    -2
+   ],
+   "rotY": 270,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -14,
+    4.0,
+    2
+   ],
+   "rotY": 90,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    14,
+    4.0,
+    2
+   ],
+   "rotY": 270,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -14,
+    4.0,
+    6
+   ],
+   "rotY": 90,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    14,
+    4.0,
+    6
+   ],
+   "rotY": 270,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    -14,
+    4.0,
+    10
+   ],
+   "rotY": 90,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/battlement.glb",
+   "pos": [
+    14,
+    4.0,
+    10
+   ],
+   "rotY": 270,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tower-base.glb",
+   "pos": [
+    -14,
+    0.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tower-top.glb",
+   "pos": [
+    -14,
+    4.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tower-base.glb",
+   "pos": [
+    14,
+    0.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tower-top.glb",
+   "pos": [
+    14,
+    4.0,
+    -10
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tower-base.glb",
+   "pos": [
+    -14,
+    0.0,
+    14
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tower-top.glb",
+   "pos": [
+    -14,
+    4.0,
+    14
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tower-base.glb",
+   "pos": [
+    14,
+    0.0,
+    14
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tower-top.glb",
+   "pos": [
+    14,
+    4.0,
+    14
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/column.glb",
+   "pos": [
+    -9,
+    0.0,
+    -7.6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/column.glb",
+   "pos": [
+    -3,
+    0.0,
+    -7.6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/column.glb",
+   "pos": [
+    3,
+    0.0,
+    -7.6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/column.glb",
+   "pos": [
+    9,
+    0.0,
+    -7.6
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/barrels.glb",
+   "pos": [
+    -11.3,
+    0.0,
+    -7.0
+   ],
+   "rotY": 20,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/barrels.glb",
+   "pos": [
+    11.2,
+    0.0,
+    11.2
+   ],
+   "rotY": 200,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/detail-crate.glb",
+   "pos": [
+    11.0,
+    0.0,
+    -7.2
+   ],
+   "rotY": 15,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/detail-crate-small.glb",
+   "pos": [
+    11.2,
+    0.0,
+    -5.6
+   ],
+   "rotY": 40,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/detail-crate.glb",
+   "pos": [
+    -11.0,
+    0.0,
+    11.3
+   ],
+   "rotY": 70,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/detail-barrel.glb",
+   "pos": [
+    -11.6,
+    0.0,
+    -5.2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    -19,
+    0.0,
+    -14
+   ],
+   "rotY": 90,
+   "scale": 4.8
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    -8,
+    0.0,
+    -17
+   ],
+   "rotY": 180,
+   "scale": 4.8
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    9,
+    0.0,
+    -16
+   ],
+   "rotY": 90,
+   "scale": 4.8
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    20,
+    0.0,
+    -12
+   ],
+   "rotY": 90,
+   "scale": 4.8
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    -21,
+    0.0,
+    4
+   ],
+   "rotY": 180,
+   "scale": 4.8
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    22,
+    0.0,
+    6
+   ],
+   "rotY": 180,
+   "scale": 4.8
+  }
+ ],
+ "light": {
+  "dir": [
+   -0.5,
+   -1,
+   -0.45
+  ],
+  "color": [
+   1.0,
+   0.92,
+   0.8
+  ],
+  "ambient": [
+   0.58,
+   0.56,
+   0.66
+  ]
+ },
+ "fog": {
+  "color": [
+   0.12,
+   0.09,
+   0.22
+  ],
+  "near": 45,
+  "far": 110
+ },
+ "sky": "painted",
+ "cullNearCamera": 8
+}

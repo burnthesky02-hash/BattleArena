@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Battle Arena -- 2.5D Scene Editor</title>
+<style>
+  :root { --ink:#eae6da; --dim:#a29d88; --accent:#f2d98a; --bg:#10120e; --panel:#171a13; --line:#3a3f2f; --field:#23271c; --sel:#5a6e2f; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:13px "Trebuchet MS","Segoe UI",sans-serif; overflow:hidden; }
+  button, select, input, textarea { font:inherit; color:var(--ink); background:var(--field); border:1px solid #545a41; border-radius:5px; padding:4px 7px; }
+  input[type=color] { padding:0; width:34px; height:24px; }
+  input[type=checkbox] { width:auto; }
+  button { cursor:pointer; } button:hover { background:#394026; } button.on { background:var(--sel); border-color:#8ab24a; color:#fff; }
+  button:disabled { opacity:.4; cursor:default; }
+  #app { display:flex; flex-direction:column; height:100%; }
+  #top { display:flex; align-items:center; gap:8px; padding:6px 12px; background:linear-gradient(#20241c,#171a13); border-bottom:2px solid var(--line); flex-wrap:wrap; }
+  #top h1 { font-size:14px; margin:0 8px 0 0; color:var(--accent); white-space:nowrap; }
+  #top .sp { flex:1; } #top .badge { font-size:11px; padding:2px 7px; border-radius:9px; background:#2b3a1c; border:1px solid #567; color:#cfe; }
+  #dirty { color:#f6a; font-weight:bold; min-width:14px; }
+  #main { flex:1; display:flex; min-height:0; }
+  .side { background:var(--panel); border:0 solid var(--line); overflow-y:auto; flex:none; }
+  #left { width:250px; border-right-width:2px; padding:8px; } #right { width:310px; border-left-width:2px; display:flex; flex-direction:column; }
+  h2 { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#b9b39a; margin:12px 0 5px; } h2:first-child { margin-top:0; }
+  .tools { display:grid; grid-template-columns:1fr 1fr; gap:4px; } .tools button { text-align:left; padding:5px 7px; }
+  .tools kbd, .kbd { color:var(--dim); font-size:10px; float:right; }
+  .opts label { display:flex; align-items:center; gap:6px; margin:3px 0; color:var(--ink); font-size:12px; }
+  #stage { flex:1; position:relative; min-width:0; background:#1a1a2a; }
+  #skyBg { position:absolute; inset:0; display:none; }
+  #gl, #ov { position:absolute; inset:0; width:100%; height:100%; display:block; } #ov { pointer-events:none; }
+  #status { position:absolute; left:0; right:0; bottom:0; padding:3px 10px; background:rgba(10,12,8,.8); font-size:11px; color:var(--dim); display:flex; gap:14px; pointer-events:none; }
+  #loading { position:absolute; left:50%; top:46%; transform:translateX(-50%); padding:8px 16px; background:rgba(0,0,0,.75); border-radius:8px; display:none; }
+  #models { height:190px; overflow-y:auto; border:1px solid var(--line); border-radius:5px; background:#12150f; }
+  .mrow { padding:3px 7px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; border-bottom:1px solid #1d2117; }
+  .mrow:hover { background:#232919; } .mrow.cur { background:var(--sel); color:#fff; } .mrow small { color:var(--dim); margin-left:6px; }
+  .tabs { display:flex; border-bottom:2px solid var(--line); } .tabs button { flex:1; border:0; border-radius:0; background:#1b1f15; padding:8px 4px; } .tabs button.on { background:var(--sel); }
+  .pane { padding:10px; overflow-y:auto; flex:1; display:none; } .pane.show { display:block; }
+  .f { display:grid; grid-template-columns:92px 1fr; gap:5px 8px; align-items:center; margin:4px 0; } .f > span { color:var(--dim); font-size:12px; }
+  .f input[type=text], .f input[type=number], .f select, .f textarea { width:100%; } .f textarea { min-height:54px; resize:vertical; }
+  .num3 { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; }
+  .box { border:1px solid var(--line); border-radius:6px; padding:7px; margin:6px 0; background:#14170f; }
+  .box .hd { display:flex; gap:5px; align-items:center; margin-bottom:5px; } .box .hd b { flex:1; color:var(--accent); font-size:12px; }
+  .box .hd button { padding:1px 7px; } .row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:5px 0; } .hint { color:var(--dim); font-size:11px; margin:4px 0; line-height:1.35; }
+  .olrow { padding:3px 6px; cursor:pointer; border-bottom:1px solid #1d2117; font-size:12px; display:flex; gap:6px; } .olrow:hover { background:#232919; } .olrow.sel { background:var(--sel); }
+  .olrow i { font-style:normal; color:var(--dim); width:58px; flex:none; font-size:10px; text-transform:uppercase; padding-top:1px; }
+  body.playing .side { pointer-events:none; opacity:.35; } body.playing #top button:not(#btnWalk), body.playing #top select { pointer-events:none; opacity:.4; }
+  #pHud { position:absolute; inset:0; pointer-events:none; } .pBanner { position:absolute; top:8px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.7); border:1px solid #8ab24a; border-radius:999px; padding:4px 14px; font-size:12px; white-space:nowrap; pointer-events:auto; }
+  #pBubble { display:none; position:absolute; left:50%; bottom:58px; transform:translateX(-50%); width:280px; background:rgba(18,16,28,.9); border:1px solid #e8c766; border-radius:12px; padding:9px 13px; } #pBubble b { color:#e8c766; text-transform:uppercase; font-size:12px; letter-spacing:.05em; } #pBubble div { margin:3px 0 6px; line-height:1.35; } #pBubble span { background:#c9a13c; color:#241a05; font-weight:bold; border-radius:8px; padding:2px 9px; font-size:12px; }
+  #pHint { display:none; position:absolute; left:50%; bottom:40px; transform:translateX(-50%); background:#c9a13c; color:#241a05; font-weight:bold; border-radius:999px; padding:5px 16px; }
+  #pSay { display:none; position:absolute; left:50%; bottom:44px; transform:translateX(-50%); width:min(620px,86%); background:rgba(18,16,28,.95); border:1px solid #e8c766; border-radius:12px; padding:11px 18px 13px; pointer-events:auto; cursor:pointer; } #pSay .s-who { color:#e8c766; font-weight:800; text-transform:uppercase; font-size:12px; } #pSay .s-who:empty { display:none; } #pSay .s-text { font-size:15px; line-height:1.5; margin:5px 0 7px; white-space:pre-wrap; } #pSay .s-go { text-align:right; font-size:11px; color:var(--dim); }
+  #pNote { display:none; position:absolute; left:50%; top:46px; transform:translateX(-50%); background:rgba(40,30,70,.92); border:1px solid #98f; border-radius:8px; padding:6px 14px; }
+  #toast { position:fixed; left:50%; bottom:40px; transform:translateX(-50%); background:#222; border:1px solid #888; padding:8px 16px; border-radius:8px; display:none; z-index:30; max-width:70vw; }
+  #toast.err { border-color:#e66; color:#fcc; } #toast.ok { border-color:#8c6; }
+  #modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:20; } #modal.open { display:flex; }
+  #modal .card { background:#1b1f15; border:2px solid var(--line); border-radius:10px; padding:16px 18px; width:380px; max-width:92vw; } #modal h3 { margin:0 0 8px; color:var(--accent); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <h1>2.5D Scene Editor</h1>
+    <select id="sceneSel" title="Open a scene"></select>
+    <button id="btnNew">New scene…</button><button id="btnSave" title="Ctrl+S">Save</button><button id="btnWalk" title="Walk around the scene right here">▶ Play here</button><button id="btnPlay" title="Open the saved scene in the real game">Open in game ↗</button>
+    <button id="btnUndo" title="Ctrl+Z">Undo</button><button id="btnRedo" title="Ctrl+Y">Redo</button>
+    <span id="kindBadge" class="badge">–</span><span id="dirty"></span><span class="sp"></span>
+    <span class="hint" style="margin:0">RMB orbit · MMB / Shift+RMB pan · wheel zoom · F focus · T top view</span>
+  </div>
+  <div id="main">
+    <div id="left" class="side">
+      <h2>Tools</h2>
+      <div class="tools" id="tools"></div>
+      <h2>View</h2>
+      <div class="opts">
+        <label>Grid snap <select id="snap"><option value="0">off</option><option value="0.25">0.25</option><option value="0.5">0.5</option><option value="1" selected>1</option><option value="2">2</option><option value="4">4</option></select></label>
+        <label><input type="checkbox" id="vGrid" checked> Grid</label>
+        <label><input type="checkbox" id="vRef" checked> Hero scale reference</label>
+        <label><input type="checkbox" id="vLabels" checked> Labels</label>
+        <label><input type="checkbox" id="vEnv" checked> Preview environment</label>
+      </div>
+      <h2>Layers <span class="kbd">show / lock</span></h2>
+      <div class="opts" id="layers"></div>
+      <h2>Model palette</h2>
+      <div class="row"><input type="text" id="mSearch" placeholder="search…" style="flex:1"><select id="mFolder" style="max-width:110px"></select></div>
+      <div id="models"></div>
+      <div class="hint" id="curModel">No model chosen. Pick one, then use the Place tool.</div>
+    </div>
+    <div id="stage"><div id="skyBg"></div><canvas id="gl"></canvas><canvas id="ov"></canvas><div id="loading">Loading…</div><div id="status"></div></div>
+    <div id="right" class="side">
+      <div class="tabs"><button data-tab="insp" class="on">Inspector</button><button data-tab="scene">Scene</button><button data-tab="outl">Outliner</button></div>
+      <div class="pane show" id="p-insp"></div><div class="pane" id="p-scene"></div><div class="pane" id="p-outl"></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="modal"><div class="card" id="modalCard"></div></div>
+<script src="/battle/battlemap.js"></script>
+<script src="/hub3d/envfx.js"></script>
+<script>
+"use strict";
+/* ============================== utilities ============================== */
+const $ = (s, r) => (r || document).querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const r3 = (v) => Math.round(v * 1000) / 1000;
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (props || {})) { if (k === "class") e.className = props[k]; else if (k.startsWith("on")) e.addEventListener(k.slice(2), props[k]); else if (k === "value") e.value = props[k]; else if (props[k] !== false && props[k] != null) e.setAttribute(k, props[k] === true ? "" : props[k]); }
+  for (const c of kids.flat()) if (c != null) e.append(c.nodeType ? c : document.createTextNode(c));
+  return e;
+}
+let toastT = 0;
+function toast(msg, kind) { const t = $("#toast"); t.textContent = msg; t.className = kind || ""; t.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => { t.style.display = "none"; }, kind === "err" ? 6000 : 2400); }
+const V = {
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+  norm: (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+};
+function perspective(fovy, asp, n, f) { const t = 1 / Math.tan(fovy / 2); return [t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]; }
+function lookAt(e, c, up) { const z = V.norm(V.sub(e, c)), x = V.norm(V.cross(up, z)), y = V.cross(z, x); return { m: [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -V.dot(x, e), -V.dot(y, e), -V.dot(z, e), 1], x, y, z }; }
+function mul4(a, b) { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3]; return o; }
+function pieceMatrix(p) { const a = (p.rot || 0) * Math.PI / 360, s = p.sc; return B3DMap.mat4TRS([p.x, p.y || 0, p.z], [0, Math.sin(a), 0, Math.cos(a)], [s, s, s]); }
+
+/* ============================== camera ============================== */
+const cam = { tx: 0, ty: 0, tz: 0, yaw: 20, pitch: 45, dist: 40, fov: 40, w: 1, h: 1, vp: null, pos: [0, 0, 0], X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
+function updateCam() {
+  const ya = cam.yaw * Math.PI / 180, pi = clamp(cam.pitch, 5, 89.5) * Math.PI / 180, t = [cam.tx, cam.ty, cam.tz];
+  const pos = V.add(t, [Math.sin(ya) * Math.cos(pi) * cam.dist, Math.sin(pi) * cam.dist, Math.cos(ya) * Math.cos(pi) * cam.dist]);
+  const L = lookAt(pos, t, Math.abs(cam.pitch) > 89 ? [Math.sin(ya) * -1, 0, Math.cos(ya) * -1] : [0, 1, 0]);
+  cam.pos = pos; cam.X = L.x; cam.Y = L.y; cam.Z = L.z; cam.vp = mul4(perspective(cam.fov * Math.PI / 180, cam.w / cam.h, 0.3, 1200), L.m);
+}
+function project(p) { const m = cam.vp, cw = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; if (cw <= 0.01) return null; return { x: ((m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12]) / cw * 0.5 + 0.5) * cam.w, y: (1 - ((m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13]) / cw * 0.5 + 0.5)) * cam.h }; }
+function rayAt(sx, sy) {
+  const t = Math.tan(cam.fov * Math.PI / 360), nx = (sx / cam.w * 2 - 1) * t * (cam.w / cam.h), ny = (1 - sy / cam.h * 2) * t;
+  return { o: cam.pos, d: V.norm(V.add(V.add(V.mul(cam.X, nx), V.mul(cam.Y, ny)), V.mul(cam.Z, -1))) };
+}
+function onPlane(ray, y) { if (Math.abs(ray.d[1]) < 1e-5) return null; const t = (y - ray.o[1]) / ray.d[1]; return t > 0 ? [ray.o[0] + ray.d[0] * t, y, ray.o[2] + ray.d[2] * t] : null; }
+function rayBox(ray, mn, mx) {
+  let t0 = 0, t1 = 1e9;
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(ray.d[i]) < 1e-9) { if (ray.o[i] < mn[i] || ray.o[i] > mx[i]) return null; continue; }
+    let a = (mn[i] - ray.o[i]) / ray.d[i], b = (mx[i] - ray.o[i]) / ray.d[i]; if (a > b) [a, b] = [b, a];
+    t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) return null;
+  }
+  return t0;
+}
+
+/* ============================== GL ============================== */
+const cv = $("#gl"), ov = $("#ov"), g2 = ov.getContext("2d");
+const gl = cv.getContext("webgl", { antialias: true, alpha: true });
+if (!gl) { document.body.innerHTML = "<p style='padding:30px'>WebGL is not available in this browser.</p>"; throw new Error("no webgl"); }
+const idxUint = !!gl.getExtension("OES_element_index_uint");
+function prog(vs, fs, attrs) {
+  const p = gl.createProgram();
+  for (const [t, s] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); gl.attachShader(p, sh); }
+  attrs.forEach((a, i) => gl.bindAttribLocation(p, i, a)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name; u[nm] = gl.getUniformLocation(p, nm); }
+  return { p, u };
+}
+const MP = prog(`attribute vec3 a_p; attribute vec3 a_n; attribute vec2 a_t; uniform mat4 u_vp, u_model; varying vec3 v_n; varying vec2 v_t;
+  void main(){ v_n = mat3(u_model[0].xyz, u_model[1].xyz, u_model[2].xyz) * a_n; v_t = a_t; gl_Position = u_vp * u_model * vec4(a_p,1.0); }`,
+  `precision mediump float; varying vec3 v_n; varying vec2 v_t; uniform sampler2D u_tex; uniform vec4 u_color; uniform vec3 u_ldir, u_lcol, u_amb; uniform float u_cut;
+  void main(){ vec4 c = texture2D(u_tex, v_t) * u_color; if (c.a < u_cut) discard; vec3 n = normalize(v_n); float d = max(dot(n, -u_ldir), 0.0);
+    vec3 l = u_amb + u_lcol * d; gl_FragColor = vec4(c.rgb * min(l, vec3(1.35)), c.a); }`, ["a_p", "a_n", "a_t"]);
+const FP = prog(`attribute vec3 a_p; uniform mat4 u_vp; void main(){ gl_Position = u_vp * vec4(a_p,1.0); }`,
+  `precision mediump float; uniform vec4 u_c; void main(){ gl_FragColor = u_c; }`, ["a_p"]);
+const flatBuf = gl.createBuffer();
+const white = (() => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255])); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); return t; })();
+function flat(mode, arr, col) {                      // arr: flat [x,y,z,...]
+  if (!arr.length) return;
+  gl.useProgram(FP.p); gl.uniformMatrix4fv(FP.u.u_vp, false, cam.vp); gl.uniform4f(FP.u.u_c, col[0], col[1], col[2], col[3] === undefined ? 1 : col[3]);
+  gl.bindBuffer(gl.ARRAY_BUFFER, flatBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STREAM_DRAW);
+  gl.enableVertexAttribArray(0); gl.disableVertexAttribArray(1); gl.disableVertexAttribArray(2); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+  gl.drawArrays(mode, 0, arr.length / 3);
+}
+const boxEdges = (a, b) => { const [x0, y0, z0] = a, [x1, y1, z1] = b, c = [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]; const e = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]]; return e.flatMap(([i, j]) => [...c[i], ...c[j]]); };
+const rectTris = (x0, z0, x1, z1, y) => [x0, y, z0, x1, y, z0, x1, y, z1, x0, y, z0, x1, y, z1, x0, y, z1];
+const circleLines = (cx, cz, r, y, n = 48) => { const o = []; for (let i = 0; i < n; i++) { const a = i / n * 6.2832, b = (i + 1) / n * 6.2832; o.push(cx + Math.cos(a) * r, y, cz + Math.sin(a) * r, cx + Math.cos(b) * r, y, cz + Math.sin(b) * r); } return o; };
+
+/* ============================== models ============================== */
+const modelReady = new Map();            // url -> { objs, min, max, failed? }   (sync access for drawing)
+const modelLoading = new Map();
+const texCache = new Map();
+async function makeTex(im, base) {
+  const key = im.uri ? new URL(im.uri, base).href : null; if (key && texCache.has(key)) return texCache.get(key);
+  const pr = (async () => {
+    let blob; if (im.bytes) blob = new Blob([im.bytes], { type: im.mime }); else { const r = await fetch(key); if (!r.ok) throw new Error("texture"); blob = await r.blob(); }
+    const bmp = await createImageBitmap(blob, { premultiplyAlpha: "none", colorSpaceConversion: "none" });
+    const pot = (v) => Math.min(2048, 1 << Math.max(0, Math.round(Math.log2(Math.max(1, v)))));
+    const c = document.createElement("canvas"); c.width = pot(bmp.width); c.height = pot(bmp.height); c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c); gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    return t;
+  })();
+  if (key) texCache.set(key, pr); return pr;
+}
+function uploadObj(o) {
+  const vc = o.positions.length / 3, d = new Float32Array(vc * 8);
+  for (let i = 0; i < vc; i++) { d.set(o.positions.subarray(i * 3, i * 3 + 3), i * 8); d.set(o.normals.subarray(i * 3, i * 3 + 3), i * 8 + 3); d.set(o.uvs.subarray(i * 2, i * 2 + 2), i * 8 + 6); }
+  const vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW);
+  let idx = o.indices, it = gl.UNSIGNED_SHORT; if (vc > 65535) { if (!idxUint) return null; it = gl.UNSIGNED_INT; } else idx = Uint16Array.from(idx);
+  const ibo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+  return { vbo, ibo, count: idx.length, it };
+}
+function ensureModel(url) {
+  if (modelReady.has(url)) return modelReady.get(url);
+  if (!modelLoading.has(url)) {
+    modelLoading.set(url, (async () => {
+      try {
+        const r = await fetch(encodeURI(url)); if (!r.ok) throw new Error("HTTP " + r.status);
+        const parsed = B3DMap.parse(await r.arrayBuffer()), base = new URL(encodeURI(url), location.href);
+        const texs = await Promise.all(parsed.images.map((im) => makeTex(im, base).catch(() => null)));
+        const objs = parsed.objects.map((o) => { const g = uploadObj(o); return g ? { g, mat: o.material, tex: o.material.image >= 0 ? texs[o.material.image] : null } : null; }).filter(Boolean);
+        modelReady.set(url, { objs, min: parsed.bounds.min, max: parsed.bounds.max });
+      } catch (e) { console.warn("model failed", url, e); modelReady.set(url, { objs: [], min: [-0.5, 0, -0.5], max: [0.5, 1, 0.5], failed: true }); }
+      scheduleDraw();
+    })());
+  }
+  return null;
+}
+function drawModel(m, M, tint) {
+  gl.useProgram(MP.p); gl.uniformMatrix4fv(MP.u.u_model, false, M);
+  for (const o of m.objs) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, o.g.vbo); gl.enableVertexAttribArray(0); gl.enableVertexAttribArray(1); gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 32, 0); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 32, 12); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 32, 24);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, o.g.ibo); const c = o.mat.color;
+    gl.uniform4f(MP.u.u_color, c[0] * tint[0], c[1] * tint[1], c[2] * tint[2], c[3] * tint[3]); gl.uniform1f(MP.u.u_cut, o.mat.alphaMode === "MASK" ? o.mat.cutoff : (o.mat.alphaMode === "BLEND" ? 0.02 : 0));
+    gl.bindTexture(gl.TEXTURE_2D, o.tex || white); gl.drawElements(gl.TRIANGLES, o.g.count, o.g.it, 0);
+  }
+}
+function worldBox(m, p) {                           // world AABB of a piece (Y rotation only)
+  const M = pieceMatrix(p), mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+  for (let i = 0; i < 8; i++) {
+    const x = i & 1 ? m.max[0] : m.min[0], y = i & 2 ? m.max[1] : m.min[1], z = i & 4 ? m.max[2] : m.min[2];
+    const w = [M[0] * x + M[4] * y + M[8] * z + M[12], M[1] * x + M[5] * y + M[9] * z + M[13], M[2] * x + M[6] * y + M[10] * z + M[14]];
+    for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], w[k]); mx[k] = Math.max(mx[k], w[k]); }
+  }
+  return { mn, mx };
+}
+/* ============================== scene model ============================== */
+let UID = 1; const nid = () => UID++;
+const DEF_LIGHT = () => ({ dir: [-0.45, -1, -0.5], color: [1, 0.9, 0.76], ambient: [0.6, 0.57, 0.68] });
+const DEF_FOG = () => ({ color: [0.2, 0.14, 0.3], near: 60, far: 150 });
+const HUB_KNOWN = ["name", "kit", "tile", "pieces", "colliders", "npcs", "events", "decals", "spawn", "bounds", "playerHeight", "light", "fog", "sky", "fx"];
+const BATTLE_KNOWN = ["name", "model", "scale", "offset", "rotY", "props", "light", "fog", "sky", "cullNearCamera", "fx"];
+const HUB_ACTIONS = ["", "battle", "ladder", "challenge", "summon", "heroes", "shop", "world", "save_and_quit"];
+let scene = null, scenesList = [], npcSprites = [], modelList = [];
+let sel = null;                                   // primary selection { type, uid }
+let selSet = [];                                  // every selected item (sel is its last entry)
+let clip = null;                                  // copy/paste buffer
+let dirty = false;
+
+function blankScene(kind, id, name) {
+  if (kind === "hub") return { kind, id, name, kit: "", tile: 4, pieces: [], colliders: [], npcs: [], events: [], decals: [], spawn: { x: 0, z: 8 }, bounds: { minX: -20, maxX: 20, minZ: -12, maxZ: 12 }, playerHeight: 2.4, light: DEF_LIGHT(), fog: DEF_FOG(), extra: {} };
+  return { kind, id, name, pieces: [], light: { dir: [-0.5, -1, -0.35], color: [1, 0.95, 0.85], ambient: [0.55, 0.55, 0.62] }, fog: { color: [0.35, 0.3, 0.45], near: 40, far: 120 }, sky: "painted", cullNearCamera: 8, extra: {} };
+}
+function parseHub(def, id) {
+  const s = blankScene("hub", id, def.name || id), kit = def.kit || "", T = def.tile || 4;
+  s.kit = kit; s.tile = T;
+  s.pieces = (def.pieces || []).map((p) => ({ uid: nid(), model: (p[0].startsWith("/") && !kit ? p[0] : kit + p[0]) + ".glb", x: p[1], z: p[2], rot: p[3] || 0, y: p[4] || 0, sc: p[5] == null ? T : p[5] }));
+  s.colliders = (def.colliders || []).map((c) => ({ uid: nid(), x: c.x, z: c.z, w: c.w, d: c.d }));
+  s.npcs = (def.npcs || []).map((n) => Object.assign({ uid: nid() }, JSON.parse(JSON.stringify(n))));
+  s.events = (def.events || []).map((n) => Object.assign({ uid: nid() }, JSON.parse(JSON.stringify(n))));
+  s.decals = (def.decals || []).map((d) => Object.assign({ uid: nid() }, JSON.parse(JSON.stringify(d))));
+  s.spawn = def.spawn ? { x: def.spawn.x, z: def.spawn.z } : s.spawn; s.bounds = Object.assign(s.bounds, def.bounds || {});
+  if (def.sky !== undefined) s.sky = def.sky;
+  if (Array.isArray(def.fx)) s.fx = def.fx;
+  s.playerHeight = def.playerHeight || 2.4; s.light = Object.assign(DEF_LIGHT(), def.light || {}); s.fog = Object.assign(DEF_FOG(), def.fog || {});
+  for (const k in def) if (!HUB_KNOWN.includes(k)) s.extra[k] = def[k];
+  return s;
+}
+function parseBattle(def, id) {
+  const s = blankScene("battle", id, def.name || id);
+  const pl = [];
+  if (def.model) pl.push({ model: def.model, pos: def.offset || [0, 0, 0], rotY: def.rotY || 0, scale: def.scale || 1 });
+  for (const p of def.props || []) pl.push(p);
+  s.pieces = pl.map((p) => ({ uid: nid(), model: p.model, x: p.pos[0], y: p.pos[1], z: p.pos[2], rot: p.rotY || 0, sc: p.scale || 1 }));
+  s.light = Object.assign(s.light, def.light || {}); s.fog = Object.assign(s.fog, def.fog || {});
+  if (Array.isArray(def.fx)) s.fx = def.fx;
+  if (def.sky !== undefined) s.sky = def.sky; if (def.cullNearCamera !== undefined) s.cullNearCamera = def.cullNearCamera;
+  for (const k in def) if (!BATTLE_KNOWN.includes(k)) s.extra[k] = def[k];
+  return s;
+}
+const clean = (o, drop) => { const c = {}; for (const k in o) if (k !== "uid" && !(drop || []).includes(k)) c[k] = o[k]; return c; };
+function serialize(s) {
+  const out = Object.assign({}, s.extra);
+  if (s.kind === "hub") {
+    out.name = s.name; out.kit = s.kit || ""; out.tile = s.tile || 4;
+    out.pieces = s.pieces.map((p) => { let n = p.model; if (s.kit && n.startsWith(s.kit)) n = n.slice(s.kit.length); return [n.replace(/\.glb$/i, ""), r3(p.x), r3(p.z), r3(p.rot || 0), r3(p.y || 0), r3(p.sc)]; });
+    out.colliders = s.colliders.map((c) => ({ x: r3(c.x), z: r3(c.z), w: r3(c.w), d: r3(c.d) }));
+    out.npcs = s.npcs.map((n) => { const c = clean(n); if (!c.action) delete c.action; if (!c.line) delete c.line; if (!c.actions || !c.actions.length) delete c.actions; if (!c.tint) delete c.tint; return c; });
+    if (s.events.length) out.events = s.events.map((e) => { const c = clean(e); if (!c.prompt) delete c.prompt; return c; }); else delete out.events;
+    out.decals = s.decals.map((d) => clean(d));
+    out.spawn = { x: r3(s.spawn.x), z: r3(s.spawn.z) }; out.bounds = s.bounds; out.playerHeight = s.playerHeight; out.light = s.light; out.fog = s.fog;
+    if (s.sky != null) out.sky = s.sky; else delete out.sky;
+    if (s.fx && s.fx.length) out.fx = s.fx; else delete out.fx;
+  } else {
+    out.name = s.name; out.light = s.light; out.fog = s.fog; out.sky = s.sky; out.cullNearCamera = s.cullNearCamera;
+    if (s.fx && s.fx.length) out.fx = s.fx; else delete out.fx;
+    const pl = s.pieces.map((p) => ({ model: p.model, pos: [r3(p.x), r3(p.y || 0), r3(p.z)], rotY: r3(p.rot || 0), scale: r3(p.sc) }));
+    if (pl.length) { const m = pl.shift(); out.model = m.model; out.offset = m.pos; out.rotY = m.rotY; out.scale = m.scale; } else { delete out.model; delete out.offset; delete out.rotY; delete out.scale; }
+    out.props = pl;
+  }
+  return out;
+}
+
+/* ---------- undo / redo ---------- */
+const undoS = [], redoS = [];
+const snap = () => JSON.stringify(scene);
+function checkpoint() { undoS.push(snap()); if (undoS.length > 120) undoS.shift(); redoS.length = 0; setDirty(true); }
+function restore(str) { scene = JSON.parse(str); setSel(selSet.filter((s) => getItem(s))); setDirty(true); refreshUI(); scheduleDraw(); }
+function undo() { if (!undoS.length) return; redoS.push(snap()); restore(undoS.pop()); }
+function redo() { if (!redoS.length) return; undoS.push(snap()); restore(redoS.pop()); }
+let setDirty = function (d) { dirty = d; $("#dirty").textContent = d ? "●" : ""; document.title = (d ? "* " : "") + "2.5D Scene Editor"; };
+
+/* ---------- items ---------- */
+const TYPES = { piece: "pieces", npc: "npcs", event: "events", collider: "colliders", decal: "decals" };
+function getItem(s) {
+  if (!s || !scene) return null;
+  if (s.type === "spawn") return scene.kind === "hub" ? { type: "spawn", ref: scene.spawn } : null;
+  const a = scene[TYPES[s.type]]; if (!a) return null;
+  const ref = a.find((i) => i.uid === s.uid); return ref ? { type: s.type, ref } : null;
+}
+const itemY = (it) => it.type === "piece" ? (it.ref.y || 0) : 0;
+function setSel(a) { selSet = a.slice(); sel = selSet.length ? selSet[selSet.length - 1] : null; }
+const isSel = (type, uid) => selSet.some((s) => s.type === type && (type === "spawn" || s.uid === uid));
+const selItems = () => selSet.map(getItem).filter(Boolean);
+function selectItem(type, uid) { setSel(type ? [{ type, uid }] : []); refreshInspector(); scheduleDraw(); highlightOutliner(); }
+function toggleSel(type, uid) { const a = selSet.filter((s) => !(s.type === type && (type === "spawn" || s.uid === uid))); if (a.length === selSet.length) a.push({ type, uid }); setSel(a); refreshInspector(); scheduleDraw(); highlightOutliner(); }
+function selectMany(list, add) { const a = add ? selSet.slice() : []; for (const s of list) if (!a.some((x) => x.type === s.type && x.uid === s.uid)) a.push({ type: s.type, uid: s.uid }); setSel(a); refreshInspector(); scheduleDraw(); highlightOutliner(); }
+function centroid(items) { let x = 0, z = 0; items.forEach((i) => { x += i.ref.x; z += i.ref.z; }); return [x / items.length, z / items.length]; }
+function rotateGroup(items, deg) {                   // about the group centre, same convention as the engine's rotY
+  const [cx, cz] = centroid(items), a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), odd = Math.abs(Math.round(deg / 90)) % 2 === 1 && Math.abs(deg % 90) < 1e-6;
+  for (const it of items) { const r = it.ref, dx = r.x - cx, dz = r.z - cz; r.x = r3(cx + dx * c + dz * s); r.z = r3(cz - dx * s + dz * c);
+    if (it.type === "piece") r.rot = (((r.rot || 0) + deg) % 360 + 360) % 360; else if (odd && (it.type === "event" || it.type === "collider")) [r.w, r.d] = [r.d, r.w]; }
+}
+function mirrorGroup(items, axis) {
+  const [cx, cz] = centroid(items);
+  for (const it of items) { const r = it.ref; if (axis === "x") r.x = r3(2 * cx - r.x); else r.z = r3(2 * cz - r.z); if (it.type === "piece") r.rot = ((axis === "x" ? -(r.rot || 0) : 180 - (r.rot || 0)) % 360 + 360) % 360; }
+}
+function selBounds(items) { const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9]; for (const it of items) { const b = selBox(it); for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], b.mn[k]); mx[k] = Math.max(mx[k], b.mx[k]); } } return { mn, mx }; }
+function moveGroup(items, dx, dz) { for (const it of items) { it.ref.x = r3(it.ref.x + dx); it.ref.z = r3(it.ref.z + dz); } }
+function raiseGroup(items, dy) { for (const it of items) if (it.type === "piece") it.ref.y = r3((it.ref.y || 0) + dy); }
+function scaleGroup(items, f) {
+  const [cx, cz] = centroid(items);
+  for (const it of items) { const r = it.ref; r.x = r3(cx + (r.x - cx) * f); r.z = r3(cz + (r.z - cz) * f);
+    if (it.type === "piece") r.sc = r3(r.sc * f); else if (it.type === "event" || it.type === "collider") { r.w = r3(r.w * f); r.d = r3(r.d * f); } else if (it.type === "decal") r.r = r3(r.r * f); }
+}
+function addItem(type, obj) { obj.uid = nid(); scene[TYPES[type]].push(obj); return obj; }
+function removeSel() {
+  const items = selItems().filter((i) => i.type !== "spawn"); if (!items.length) return; checkpoint();
+  for (const it of items) { const a = scene[TYPES[it.type]]; const i = a.findIndex((x) => x.uid === it.ref.uid); if (i >= 0) a.splice(i, 1); }
+  setSel([]); refreshUI(); scheduleDraw();
+}
+function uniq(base, arr) { let id = base, n = 2; while (arr.some((a) => a.id === id)) id = base.replace(/_\d+$/, "") + "_" + n++; return id; }
+function dupSel() {
+  const items = selItems().filter((i) => i.type !== "spawn"); if (!items.length) return; checkpoint();
+  const st = grid || 1, out = [];
+  for (const it of items) { const c = JSON.parse(JSON.stringify(it.ref)); delete c.uid; c.x += st; c.z += st; if (c.id) c.id = uniq(c.id, scene[TYPES[it.type]]); const n = addItem(it.type, c); out.push({ type: it.type, uid: n.uid }); }
+  setSel(out); refreshUI(); scheduleDraw();
+}
+function copySel() {
+  const items = selItems().filter((i) => i.type !== "spawn"); if (!items.length) return false; const [cx, cz] = centroid(items);
+  clip = { cx, cz, items: items.map((i) => ({ type: i.type, data: JSON.parse(JSON.stringify(i.ref)) })) }; toast(`Copied ${items.length} item${items.length > 1 ? "s" : ""}`, "ok"); return true;
+}
+function pasteClip(at) {
+  if (!clip) return; if (scene.kind !== "hub" && clip.items.some((i) => i.type !== "piece")) { toast("Only pieces can be pasted into a battle arena", "err"); }
+  checkpoint(); const dx = at ? snapv(at[0], false) - clip.cx : (grid || 1), dz = at ? snapv(at[1], false) - clip.cz : (grid || 1), out = [];
+  for (const i of clip.items) { if (scene.kind !== "hub" && i.type !== "piece") continue; const c = JSON.parse(JSON.stringify(i.data)); delete c.uid; c.x = r3(c.x + dx); c.z = r3(c.z + dz); if (c.id) c.id = uniq(c.id, scene[TYPES[i.type]]); const n = addItem(i.type, c); out.push({ type: i.type, uid: n.uid }); if (i.type === "piece") ensureModel(c.model); }
+  setSel(out); refreshUI(); scheduleDraw();
+}
+function itemPos(it) { return [it.ref.x, it.ref.z]; }
+function setItemPos(it, x, z) { if (it.type === "spawn") { it.ref.x = r3(x); it.ref.z = r3(z); } else { it.ref.x = r3(x); it.ref.z = r3(z); } }
+function itemLabel(type, i) {
+  switch (type) {
+    case "piece": return modelName(i.model); case "npc": return i.name || i.id || "npc"; case "event": return i.name || i.id || "event";
+    case "collider": return `collider ${i.w}×${i.d}`; case "decal": return `${i.type} r${i.r}`; case "spawn": return "player spawn";
+  } return type;
+}
+const modelName = (u) => decodeURIComponent(u.split("/").pop()).replace(/\.glb$/i, "");
+function pickBoxes() {
+  const out = [];
+  if (!scene) return out;
+  if (layers.piece.vis && !layers.piece.lock) for (const p of scene.pieces) { const m = modelReady.get(p.model); const b = worldBox(m || { min: [-.5, 0, -.5], max: [.5, 1, .5] }, p); out.push({ type: "piece", uid: p.uid, mn: b.mn, mx: b.mx }); }
+  if (scene.kind !== "hub") return out;
+  if (layers.npc.vis && !layers.npc.lock) for (const n of scene.npcs) out.push({ type: "npc", uid: n.uid, mn: [n.x - 0.5, 0, n.z - 0.5], mx: [n.x + 0.5, n.h || 2.4, n.z + 0.5] });
+  if (layers.event.vis && !layers.event.lock) for (const e of scene.events) out.push({ type: "event", uid: e.uid, mn: [e.x - e.w / 2, 0, e.z - e.d / 2], mx: [e.x + e.w / 2, 0.6, e.z + e.d / 2] });
+  if (layers.collider.vis && !layers.collider.lock) for (const c of scene.colliders) out.push({ type: "collider", uid: c.uid, mn: [c.x - c.w / 2, 0, c.z - c.d / 2], mx: [c.x + c.w / 2, 1.5, c.z + c.d / 2] });
+  if (layers.decal.vis && !layers.decal.lock) for (const d of scene.decals) out.push({ type: "decal", uid: d.uid, mn: [d.x - 0.6, 0, d.z - 0.6], mx: [d.x + 0.6, 0.3, d.z + 0.6] });
+  out.push({ type: "spawn", uid: 0, mn: [scene.spawn.x - 0.5, 0, scene.spawn.z - 0.5], mx: [scene.spawn.x + 0.5, 1.2, scene.spawn.z + 0.5] });
+  return out;
+}
+function pick(sx, sy) {
+  const ray = rayAt(sx, sy); let best = null;
+  for (const b of pickBoxes()) { const t = rayBox(ray, b.mn, b.mx); if (t == null) continue; const score = t + (b.type === "piece" ? 0 : -1.5); if (!best || score < best.score) best = { score, type: b.type, uid: b.uid }; }
+  return best;
+}
+const layers = { piece: { vis: true, lock: false, label: "Pieces" }, npc: { vis: true, lock: false, label: "NPCs" }, event: { vis: true, lock: false, label: "Events" }, collider: { vis: true, lock: false, label: "Colliders" }, decal: { vis: true, lock: false, label: "Decals" } };
+let grid = 1;
+/* ============================== drawing ============================== */
+let drawQueued = false, hoverG = null, curModel = null, placeRot = 0, placeScale = 1, ghostRect = null, tool = "select";
+const lastScale = {};
+function scheduleDraw() { if (!drawQueued) { drawQueued = true; requestAnimationFrame(draw); } }
+function resize() {
+  const st = $("#stage"), dpr = Math.min(window.devicePixelRatio || 1, 2); cam.w = st.clientWidth || 800; cam.h = st.clientHeight || 600;
+  for (const c of [cv, ov]) { c.width = Math.round(cam.w * dpr); c.height = Math.round(cam.h * dpr); } g2.setTransform(dpr, 0, 0, dpr, 0, 0); gl.viewport(0, 0, cv.width, cv.height); scheduleDraw();
+}
+window.addEventListener("resize", resize);
+function selBox(it) {
+  const r = it.ref;
+  switch (it.type) {
+    case "piece": { const m = modelReady.get(r.model) || { min: [-.5, 0, -.5], max: [.5, 1, .5] }; return worldBox(m, r); }
+    case "npc": return { mn: [r.x - .5, 0, r.z - .5], mx: [r.x + .5, r.h || 2.4, r.z + .5] };
+    case "event": return { mn: [r.x - r.w / 2, 0, r.z - r.d / 2], mx: [r.x + r.w / 2, .6, r.z + r.d / 2] };
+    case "collider": return { mn: [r.x - r.w / 2, 0, r.z - r.d / 2], mx: [r.x + r.w / 2, 1.5, r.z + r.d / 2] };
+    case "decal": return { mn: [r.x - r.r, 0, r.z - r.r], mx: [r.x + r.r, .3, r.z + r.r] };
+    case "spawn": return { mn: [r.x - .5, 0, r.z - .5], mx: [r.x + .5, 1.2, r.z + .5] };
+  }
+}
+function draw() {
+  drawQueued = false;
+  updateCam();
+  gl.viewport(0, 0, cv.width, cv.height); syncSkyBg(); syncFx(); const env = envPreviewOn(); gl.clearColor(env ? 0 : 0.16, env ? 0 : 0.17, env ? 0 : 0.26, env ? 0 : 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  g2.clearRect(0, 0, cam.w, cam.h);
+  if (!scene) return;
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.disable(gl.CULL_FACE);
+  // pieces
+  gl.useProgram(MP.p); gl.uniformMatrix4fv(MP.u.u_vp, false, cam.vp); gl.uniform1i(MP.u.u_tex, 0);
+  const L = scene.light, ld = V.norm(L.dir || [-0.5, -1, -0.35]); gl.uniform3f(MP.u.u_ldir, ld[0], ld[1], ld[2]);
+  gl.uniform3fv(MP.u.u_lcol, L.color || [1, 1, 1]); gl.uniform3fv(MP.u.u_amb, L.ambient || [0.6, 0.6, 0.6]);
+  if (layers.piece.vis) for (const p of scene.pieces) {
+    const m = ensureModel(p.model);
+    if (m) drawModel(m, pieceMatrix(p), [1, 1, 1, 1]);
+    else flat(gl.LINES, boxEdges([p.x - .5, 0, p.z - .5], [p.x + .5, 1, p.z + .5]), [1, .6, .2, 1]);
+    if (m && m.failed) flat(gl.LINES, boxEdges([p.x - .5, 0, p.z - .5], [p.x + .5, 1, p.z + .5]), [1, 0, 1, 1]);
+  }
+  // ghost
+  if (play) { drawPlayExtras(); $("#status").innerHTML = "<span>Playing the " + (scene.name || scene.id).replace(/</g, "") + " scene · pieces, colliders and events as currently edited (unsaved changes included)</span>"; return; }
+  if (tool === "place" && curModel && hoverG && !dragState) {
+    const m = ensureModel(curModel.url);
+    if (m) { gl.useProgram(MP.p); gl.uniformMatrix4fv(MP.u.u_vp, false, cam.vp); drawModel(m, pieceMatrix({ x: hoverG[0], y: 0, z: hoverG[2], rot: placeRot, sc: placeScale }), [0.8, 1, 0.8, 0.6]); }
+  }
+  // grid
+  if ($("#vGrid").checked) {
+    const R = Math.round(clamp(cam.dist * 0.9, 20, 100)), step = Math.max(1, grid >= 1 ? grid : 1), cx = Math.round(cam.tx / step) * step, cz = Math.round(cam.tz / step) * step, minor = [], major = [];
+    for (let i = -R; i <= R; i += step) { const a = cx + i, b = cz + i, tgt = (Math.round(a) % (step * 5) === 0) ? major : minor; tgt.push(a, 0.01, cz - R, a, 0.01, cz + R); const tg2 = (Math.round(b) % (step * 5) === 0) ? major : minor; tg2.push(cx - R, 0.01, b, cx + R, 0.01, b); }
+    gl.depthMask(false); flat(gl.LINES, minor, [1, 1, 1, 0.07]); flat(gl.LINES, major, [1, 1, 1, 0.16]);
+    flat(gl.LINES, [-R, 0.02, 0, R, 0.02, 0], [1, .3, .3, .5]); flat(gl.LINES, [0, 0.02, -R, 0, 0.02, R], [.3, .5, 1, .5]); gl.depthMask(true);
+  }
+  // scene guides
+  gl.depthMask(false);
+  if (scene.kind === "hub") {
+    const b = scene.bounds; flat(gl.LINES, [b.minX, .05, b.minZ, b.maxX, .05, b.minZ, b.maxX, .05, b.minZ, b.maxX, .05, b.maxZ, b.maxX, .05, b.maxZ, b.minX, .05, b.maxZ, b.minX, .05, b.maxZ, b.minX, .05, b.minZ], [.4, 1, .5, .9]);
+    if (layers.collider.vis) for (const c of scene.colliders) { flat(gl.TRIANGLES, rectTris(c.x - c.w / 2, c.z - c.d / 2, c.x + c.w / 2, c.z + c.d / 2, .06), [1, .2, .2, .28]); flat(gl.LINES, boxEdges([c.x - c.w / 2, 0, c.z - c.d / 2], [c.x + c.w / 2, 1.5, c.z + c.d / 2]), [1, .35, .35, .8]); }
+    if (layers.event.vis) for (const e of scene.events) { flat(gl.TRIANGLES, rectTris(e.x - e.w / 2, e.z - e.d / 2, e.x + e.w / 2, e.z + e.d / 2, .07), e.trigger === "talk" ? [.3, .7, 1, .25] : [.8, .4, 1, .28]); flat(gl.LINES, boxEdges([e.x - e.w / 2, 0, e.z - e.d / 2], [e.x + e.w / 2, .6, e.z + e.d / 2]), e.trigger === "talk" ? [.4, .8, 1, .9] : [.85, .5, 1, .9]); }
+    if (layers.decal.vis) for (const d of scene.decals) { const c = d.color || [1, 1, 1, 1]; flat(gl.LINES, circleLines(d.x, d.z, d.r, .08), [c[0], c[1], c[2], 1]); }
+    if (layers.npc.vis) for (const n of scene.npcs) { flat(gl.LINES, boxEdges([n.x - .45, 0, n.z - .45], [n.x + .45, n.h || 2.4, n.z + .45]), [.4, .75, 1, 1]); if (sel && sel.type === "npc" && sel.uid === n.uid) flat(gl.LINES, circleLines(n.x, n.z, n.reach || 4.6, .1), [1, .85, .4, .7]); }
+    const sp = scene.spawn; flat(gl.LINES, boxEdges([sp.x - .35, 0, sp.z - .35], [sp.x + .35, scene.playerHeight || 2.4, sp.z + .35]), [.4, 1, .4, 1]); flat(gl.LINES, circleLines(sp.x, sp.z, .8, .1), [.4, 1, .4, 1]);
+  } else {
+    flat(gl.LINES, boxEdges([-10, 0, -4], [10, 0.02, 10]), [.3, .9, 1, .9]);                          // combat field
+    flat(gl.LINES, circleLines(0, 3, 8, .03), [.3, .9, 1, .35]);
+  }
+  if ($("#vRef").checked) { const o = scene.kind === "hub" ? [scene.spawn.x + 1.5, scene.spawn.z] : [-12, 3], hh = scene.kind === "hub" ? (scene.playerHeight || 2.4) : 3.5; flat(gl.LINES, boxEdges([o[0] - .35, 0, o[1] - .2], [o[0] + .35, hh, o[1] + .2]), [1, 1, .4, .9]); }
+  if (ghostRect) { const g = ghostRect, x0 = Math.min(g.x0, g.x1), x1 = Math.max(g.x0, g.x1), z0 = Math.min(g.z0, g.z1), z1 = Math.max(g.z0, g.z1); flat(gl.TRIANGLES, rectTris(x0, z0, x1, z1, .09), [1, 1, .4, .25]); flat(gl.LINES, boxEdges([x0, .09, z0], [x1, .1, z1]), [1, 1, .4, 1]); }
+  gl.depthMask(true);
+  gl.disable(gl.DEPTH_TEST);
+  for (const it of selItems()) { const b = selBox(it), pr = sel && it.type === sel.type && (it.type === "spawn" || it.ref.uid === sel.uid); flat(gl.LINES, boxEdges(b.mn, b.mx), pr ? [1, .9, .2, 1] : [1, .6, .15, .95]); }
+  if (typeof drawLineGhost === "function") drawLineGhost();
+  gl.enable(gl.DEPTH_TEST);
+  // labels
+  if ($("#vLabels").checked && scene.kind === "hub") {
+    g2.font = "11px sans-serif"; g2.textAlign = "center";
+    const lab = (txt, p, col) => { const s = project(p); if (!s) return; const w = g2.measureText(txt).width + 8; g2.fillStyle = "rgba(0,0,0,.65)"; g2.fillRect(s.x - w / 2, s.y - 14, w, 16); g2.fillStyle = col; g2.fillText(txt, s.x, s.y - 2); };
+    if (layers.npc.vis) for (const n of scene.npcs) lab(n.name || n.id, [n.x, (n.h || 2.4) + .3, n.z], "#9cf");
+    if (layers.event.vis) for (const e of scene.events) lab("⚑ " + (e.name || e.id), [e.x, .9, e.z], "#d9a8ff");
+    lab("spawn", [scene.spawn.x, (scene.playerHeight || 2.4) + .3, scene.spawn.z], "#8f8");
+  }
+  if (marq) { const x = Math.min(marq.x0, marq.x1), y = Math.min(marq.y0, marq.y1), w = Math.abs(marq.x1 - marq.x0), hh = Math.abs(marq.y1 - marq.y0); g2.fillStyle = "rgba(255,200,60,.12)"; g2.fillRect(x, y, w, hh); g2.strokeStyle = "rgba(255,210,80,.95)"; g2.setLineDash([5, 3]); g2.strokeRect(x + .5, y + .5, w, hh); g2.setLineDash([]); }
+  $("#status").textContent = ""; updateStatus();
+}
+function updateStatus() {
+  const hint = { select: "Click to select · Shift-click add/remove · drag empty space or Shift-drag for a box · drag to move · Q/E rotate · Ctrl+A all · Ctrl+C/V · Del",
+    line: lineHint(), place: "Click to place · Shift+drag to fill a rectangle with tiles · Q/E rotate the ghost", collider: "Drag a rectangle on the ground", bounds: "Drag a rectangle to set the walkable bounds", npc: "Click the ground to place an NPC", event: "Click the ground to place an event trigger", decal: "Click the ground to place a decal", spawn: "Click the ground to move the player spawn" }[tool] || "";
+  const hv = hoverG ? `x ${r3(hoverG[0])}  z ${r3(hoverG[2])}` : "";
+  $("#status").innerHTML = `<span>${hint}</span><span>${hv}</span><span>${scene ? scene.pieces.length + " pieces" + (scene.kind === "hub" ? ` · ${scene.npcs.length} NPCs · ${scene.events.length} events · ${scene.colliders.length} colliders` : "") : ""}</span>`;
+}
+
+/* ============================== interaction ============================== */
+let dragState = null, marq = null;
+const snapv = (v, free) => (grid > 0 && !free) ? Math.round(v / grid) * grid : v;
+function mouse(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+function groundPt(e, y) { const [sx, sy] = mouse(e); return onPlane(rayAt(sx, sy), y || 0); }
+function uniqueId(base, arr) { let i = 1, id; do { id = base + "_" + i++; } while (arr.some((a) => a.id === id)); return id; }
+function setTool(t) {
+  tool = t; document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === t)); ghostRect = null; if (tool !== "line" && typeof lineCancel === "function") lineCancel(); if (typeof syncLineOpts === "function") syncLineOpts(); scheduleDraw();
+}
+cv.addEventListener("contextmenu", (e) => e.preventDefault());
+cv.addEventListener("pointerdown", (e) => {
+  if (!scene) return; cv.focus(); cv.setPointerCapture(e.pointerId); const [sx, sy] = mouse(e);
+  if (e.button === 1 || e.button === 2) { dragState = { mode: (e.button === 1 || e.shiftKey) ? "pan" : "orbit", x: e.clientX, y: e.clientY }; e.preventDefault(); return; }
+  if (e.button !== 0) return;
+  if (play) { dragState = { mode: "pclick", x: e.clientX, y: e.clientY }; return; }
+  const free = e.altKey, gp = groundPt(e, 0);
+  if (tool === "select") {
+    const p = pick(sx, sy), add = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (p) {
+      if (add) { dragState = { mode: "marq", add: true, pk: p }; marq = { x0: sx, y0: sy, x1: sx, y1: sy }; }
+      else {
+        const was = isSel(p.type, p.uid);
+        if (!was) selectItem(p.type, p.uid);
+        else { setSel(selSet.filter((s) => !(s.type === p.type && (p.type === "spawn" || s.uid === p.uid))).concat([{ type: p.type, uid: p.uid }])); refreshInspector(); highlightOutliner(); }
+        const prim = getItem(sel), y = itemY(prim), g = groundPt(e, y);
+        if (g) dragState = { mode: "move", items: selItems(), prim, off: [prim.ref.x - g[0], prim.ref.z - g[2]], y, moved: false, grp: was && selSet.length > 1, pk: p };
+      }
+    } else { dragState = { mode: "marq", add }; marq = { x0: sx, y0: sy, x1: sx, y1: sy }; }
+  } else if (tool === "place") {
+    if (!curModel) { toast("Pick a model in the palette first", "err"); return; }
+    if (!gp) return;
+    if (e.shiftKey) dragState = { mode: "fill", x0: snapv(gp[0], free), z0: snapv(gp[2], free) }, ghostRect = { x0: snapv(gp[0], free), z0: snapv(gp[2], free), x1: snapv(gp[0], free), z1: snapv(gp[2], free) };
+    else { checkpoint(); const p = addItem("piece", { model: curModel.url, x: r3(snapv(gp[0], free)), z: r3(snapv(gp[2], free)), y: 0, rot: placeRot, sc: placeScale }); lastScale[curModel.url] = placeScale; selectItem("piece", p.uid); refreshOutliner(); }
+  } else if (tool === "line") { lineDown(e, gp, free);
+  } else if (tool === "collider" || tool === "bounds") {
+    if (gp) { dragState = { mode: "rect", x0: snapv(gp[0], free), z0: snapv(gp[2], free) }; ghostRect = { x0: dragState.x0, z0: dragState.z0, x1: dragState.x0, z1: dragState.z0 }; }
+  } else if (gp) {
+    const x = r3(snapv(gp[0], free)), z = r3(snapv(gp[2], free));
+    if (tool === "spawn") { checkpoint(); scene.spawn = { x, z }; selectItem("spawn", 0); }
+    else if (scene.kind !== "hub") toast("Only hub scenes have NPCs, events and decals", "err");
+    else {
+      checkpoint(); let o;
+      if (tool === "npc") o = addItem("npc", { id: uniqueId("npc", scene.npcs), name: "New NPC", title: "", sprite: npcSprites[0] || "Draven", x, z, h: 2.4, action: "", reach: 4.6, radius: 1.1, line: "Hello there!" });
+      else if (tool === "event") o = addItem("event", { id: uniqueId("event", scene.events), name: "New event", x, z, w: 3, d: 3, trigger: "touch", prompt: "", actions: [{ type: "say", text: "Something happens here." }] });
+      else if (tool === "decal") o = addItem("decal", { type: "glow", x, z, r: 3, color: [1, 0.8, 0.4, 1], spin: 0 });
+      selectItem(tool, o.uid); setTool("select"); refreshOutliner();
+    }
+  }
+  scheduleDraw();
+});
+cv.addEventListener("pointermove", (e) => {
+  if (!scene) return;
+  const hg = groundPt(e, 0); hoverG = hg;
+  if (dragState) {
+    const d = dragState;
+    if (d.mode === "orbit") { cam.yaw -= (e.clientX - d.x) * 0.4; cam.pitch = clamp(cam.pitch + (e.clientY - d.y) * 0.4, 5, 89.5); d.x = e.clientX; d.y = e.clientY; }
+    else if (d.mode === "pan") {
+      const s = cam.dist * 0.0017, rt = V.norm([cam.X[0], 0, cam.X[2]]), fw = V.norm([-cam.Z[0], 0, -cam.Z[2]]), dx = e.clientX - d.x, dy = e.clientY - d.y;
+      cam.tx += (-rt[0] * dx + fw[0] * dy) * s; cam.tz += (-rt[2] * dx + fw[2] * dy) * s; d.x = e.clientX; d.y = e.clientY;
+    } else if (d.mode === "move") {
+      const g = groundPt(e, d.y); if (g) { const nx = snapv(g[0] + d.off[0], e.altKey), nz = snapv(g[2] + d.off[1], e.altKey), dx = nx - d.prim.ref.x, dz = nz - d.prim.ref.z; if (dx || dz) { if (!d.moved) { checkpoint(); d.moved = true; } moveGroup(d.items, dx, dz); refreshInspectorValues(); } }
+    } else if (d.mode === "marq") { const [mx, my] = mouse(e); marq.x1 = mx; marq.y1 = my;
+    } else if ((d.mode === "fill" || d.mode === "rect") && hg) { ghostRect.x1 = snapv(hg[0], e.altKey); ghostRect.z1 = snapv(hg[2], e.altKey); }
+  }
+  if (tool === "line" && typeof lineHover === "function") lineHover(hg, e);
+  scheduleDraw();
+});
+cv.addEventListener("pointerup", (e) => {
+  const d = dragState; dragState = null; if (!d) return;
+  if (d.mode === "pclick") { if (play && !play.script && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) { const g = groundPt(e, 0), b = scene.bounds; if (g) play.p.target = { x: clamp(g[0], b.minX + 1, b.maxX - 1), z: clamp(g[2], b.minZ + 1, b.maxZ - 1) }; } return; }
+  if (d.mode === "move") { if (d.moved) refreshOutliner(); else if (d.grp) selectItem(d.pk.type, d.pk.uid); }
+  if (d.mode === "line") lineUp(e, d);
+  if (d.mode === "marq" && marq) {
+    const m = marq; marq = null;
+    if (Math.hypot(m.x1 - m.x0, m.y1 - m.y0) < 4) { if (d.pk) toggleSel(d.pk.type, d.pk.uid); else if (!d.add) selectItem(null); }
+    else { const x0 = Math.min(m.x0, m.x1), x1 = Math.max(m.x0, m.x1), y0 = Math.min(m.y0, m.y1), y1 = Math.max(m.y0, m.y1);
+      selectMany(pickBoxes().filter((b) => { const s = project([(b.mn[0] + b.mx[0]) / 2, (b.mn[1] + b.mx[1]) / 2, (b.mn[2] + b.mx[2]) / 2]); return s && s.x >= x0 && s.x <= x1 && s.y >= y0 && s.y <= y1; }), d.add); }
+  }
+  if (d.mode === "rect" && ghostRect) {
+    const g = ghostRect, x0 = Math.min(g.x0, g.x1), x1 = Math.max(g.x0, g.x1), z0 = Math.min(g.z0, g.z1), z1 = Math.max(g.z0, g.z1);
+    if (tool === "bounds") { if (scene.kind !== "hub") toast("Bounds only apply to hub scenes", "err"); else if (x1 - x0 > 1 && z1 - z0 > 1) { checkpoint(); scene.bounds = { minX: x0, maxX: x1, minZ: z0, maxZ: z1 }; refreshSceneTab(); } }
+    else if (scene.kind !== "hub") toast("Colliders only apply to hub scenes", "err");
+    else if (x1 - x0 >= 0.25 && z1 - z0 >= 0.25) { checkpoint(); const c = addItem("collider", { x: r3((x0 + x1) / 2), z: r3((z0 + z1) / 2), w: r3(x1 - x0), d: r3(z1 - z0) }); selectItem("collider", c.uid); refreshOutliner(); }
+    ghostRect = null;
+  }
+  if (d.mode === "fill" && ghostRect) {
+    const g = ghostRect, x0 = Math.min(g.x0, g.x1), x1 = Math.max(g.x0, g.x1), z0 = Math.min(g.z0, g.z1), z1 = Math.max(g.z0, g.z1); ghostRect = null;
+    const m = modelReady.get(curModel.url); if (!m) { toast("Model still loading, try again", "err"); return; }
+    const sw = placeRot % 180 !== 0, fw = Math.max(0.05, (m.max[0] - m.min[0]) * placeScale), fd = Math.max(0.05, (m.max[2] - m.min[2]) * placeScale), W = sw ? fd : fw, D = sw ? fw : fd;
+    const nx = Math.max(1, Math.round((x1 - x0) / W)), nz = Math.max(1, Math.round((z1 - z0) / D));
+    if (nx * nz > 1500) { toast("That would place " + nx * nz + " pieces, drag a smaller area", "err"); return; }
+    if (nx * nz > 150 && !confirm(`Place ${nx * nz} pieces?`)) return;
+    checkpoint(); const cxm = (m.min[0] + m.max[0]) / 2 * placeScale, czm = (m.min[2] + m.max[2]) / 2 * placeScale, a = placeRot * Math.PI / 180;
+    const ox = Math.cos(a) * cxm + Math.sin(a) * czm, oz = -Math.sin(a) * cxm + Math.cos(a) * czm;      // rotated centre offset
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) addItem("piece", { model: curModel.url, x: r3(x0 + W * (i + .5) - ox), z: r3(z0 + D * (j + .5) - oz), y: 0, rot: placeRot, sc: placeScale });
+    toast(`Placed ${nx * nz} pieces`, "ok"); refreshOutliner();
+  }
+  scheduleDraw();
+});
+cv.addEventListener("wheel", (e) => { e.preventDefault(); cam.dist = clamp(cam.dist * (1 + Math.sign(e.deltaY) * 0.1), 3, 300); scheduleDraw(); }, { passive: false });
+cv.tabIndex = 0;
+window.addEventListener("keydown", (e) => {
+  if (play) { if (!(e.target && /^(SELECT|TEXTAREA)$/.test(e.target.tagName))) playKey(e); return; }
+  if (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) { return; }
+  const k = e.key, ctrl = e.ctrlKey || e.metaKey, it = getItem(sel), grp = selItems(), multi = grp.length > 1;
+  if (ctrl && k.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (ctrl && k.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
+  if (ctrl && k.toLowerCase() === "s") { e.preventDefault(); saveScene(); return; }
+  if (ctrl && k.toLowerCase() === "d") { e.preventDefault(); dupSel(); return; }
+  if (ctrl && k.toLowerCase() === "a") { e.preventDefault(); selectMany(pickBoxes().filter((b) => b.type !== "spawn"), false); return; }
+  if (ctrl && k.toLowerCase() === "c") { e.preventDefault(); copySel(); return; }
+  if (ctrl && k.toLowerCase() === "v") { e.preventDefault(); pasteClip(hoverG ? [hoverG[0], hoverG[2]] : null); return; }
+  if (k === "Escape") { if (typeof lineCancel === "function" && lineActive()) lineCancel(); else if (marq) { marq = null; dragState = null; } else selectItem(null); scheduleDraw(); return; }
+  const tk = { 1: "select", 2: "place", 3: "collider", 4: "npc", 5: "event", 6: "decal", 7: "spawn", 8: "bounds", 9: "line" }[k]; if (tk) { setTool(tk); return; }
+  if (k === "Delete" || k === "Backspace") { e.preventDefault(); removeSel(); return; }
+  const lk = k.toLowerCase();
+  if (lk === "t") { cam.pitch = cam.pitch > 80 ? 45 : 89.5; scheduleDraw(); return; }
+  if (multi && tool === "select" && (lk === "h" || lk === "v")) { checkpoint(); mirrorGroup(grp, lk === "h" ? "x" : "z"); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); return; }
+  if (lk === "f") { if (it) { const b = multi ? selBounds(grp) : selBox(it); cam.tx = (b.mn[0] + b.mx[0]) / 2; cam.tz = (b.mn[2] + b.mx[2]) / 2; cam.dist = clamp(Math.max(b.mx[0] - b.mn[0], b.mx[2] - b.mn[2]) * 2.5 + 8, 8, 120); } else frameScene(); scheduleDraw(); return; }
+  if (lk === "q" || lk === "e") { const dr = (lk === "q" ? -1 : 1) * (e.shiftKey ? 90 : 15); if (multi && tool === "select") { checkpoint(); rotateGroup(grp, dr); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); } else if (tool === "place" || !it || it.type !== "piece") { placeRot = ((placeRot + dr) % 360 + 360) % 360; scheduleDraw(); } else { checkpoint(); it.ref.rot = (((it.ref.rot || 0) + dr) % 360 + 360) % 360; refreshInspectorValues(); scheduleDraw(); } return; }
+  if (!it) return;
+  if ((k === "[" || k === "]") && multi) { checkpoint(); scaleGroup(grp, k === "]" ? 1.1 : 1 / 1.1); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); return; }
+  if ((k === "PageUp" || k === "PageDown") && multi) { checkpoint(); raiseGroup(grp, (k === "PageUp" ? 1 : -1) * (grid || 0.5)); refreshInspectorValues(); scheduleDraw(); return; }
+  if ((k === "[" || k === "]") && it.type === "piece") { checkpoint(); it.ref.sc = r3(it.ref.sc * (k === "]" ? 1.1 : 1 / 1.1)); refreshInspectorValues(); scheduleDraw(); return; }
+  if ((k === "PageUp" || k === "PageDown") && it.type === "piece") { checkpoint(); it.ref.y = r3((it.ref.y || 0) + (k === "PageUp" ? 1 : -1) * (grid || 0.5)); refreshInspectorValues(); scheduleDraw(); return; }
+  if (k.startsWith("Arrow")) { e.preventDefault(); checkpoint(); const st = (grid || 0.5) * (e.shiftKey ? 4 : 1), rt = V.norm([cam.X[0], 0, cam.X[2]]), fw = V.norm([-cam.Z[0], 0, -cam.Z[2]]); const sx = Math.abs(rt[0]) > Math.abs(rt[2]) ? Math.sign(rt[0]) : 0, sz = Math.abs(rt[2]) >= Math.abs(rt[0]) ? Math.sign(rt[2]) : 0, fx = Math.abs(fw[0]) > Math.abs(fw[2]) ? Math.sign(fw[0]) : 0, fz = Math.abs(fw[2]) >= Math.abs(fw[0]) ? Math.sign(fw[2]) : 0; const dir = { ArrowLeft: [-sx, -sz], ArrowRight: [sx, sz], ArrowUp: [fx, fz], ArrowDown: [-fx, -fz] }[k]; moveGroup(grp, dir[0] * st, dir[1] * st); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); }
+});
+function frameScene() {
+  if (!scene) return; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9;
+  for (const p of scene.pieces) { mnx = Math.min(mnx, p.x); mxx = Math.max(mxx, p.x); mnz = Math.min(mnz, p.z); mxz = Math.max(mxz, p.z); }
+  if (scene.kind === "hub") { mnx = Math.min(mnx, scene.bounds.minX); mxx = Math.max(mxx, scene.bounds.maxX); mnz = Math.min(mnz, scene.bounds.minZ); mxz = Math.max(mxz, scene.bounds.maxZ); }
+  if (mnx > mxx) { mnx = -10; mxx = 10; mnz = -10; mxz = 10; }
+  cam.tx = (mnx + mxx) / 2; cam.tz = (mnz + mxz) / 2; cam.ty = 0; cam.dist = clamp(Math.max(mxx - mnx, mxz - mnz) * 1.3 + 10, 15, 250);
+}
+/* ============================== UI: palette, layers, tools ============================== */
+const TOOLS = [["select", "Select", "1"], ["place", "Place piece", "2"], ["collider", "Collider", "3"], ["npc", "NPC", "4"], ["event", "Event", "5"], ["decal", "Decal", "6"], ["spawn", "Spawn", "7"], ["bounds", "Bounds", "8"], ["line", "Wall line", "9"]];
+function buildTools() {
+  const box = $("#tools"); box.innerHTML = "";
+  TOOLS.forEach(([id, label, key]) => box.append(h("button", { "data-tool": id, class: id === tool ? "on" : "", onclick: () => setTool(id) }, label, h("kbd", {}, key))));
+  const lb = $("#layers"); lb.innerHTML = "";
+  for (const k in layers) lb.append(h("label", {}, h("input", { type: "checkbox", checked: layers[k].vis, onchange: (e) => { layers[k].vis = e.target.checked; scheduleDraw(); } }), layers[k].label, h("span", { style: "flex:1" }), h("span", { class: "kbd", style: "float:none" }, "lock"), h("input", { type: "checkbox", checked: layers[k].lock, onchange: (e) => { layers[k].lock = e.target.checked; } })));
+}
+function buildPalette() {
+  const folders = [...new Set(modelList.map((m) => m.folder.split("/").slice(0, 3).join("/")))].sort();
+  const fs = $("#mFolder"); fs.innerHTML = ""; fs.append(h("option", { value: "" }, "all folders")); folders.forEach((f) => fs.append(h("option", { value: f }, f || "(root)")));
+  const show = () => {
+    const q = $("#mSearch").value.toLowerCase(), f = fs.value, box = $("#models"); box.innerHTML = "";
+    const list = modelList.filter((m) => (!f || m.folder.startsWith(f)) && (!q || m.name.toLowerCase().includes(q) || m.folder.toLowerCase().includes(q))).slice(0, 400);
+    list.forEach((m) => box.append(h("div", { class: "mrow" + (curModel && curModel.url === m.url ? " cur" : ""), title: m.url, onclick: () => chooseModel(m) }, m.name, h("small", {}, m.folder.split("/").pop()))));
+    if (!list.length) box.append(h("div", { class: "hint", style: "padding:8px" }, modelList.length ? "No matches." : "No .glb files found under Assets/3D."));
+  };
+  $("#mSearch").oninput = show; fs.onchange = show; buildPalette.show = show; show();
+  const cm = $("#curModel"); cm.innerHTML = "";
+  cm.append(h("div", { id: "curName" }, "No model chosen. Pick one, then use the Place tool."),
+    h("div", { class: "row" }, "Scale ", h("input", { type: "number", id: "pScale", step: "0.05", value: placeScale, style: "width:70px", onchange: (e) => { placeScale = parseFloat(e.target.value) || 1; scheduleDraw(); } }), " Rot ", h("input", { type: "number", id: "pRot", step: "15", value: placeRot, style: "width:60px", onchange: (e) => { placeRot = parseFloat(e.target.value) || 0; scheduleDraw(); } })));
+}
+function chooseModel(m) {
+  curModel = m; ensureModel(m.url);
+  const same = scene && scene.pieces.filter((p) => p.model === m.url).pop();
+  placeScale = lastScale[m.url] || (same ? same.sc : (m.url.includes("kenney_retro-fantasy-kit") ? 4 : 1));
+  $("#curName").textContent = "Placing: " + m.name; $("#pScale").value = placeScale; buildPalette.show(); setTool("place");
+}
+
+/* ============================== inspector ============================== */
+let live = [];
+const hex = (a) => "#" + [0, 1, 2].map((i) => Math.round(clamp(a[i] || 0, 0, 1) * 255).toString(16).padStart(2, "0")).join("");
+const unhex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16) / 255);
+const edit = (fn) => { checkpoint(); fn(); refreshOutliner(); scheduleDraw(); };
+function fNum(label, get, set, step) {
+  const i = h("input", { type: "number", step: step || "0.1", value: get(), onchange: (e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) edit(() => set(v)); else e.target.value = get(); } });
+  live.push(() => { if (document.activeElement !== i) i.value = get(); }); return label ? h("div", { class: "f" }, h("span", {}, label), i) : i;
+}
+function fText(label, get, set, ro) { const i = h("input", { type: "text", value: get() == null ? "" : get(), readonly: !!ro, onchange: (e) => edit(() => set(e.target.value)) }); live.push(() => { if (document.activeElement !== i) i.value = get() == null ? "" : get(); }); return h("div", { class: "f" }, h("span", {}, label), i); }
+function fArea(label, get, set) { return h("div", { class: "f" }, h("span", {}, label), h("textarea", { onchange: (e) => edit(() => set(e.target.value)) }, get() || "")); }
+function fSel(label, opts, get, set) { const s = h("select", { onchange: (e) => { edit(() => set(e.target.value)); } }, opts.map((o) => { const [v, t] = Array.isArray(o) ? o : [o, o || "(none)"]; return h("option", { value: v, selected: v === get() }, t); })); return h("div", { class: "f" }, h("span", {}, label), s); }
+function fColor(label, get, set) { return h("div", { class: "f" }, h("span", {}, label), h("input", { type: "color", value: hex(get()), onchange: (e) => edit(() => set(unhex(e.target.value))) })); }
+function fCheck(label, get, set) { return h("div", { class: "f" }, h("span", {}, label), h("input", { type: "checkbox", checked: !!get(), onchange: (e) => edit(() => set(e.target.checked)) })); }
+function btn(label, fn, cls) { return h("button", { class: cls || "", onclick: fn }, label); }
+function refreshInspectorValues() { live.forEach((f) => f()); }
+
+function actionsEditor(owner) {
+  if (!owner.actions) owner.actions = [];
+  const wrap = h("div", {});
+  const sceneIds = scenesList.filter((s) => s.kind === "hub").map((s) => s.id);
+  const mk = (type) => type === "say" ? { type, who: "", text: "..." } : type === "warp" ? { type, scene: scene.id, x: null, z: null } : { type: "hub", action: "shop" };
+  owner.actions.forEach((a, i) => {
+    const box = h("div", { class: "box" }, h("div", { class: "hd" }, h("b", {}, `${i + 1}. ${a.type}`),
+      btn("↑", () => edit(() => { if (i > 0) [owner.actions[i - 1], owner.actions[i]] = [owner.actions[i], owner.actions[i - 1]]; refreshInspector(); })),
+      btn("↓", () => edit(() => { if (i < owner.actions.length - 1) [owner.actions[i + 1], owner.actions[i]] = [owner.actions[i], owner.actions[i + 1]]; refreshInspector(); })),
+      btn("✕", () => edit(() => { owner.actions.splice(i, 1); refreshInspector(); }))));
+    if (a.type === "say") box.append(fText("Speaker", () => a.who, (v) => { a.who = v; }), fArea("Text", () => a.text, (v) => { a.text = v; }));
+    else if (a.type === "warp") box.append(fSel("To scene", sceneIds.includes(a.scene) ? sceneIds : [a.scene, ...sceneIds], () => a.scene, (v) => { a.scene = v; }),
+      h("div", { class: "f" }, h("span", {}, "Arrive at"), h("div", { class: "num3" }, ...["x", "z"].map((k) => h("input", { type: "number", step: "0.5", placeholder: k + " (spawn)", value: a[k] == null ? "" : a[k], onchange: (e) => edit(() => { a[k] = e.target.value === "" ? null : parseFloat(e.target.value); }) })))),
+      h("div", { class: "hint" }, "Leave x / z empty to arrive at that scene's spawn point."));
+    else box.append(fSel("Hub control", HUB_ACTIONS.filter(Boolean), () => a.action, (v) => { a.action = v; }), h("div", { class: "hint" }, "Presses one of the hub's own buttons (shop, summon, battle…)."));
+    wrap.append(box);
+  });
+  wrap.append(h("div", { class: "row" }, ...["say", "warp", "hub"].map((t) => btn("+ " + (t === "hub" ? "hub control" : t), () => edit(() => { owner.actions.push(mk(t)); refreshInspector(); })))));
+  return wrap;
+}
+
+function groupInspector(p) {
+  const items = selItems(), cnt = {}; items.forEach((i) => { cnt[i.type] = (cnt[i.type] || 0) + 1; });
+  const row = (...b) => h("div", { class: "row" }, ...b);
+  const op = (label, fn, title) => h("button", { title: title || "", onclick: () => { checkpoint(); fn(selItems()); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); } }, label);
+  const pcs = () => selItems().filter((i) => i.type === "piece");
+  p.append(h("h2", {}, items.length + " items selected"), h("div", { class: "hint" }, Object.entries(cnt).map(([k, v]) => v + " " + k).join(" · ") + " — drag any one to move them all."));
+  p.append(h("h2", {}, "Rotate about centre (Q / E)"), row(op("−90°", (i) => rotateGroup(i, -90)), op("−15°", (i) => rotateGroup(i, -15)), op("+15°", (i) => rotateGroup(i, 15)), op("+90°", (i) => rotateGroup(i, 90))));
+  p.append(h("h2", {}, "Mirror (H / V)"), row(op("Flip X", (i) => mirrorGroup(i, "x"), "Mirror left-right"), op("Flip Z", (i) => mirrorGroup(i, "z"), "Mirror front-back")));
+  p.append(h("h2", {}, "Scale layout ([ / ])"), row(op("×1.1", (i) => scaleGroup(i, 1.1)), op("÷1.1", (i) => scaleGroup(i, 1 / 1.1))));
+  if (pcs().length) {
+    p.append(h("h2", {}, "Pieces (" + pcs().length + ")"), row(op("Raise", (i) => raiseGroup(i, grid || 0.5)), op("Lower", (i) => raiseGroup(i, -(grid || 0.5)))));
+    p.append(fNum("Set Y", () => (pcs()[0] ? pcs()[0].ref.y || 0 : 0), (v) => { pcs().forEach((i) => { i.ref.y = v; }); }));
+    p.append(row(btn("Use palette model", () => { if (!curModel) return toast("Pick a model in the palette first", "err"); edit(() => { pcs().forEach((i) => { i.ref.model = curModel.url; }); ensureModel(curModel.url); }); }),
+      btn("Select same model", () => { const pr = getItem(sel); if (pr && pr.type === "piece") selectMany(scene.pieces.filter((q) => q.model === pr.ref.model).map((q) => ({ type: "piece", uid: q.uid })), false); })));
+  }
+  p.append(h("div", { class: "row", style: "margin-top:12px" }, btn("Duplicate", dupSel), btn("Copy", copySel), btn("Delete", removeSel), btn("Deselect", () => selectItem(null))));
+}
+function refreshInspector() {
+  const p = $("#p-insp"); p.innerHTML = ""; live = [];
+  const it = getItem(sel);
+  if (!scene) return;
+  if (selSet.length > 1) { groupInspector(p); return; }
+  if (!it) { p.append(h("div", { class: "hint" }, "Nothing selected. Click something in the viewport (Select tool), or choose a tool on the left to add things."), h("div", { class: "hint" }, `Scene "${scene.name}" (${scene.kind}).`)); return; }
+  const r = it.ref, t = it.type;
+  p.append(h("h2", {}, t === "piece" ? "Piece · " + modelName(r.model) : t[0].toUpperCase() + t.slice(1)));
+  const xz = () => { p.append(fNum("X", () => r.x, (v) => { r.x = v; }), fNum("Z", () => r.z, (v) => { r.z = v; })); };
+  if (t === "piece") {
+    p.append(fText("Model", () => r.model, null, true), fNum("X", () => r.x, (v) => { r.x = v; }), fNum("Y", () => r.y || 0, (v) => { r.y = v; }), fNum("Z", () => r.z, (v) => { r.z = v; }),
+      fNum("Rotation°", () => r.rot || 0, (v) => { r.rot = v; }, "15"), fNum("Scale", () => r.sc, (v) => { if (v > 0) r.sc = v; }, "0.05"));
+    p.append(h("div", { class: "row" }, btn("Use palette model", () => { if (!curModel) return toast("Pick a model in the palette first", "err"); edit(() => { r.model = curModel.url; ensureModel(curModel.url); }); refreshInspector(); }),
+      btn("Select same model", () => { selectMany(scene.pieces.filter((q) => q.model === r.model).map((q) => ({ type: "piece", uid: q.uid })), false); }),
+      scene.kind === "hub" ? btn("Collider from footprint", () => { const m = modelReady.get(r.model); if (!m) return; const b = worldBox(m, r); checkpoint(); const c = addItem("collider", { x: r3((b.mn[0] + b.mx[0]) / 2), z: r3((b.mn[2] + b.mx[2]) / 2), w: r3(b.mx[0] - b.mn[0]), d: r3(b.mx[2] - b.mn[2]) }); selectItem("collider", c.uid); refreshOutliner(); scheduleDraw(); }) : null));
+  } else if (t === "npc") {
+    p.append(fText("Id", () => r.id, (v) => { r.id = v; }), fText("Name", () => r.name, (v) => { r.name = v; }), fText("Title", () => r.title, (v) => { r.title = v; }),
+      fSel("Sprite", npcSprites.includes(r.sprite) ? npcSprites : [r.sprite, ...npcSprites], () => r.sprite, (v) => { r.sprite = v; }));
+    xz(); p.append(fNum("Height", () => r.h || 2.4, (v) => { r.h = v; }), fNum("Reach", () => r.reach || 4.6, (v) => { r.reach = v; }), fNum("Body radius", () => r.radius || 1.1, (v) => { r.radius = v; }),
+      fSel("Hub action", HUB_ACTIONS, () => r.action || "", (v) => { r.action = v; }), fCheck("Tint", () => !!r.tint, (v) => { r.tint = v ? [0.75, 0.88, 1.15, 1] : null; refreshInspector(); }));
+    if (r.tint) p.append(fColor("Tint colour", () => r.tint, (c) => { r.tint = [c[0], c[1], c[2], 1]; }));
+    p.append(fArea("Greeting", () => r.line, (v) => { r.line = v; }), h("h2", {}, "Event script (runs instead of the hub action)"), actionsEditor(r));
+  } else if (t === "event") {
+    p.append(fText("Id", () => r.id, (v) => { r.id = v; }), fText("Name", () => r.name, (v) => { r.name = v; }), fSel("Trigger", [["touch", "Walk into it"], ["talk", "Press E inside"]], () => r.trigger, (v) => { r.trigger = v; }));
+    if (r.trigger === "talk") p.append(fText("Prompt", () => r.prompt, (v) => { r.prompt = v; }));
+    xz(); p.append(fNum("Width", () => r.w, (v) => { if (v > 0) r.w = v; }), fNum("Depth", () => r.d, (v) => { if (v > 0) r.d = v; }), fCheck("Only once", () => r.once, (v) => { r.once = v; }), h("h2", {}, "Actions (run in order)"), actionsEditor(r));
+  } else if (t === "collider") { xz(); p.append(fNum("Width", () => r.w, (v) => { if (v > 0) r.w = v; }), fNum("Depth", () => r.d, (v) => { if (v > 0) r.d = v; })); }
+  else if (t === "decal") { p.append(fSel("Type", ["glow", "glyph"], () => r.type, (v) => { r.type = v; })); xz(); p.append(fNum("Radius", () => r.r, (v) => { if (v > 0) r.r = v; }), fColor("Colour", () => r.color || [1, 1, 1], (c) => { r.color = [c[0], c[1], c[2], 1]; }), fNum("Spin °/s", () => r.spin || 0, (v) => { r.spin = v; }, "1")); }
+  else if (t === "spawn") { xz(); p.append(h("div", { class: "hint" }, "Where the player appears when the scene loads (and where a warp with no coordinates lands).")); }
+  if (t !== "spawn") p.append(h("div", { class: "row", style: "margin-top:12px" }, btn("Duplicate", dupSel), btn("Delete", removeSel)));
+}
+
+/* ============================== scene tab / outliner ============================== */
+function refreshSceneTab() {
+  const p = $("#p-scene"); p.innerHTML = ""; if (!scene) return; const s = scene;
+  p.append(h("h2", {}, "Scene"), fText("Name", () => s.name, (v) => { s.name = v; }), fText("Id", () => s.id, null, true), fText("Kind", () => s.kind === "hub" ? "hub (walkable)" : "battle arena", null, true));
+  if (s.kind === "hub") {
+    p.append(h("h2", {}, "Walkable bounds"), ...["minX", "maxX", "minZ", "maxZ"].map((k) => fNum(k, () => s.bounds[k], (v) => { s.bounds[k] = v; })), fNum("Player height", () => s.playerHeight, (v) => { s.playerHeight = v; }), h("h2", {}, "Spawn"), fNum("X", () => s.spawn.x, (v) => { s.spawn.x = v; }), fNum("Z", () => s.spawn.z, (v) => { s.spawn.z = v; }));
+  } else {
+    p.append(h("h2", {}, "Battle camera"), fNum("Cull near cam", () => s.cullNearCamera, (v) => { s.cullNearCamera = v; }, "1"), h("div", { class: "hint" }, "Non-flat pieces more than this far toward the camera are hidden so they never block the view. Combat field (cyan) is x −10..10, z −4..10; ground must be y = 0."));
+  }
+  envPanel(p);
+  const L = s.light, F = s.fog;
+  p.append(h("h2", {}, "Light"), h("div", { class: "f" }, h("span", {}, "Direction"), h("div", { class: "num3" }, ...[0, 1, 2].map((i) => h("input", { type: "number", step: "0.05", value: L.dir[i], onchange: (e) => edit(() => { L.dir[i] = parseFloat(e.target.value) || 0; }) })))),
+    fColor("Sun colour", () => L.color, (c) => { L.color = c; }), fColor("Ambient", () => L.ambient, (c) => { L.ambient = c; }),
+    h("h2", {}, "Fog"), fColor("Colour", () => F.color, (c) => { F.color = c; }), fNum("Near", () => F.near, (v) => { F.near = v; }, "5"), fNum("Far", () => F.far, (v) => { F.far = v; }, "5"));
+}
+let olFilter = "";
+function refreshOutliner() {
+  const p = $("#p-outl"); if (!scene) { p.innerHTML = ""; return; }
+  const keep = p.querySelector("input") && document.activeElement === p.querySelector("input");
+  p.innerHTML = ""; const inp = h("input", { type: "text", placeholder: "filter…", value: olFilter, style: "width:100%;margin-bottom:6px", oninput: (e) => { olFilter = e.target.value; refreshOutliner(); } }); p.append(inp);
+  const rows = [];
+  for (const type of ["npc", "event", "collider", "decal", "piece"]) for (const i of (scene[TYPES[type]] || [])) rows.push([type, i]);
+  if (scene.kind === "hub") rows.unshift(["spawn", scene.spawn]);
+  const f = olFilter.toLowerCase(); let n = 0;
+  for (const [type, i] of rows) { const lb = itemLabel(type, i); if (f && !(lb.toLowerCase().includes(f) || type.includes(f))) continue; if (++n > 500) break; p.append(h("div", { class: "olrow" + (isSel(type, i.uid) ? " sel" : ""), "data-t": type, "data-u": i.uid || 0, onclick: (ev) => { if (ev.shiftKey || ev.ctrlKey || ev.metaKey) { toggleSel(type, i.uid || 0); return; } selectItem(type, i.uid || 0); const it = getItem(sel); if (it) { const b = selBox(it); cam.tx = (b.mn[0] + b.mx[0]) / 2; cam.tz = (b.mn[2] + b.mx[2]) / 2; scheduleDraw(); } } }, h("i", {}, type), lb, h("span", { style: "color:var(--dim)" }, ` ${r3(i.x)}, ${r3(i.z)}`))); }
+  if (keep) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+}
+function highlightOutliner() { document.querySelectorAll("#p-outl .olrow").forEach((r) => r.classList.toggle("sel", isSel(r.dataset.t, parseInt(r.dataset.u, 10)))); }
+function refreshUI() { refreshInspector(); refreshSceneTab(); refreshOutliner(); $("#kindBadge").textContent = scene ? scene.kind + " · " + scene.id : "–"; $("#btnUndo").disabled = !undoS.length; $("#btnRedo").disabled = !redoS.length; }
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b)); document.querySelectorAll(".pane").forEach((x) => x.classList.toggle("show", x.id === "p-" + b.dataset.tab)); }));
+/* ============================== play mode ============================== */
+/* Walk the scene inside the editor with the real hero + NPC sprites. Works on the unsaved scene; warps to the open scene
+   stay in memory, warps to other scenes load them from disk. Hub controls ("shop", "summon"...) are only announced here. */
+let play = null, sheets = null;
+const SPR = prog(`attribute vec2 a; uniform mat4 u_vp; uniform vec3 u_o, u_r, u_u; uniform vec2 u_size, u_anchor; varying vec2 v_uv;
+  void main(){ vec2 p = (a - u_anchor) * u_size; gl_Position = u_vp * vec4(u_o + u_r * p.x + u_u * p.y, 1.0); v_uv = a; }`,
+  `precision mediump float; uniform sampler2D u_tex; uniform vec4 u_rect; uniform float u_flip; uniform vec4 u_tint; varying vec2 v_uv;
+  void main(){ vec2 uv = v_uv; if (u_flip > .5) uv.x = 1.0 - uv.x; vec2 t = u_rect.xy + vec2(uv.x, 1.0 - uv.y) * u_rect.zw; vec4 c = texture2D(u_tex, t); c.rgb *= u_tint.rgb; gl_FragColor = c * u_tint.a; }`, ["a"]);
+const sprQuad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, sprQuad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+const sprTex = new Map();
+function spriteTex(file) {
+  if (sprTex.has(file)) return sprTex.get(file);
+  sprTex.set(file, null); const im = new Image();
+  im.onload = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); sprTex.set(file, t); };
+  im.src = "/hub3d/" + file; return null;
+}
+function drawSprite(sh, frame, x, z, hgt, flip, tint) {
+  const tex = spriteTex(sh.file); if (!tex) return;
+  const k = hgt / sh.refH, w = sh.cw * k, hh = sh.ch * k, right = V.norm([cam.X[0], 0, cam.X[2]]), col = frame % sh.cols, row = Math.floor(frame / sh.cols), u = SPR.u;
+  gl.useProgram(SPR.p); gl.uniformMatrix4fv(u.u_vp, false, cam.vp); gl.uniform3fv(u.u_o, [x, 0, z]); gl.uniform3fv(u.u_r, right); gl.uniform3fv(u.u_u, [0, 1, 0]);
+  gl.uniform2f(u.u_size, w, hh); gl.uniform2f(u.u_anchor, flip ? 1 - sh.footX / sh.cw : sh.footX / sh.cw, 1 - sh.footY / sh.ch); gl.uniform1i(u.u_tex, 0);
+  gl.uniform4f(u.u_rect, col / sh.cols, row / sh.rows, 1 / sh.cols, 1 / sh.rows); gl.uniform1f(u.u_flip, flip ? 1 : 0); const t = tint || [1, 1, 1, 1]; gl.uniform4f(u.u_tint, t[0], t[1], t[2], t[3]);
+  gl.bindTexture(gl.TEXTURE_2D, tex); gl.bindBuffer(gl.ARRAY_BUFFER, sprQuad); gl.enableVertexAttribArray(0); gl.disableVertexAttribArray(1); gl.disableVertexAttribArray(2); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+}
+const inZone = (e, p) => Math.abs(p.x - e.x) <= e.w / 2 && Math.abs(p.z - e.z) <= e.d / 2;
+function primeEvents() { for (const e of scene.events) play.inside[scene.id + ":" + e.uid] = inZone(e, play.p); }
+function blocked(x, z, r) {
+  const b = scene.bounds; if (x < b.minX + r || x > b.maxX - r || z < b.minZ + r || z > b.maxZ - r) return true;
+  for (const c of scene.colliders) if (x > c.x - c.w / 2 - r && x < c.x + c.w / 2 + r && z > c.z - c.d / 2 - r && z < c.z + c.d / 2 + r) return true;
+  for (const n of scene.npcs) if (Math.hypot(x - n.x, z - n.z) < r + (n.radius || 1.1) * 0.6) return true;
+  return false;
+}
+function startPlay() {
+  if (play || !scene) return;
+  if (scene.kind !== "hub") { toast("Play mode works on hub scenes (battle arenas have no walkable area)", "err"); return; }
+  if (!sheets) { toast("Sprite sheets not loaded (/hub3d/sprites.json)", "err"); return; }
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  play = { ed: scene, selSet: selSet.slice(), saved: { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, fov: cam.fov, tx: cam.tx, ty: cam.ty, tz: cam.tz }, p: { x: scene.spawn.x, z: scene.spawn.z, face: "south", moving: false, t: 0, target: null }, keys: {}, script: null, clock: 0, last: 0, cache: {}, inside: {}, done: {}, activeNpc: null, activeEv: null, loading: false, debug: false };
+  setSel([]); cam.fov = 34; cam.pitch = 33; cam.yaw = 0; cam.dist = 29; cam.ty = 1.6; cam.tx = play.p.x; cam.tz = play.p.z + 1.5;
+  document.body.classList.add("playing"); $("#btnWalk").textContent = "■ Stop"; $("#btnWalk").classList.add("on");
+  const hud = h("div", { id: "pHud" }, h("div", { class: "pBanner" }, "PLAY MODE · WASD move · Shift run · E interact · click to walk · RMB orbit · Esc stop · ", h("label", {}, h("input", { type: "checkbox", id: "pDebug", onchange: (e) => { play.debug = e.target.checked; } }), " show zones")),
+    h("div", { id: "pBubble" }), h("div", { id: "pHint" }), h("div", { id: "pSay", onclick: advance }, h("div", { class: "s-who" }), h("div", { class: "s-text" }), h("div", { class: "s-go" }, "[E] continue")), h("div", { id: "pNote" }));
+  $("#stage").append(hud); primeEvents(); cv.focus(); requestAnimationFrame(playTick);
+}
+function stopPlay() {
+  if (!play) return; const pl = play; play = null;
+  scene = pl.ed; setSel(pl.selSet.filter((s) => getItem(s))); Object.assign(cam, pl.saved);
+  document.body.classList.remove("playing"); $("#btnWalk").textContent = "▶ Play here"; $("#btnWalk").classList.remove("on"); const hud = $("#pHud"); if (hud) hud.remove();
+  refreshUI(); scheduleDraw();
+}
+function note(msg) { const n = $("#pNote"); if (!n) return; n.textContent = msg; n.style.display = "block"; clearTimeout(note.t); note.t = setTimeout(() => { n.style.display = "none"; }, 2800); }
+function runActions(owner) {
+  if (!play || play.script || !owner.actions || !owner.actions.length) return;
+  play.script = { owner, queue: owner.actions.slice(), waiting: false }; if (owner.once) play.done[scene.id + ":" + owner.uid] = true; stepScript();
+}
+function stepScript() {
+  const sc = play.script;
+  while (sc && sc.queue.length) {
+    const a = sc.queue.shift();
+    if (a.type === "say") { sc.waiting = true; const b = $("#pSay"); b.querySelector(".s-who").textContent = a.who || sc.owner.name || ""; b.querySelector(".s-text").textContent = a.text || ""; b.style.display = "block"; return; }
+    if (a.type === "hub") { note(`Hub control "${a.action}" would run here (it only runs in the real game)`); continue; }
+    if (a.type === "warp") { play.script = null; $("#pSay").style.display = "none"; playWarp(a.scene, a.x, a.z); return; }
+  }
+  play.script = null; $("#pSay").style.display = "none";
+}
+function advance() { if (play && play.script && play.script.waiting) { play.script.waiting = false; stepScript(); } }
+async function playWarp(id, x, z) {
+  play.loading = true; $("#loading").style.display = "block"; $("#loading").textContent = "Loading " + id + "…";
+  try {
+    let s; if (id === play.ed.id) s = play.ed; else if (play.cache[id]) s = play.cache[id];
+    else { s = parseHub(await getJSON(`/hub3d/${id}.json`), id); await Promise.all([...new Set(s.pieces.map((p) => p.model))].map((u) => { ensureModel(u); return modelLoading.get(u); })); play.cache[id] = s; }
+    scene = s; const p = play.p; p.x = x != null ? x : s.spawn.x; p.z = z != null ? z : s.spawn.z; p.target = null; primeEvents(); cam.tx = p.x; cam.tz = p.z + 1.5;
+  } catch (e) { toast("Warp failed: " + e.message, "err"); }
+  play.loading = false; $("#loading").style.display = "none";
+}
+function interactNpc(n) {
+  if (n.actions && n.actions.length) runActions(n); else if (n.action) note(`${n.name}: hub control "${n.action}" opens in the real game`); else if (n.line) runActions({ name: n.name, uid: n.uid, actions: [{ type: "say", who: n.name, text: n.line }] });
+}
+function stepPlayer(dt) {
+  const p = play.p, K = play.keys, R = 0.55; let mx = 0, mz = 0;
+  const ya = cam.yaw * Math.PI / 180, f = [-Math.sin(ya), -Math.cos(ya)], r = [Math.cos(ya), -Math.sin(ya)], k = (n) => K[n] ? 1 : 0;
+  const ix = k("d") + k("arrowright") - k("a") - k("arrowleft"), iy = k("w") + k("arrowup") - k("s") - k("arrowdown");
+  if (ix || iy) { mx = f[0] * iy + r[0] * ix; mz = f[1] * iy + r[1] * ix; p.target = null; }
+  else if (p.target) { const dx = p.target.x - p.x, dz = p.target.z - p.z, d = Math.hypot(dx, dz); if (d < 0.25) p.target = null; else { mx = dx / d; mz = dz / d; } }
+  const len = Math.hypot(mx, mz); p.moving = len > 0.01;
+  if (p.moving) {
+    mx /= len; mz /= len; const sp = (K.shift ? 11 : 7) * dt, nx = p.x + mx * sp, nz = p.z + mz * sp; let moved = false;
+    if (!blocked(nx, nz, R)) { p.x = nx; p.z = nz; moved = true; } else if (!blocked(nx, p.z, R)) { p.x = nx; moved = true; } else if (!blocked(p.x, nz, R)) { p.z = nz; moved = true; }
+    if (!moved) { p.moving = false; p.target = null; }
+    const sx = mx * cam.X[0] + mz * cam.X[2], sz = -(mx * cam.Z[0] + mz * cam.Z[2]);
+    p.face = Math.abs(sx) > Math.abs(sz) ? (sx > 0 ? "east" : "west") : (sz > 0 ? "north" : "south"); p.t += dt;
+  } else p.t = 0;
+  let best = null, bd = 1e9; for (const n of scene.npcs) { const d = Math.hypot(n.x - p.x, n.z - p.z); if (d < (n.reach || 4.6) && d < bd) { best = n; bd = d; } } play.activeNpc = best;
+  play.activeEv = null;
+  for (const e of scene.events) {
+    const key = scene.id + ":" + e.uid, inside = inZone(e, p), was = play.inside[key], used = e.once && play.done[key];
+    if (e.trigger === "talk") { if (inside && !used) play.activeEv = e; } else if (inside && !was && !used && !play.script) runActions(e);
+    play.inside[key] = inside;
+  }
+}
+function playTick(now) {
+  if (!play) return; requestAnimationFrame(playTick);
+  const dt = Math.min(0.05, Math.max(0.001, (now - (play.last || now - 16)) / 1000)); play.last = now; play.clock += dt;
+  if (!play.script && !play.loading) stepPlayer(dt); else play.p.moving = false;
+  const k = 1 - Math.pow(0.05, dt); cam.tx += (play.p.x - cam.tx) * k; cam.tz += (play.p.z + 1.5 - cam.tz) * k;
+  const b = $("#pBubble"), hint = $("#pHint"), n = play.activeNpc;
+  if (n && !play.script) { b.style.display = "block"; b.innerHTML = ""; b.append(h("b", {}, n.title ? `${n.name} · ${n.title}` : n.name), h("div", {}, n.line || ""), h("span", {}, "[E] " + ((n.actions && n.actions.length) ? "Talk" : (n.action || "…")))); } else b.style.display = "none";
+  const ev = play.activeEv; hint.style.display = ev && !play.script ? "block" : "none"; if (ev) hint.textContent = "[E] " + (ev.prompt || ev.name || "Interact");
+  draw();
+}
+function drawPlayExtras() {
+  const p = play.p, right = V.norm([cam.X[0], 0, cam.X[2]]);
+  gl.depthMask(false);
+  const sh = [[p.x, p.z, 1.6]].concat(scene.npcs.map((n) => [n.x, n.z, (n.h || 2.3) * 0.7]));
+  for (const [x, z, w] of sh) { const tr = [], N = 20; for (let i = 0; i < N; i++) { const a = i / N * 6.2832, c = (i + 1) / N * 6.2832; tr.push(x, .05, z, x + Math.cos(a) * w * .5, .05, z + Math.sin(a) * w * .28, x + Math.cos(c) * w * .5, .05, z + Math.sin(c) * w * .28); } flat(gl.TRIANGLES, tr, [0, 0, 0, .35]); }
+  if (play.debug) {
+    for (const c of scene.colliders) flat(gl.LINES, boxEdges([c.x - c.w / 2, 0, c.z - c.d / 2], [c.x + c.w / 2, 1.5, c.z + c.d / 2]), [1, .35, .35, .8]);
+    for (const e of scene.events) flat(gl.LINES, boxEdges([e.x - e.w / 2, 0, e.z - e.d / 2], [e.x + e.w / 2, .6, e.z + e.d / 2]), e.trigger === "talk" ? [.4, .8, 1, .9] : [.85, .5, 1, .9]);
+    const b = scene.bounds; flat(gl.LINES, [b.minX, .05, b.minZ, b.maxX, .05, b.minZ, b.maxX, .05, b.minZ, b.maxX, .05, b.maxZ, b.maxX, .05, b.maxZ, b.minX, .05, b.maxZ, b.minX, .05, b.maxZ, b.minX, .05, b.minZ], [.4, 1, .5, .9]);
+  }
+  const list = [{ k: "p", x: p.x, z: p.z }].concat(scene.npcs.map((n) => ({ k: "n", n, x: n.x, z: n.z })));
+  list.forEach((o) => { o.d = (o.x - cam.pos[0]) * -cam.Z[0] + (o.z - cam.pos[2]) * -cam.Z[2]; }); list.sort((a, b) => b.d - a.d);
+  for (const o of list) {
+    if (o.k === "p") { const s = sheets.walk[p.face]; drawSprite(s, p.moving ? Math.floor(p.t * 11) % s.count : 0, p.x, p.z, scene.playerHeight || 2.4, false); }
+    else { const n = o.n, s = sheets.npcs[n.sprite]; if (!s) { flat(gl.LINES, boxEdges([n.x - .4, 0, n.z - .4], [n.x + .4, n.h || 2.4, n.z + .4]), [1, 0, 1, 1]); continue; }
+      const toP = (p.x - n.x) * right[0] + (p.z - n.z) * right[2], faceRight = Math.abs(toP) < 0.3 ? true : toP > 0;
+      drawSprite(s, Math.floor((play.clock + (n.uid * 1.37 % 10)) * 8) % s.count, n.x, n.z, n.h || 2.4, !faceRight, n.tint ? [n.tint[0], n.tint[1], n.tint[2], 1] : null); }
+  }
+  gl.depthMask(true);
+}
+/* input */
+function playKey(e) {
+  const k = e.key.toLowerCase();
+  if (k === "escape") { e.preventDefault(); stopPlay(); return true; }
+  if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", "shift"].includes(k)) { play.keys[k] = true; if (k.startsWith("arrow")) e.preventDefault(); return true; }
+  if ((k === "e" || k === "enter" || k === " ") && !e.repeat) {
+    e.preventDefault();
+    if (play.script) advance(); else if (play.activeNpc) interactNpc(play.activeNpc); else if (play.activeEv) runActions(play.activeEv);
+  }
+  return true;
+}
+window.addEventListener("keyup", (e) => { if (play) play.keys[e.key.toLowerCase()] = false; });
+window.addEventListener("blur", () => { if (play) play.keys = {}; });
+/* ============================== wall-line tool ============================== */
+const lineOpts = { mode: "line", snap: 45, flip: false, coll: false };
+let ln = null;                                   // { a:[x,z], b:[x,z] } while a line is being drawn
+const lineActive = () => !!ln;
+function lineCancel() { ln = null; if (dragState && dragState.mode === "line") dragState = null; scheduleDraw(); }
+function lineHint() { return ln ? "Click (or release) to place the walls · Esc cancels · Alt = free angle" : "Drag, or click twice, to lay wall pieces along a " + (lineOpts.mode === "rect" ? "rectangle" : "line") + " · pick the wall model in the palette first"; }
+function buildLineOpts() {
+  const box = h("div", { id: "lineOpts", class: "opts", style: "display:none;margin-top:6px" });
+  box.append(
+    h("label", {}, "Shape ", h("select", { onchange: (e) => { lineOpts.mode = e.target.value; ln = null; scheduleDraw(); } }, h("option", { value: "line" }, "Line"), h("option", { value: "rect" }, "Rectangle"))),
+    h("label", {}, "Angle snap ", h("select", { onchange: (e) => { lineOpts.snap = parseFloat(e.target.value); } }, [["0", "free"], ["15", "15°"], ["45", "45°"], ["90", "90°"]].map(([v, t]) => h("option", { value: v, selected: v === String(lineOpts.snap) }, t)))),
+    h("label", {}, h("input", { type: "checkbox", onchange: (e) => { lineOpts.flip = e.target.checked; scheduleDraw(); } }), "Flip facing"),
+    h("label", {}, h("input", { type: "checkbox", id: "lineColl", onchange: (e) => { lineOpts.coll = e.target.checked; } }), "Add colliders (hub)"),
+    h("div", { class: "hint", id: "lineModel" }, ""));
+  $("#tools").after(box);
+}
+function syncLineOpts() { const b = $("#lineOpts"); if (!b) return; b.style.display = tool === "line" ? "" : "none"; $("#lineModel").textContent = curModel ? "Wall piece: " + curModel.name + " (scale " + placeScale + ")" : "No model chosen yet — pick one in the palette."; }
+buildLineOpts();
+
+// Lay pieces edge-to-edge along each run; the model's long footprint axis runs along the wall.
+function lineLayout(a, b) {
+  if (!curModel) return null; const m = modelReady.get(curModel.url); if (!m) return null;
+  const sc = placeScale, ex = (m.max[0] - m.min[0]) * sc, ez = (m.max[2] - m.min[2]) * sc, alongZ = ez > ex * 1.5;
+  const len = Math.max(0.05, alongZ ? ez : ex), thick = Math.max(0.3, alongZ ? ex : ez);
+  const cxm = (m.min[0] + m.max[0]) / 2 * sc, czm = (m.min[2] + m.max[2]) / 2 * sc;
+  let runs;
+  if (lineOpts.mode === "rect") {
+    const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), z0 = Math.min(a[1], b[1]), z1 = Math.max(a[1], b[1]);
+    runs = [[[x0, z0], [x1, z0]], [[x1, z0 + thick], [x1, z1 - thick]], [[x1, z1], [x0, z1]], [[x0, z1 - thick], [x0, z0 + thick]]];
+  } else runs = [[a, b]];
+  const out = { pieces: [], runs: [], len, thick, m, sc };
+  for (const [p, q] of runs) {
+    const dx = q[0] - p[0], dz = q[1] - p[1], L = Math.hypot(dx, dz); if (L < len * 0.5) continue;
+    const n = Math.max(1, Math.round(L / len)), ux = dx / L, uz = dz / L, phi = Math.atan2(dz, dx) * 180 / Math.PI;
+    let rot = alongZ ? 90 - phi : -phi; if (lineOpts.flip) rot += 180; rot = ((Math.round(rot * 100) / 100) % 360 + 360) % 360;
+    const aR = rot * Math.PI / 180, ox = Math.cos(aR) * cxm + Math.sin(aR) * czm, oz = -Math.sin(aR) * cxm + Math.cos(aR) * czm;
+    for (let i = 0; i < n; i++) { const cx = p[0] + ux * len * (i + .5), cz = p[1] + uz * len * (i + .5); out.pieces.push({ model: curModel.url, x: r3(cx - ox), z: r3(cz - oz), y: 0, rot: r3(rot), sc }); }
+    out.runs.push({ cx: p[0] + ux * len * n / 2, cz: p[1] + uz * len * n / 2, w: Math.abs(ux) > .999 ? len * n : (Math.abs(uz) > .999 ? thick : 0), d: Math.abs(uz) > .999 ? len * n : (Math.abs(ux) > .999 ? thick : 0), axis: Math.abs(ux) > .999 || Math.abs(uz) > .999 });
+  }
+  return out;
+}
+function constrainEnd(a, p, free) {
+  if (lineOpts.mode === "rect") return [snapv(p[0], free), snapv(p[2], free)];
+  let dx = p[0] - a[0], dz = p[2] - a[1]; const L = Math.hypot(dx, dz);
+  if (!free && lineOpts.snap > 0 && L > 1e-6) { const s = lineOpts.snap * Math.PI / 180, ang = Math.round(Math.atan2(dz, dx) / s) * s; dx = Math.cos(ang) * L; dz = Math.sin(ang) * L; }
+  return [a[0] + dx, a[1] + dz];
+}
+function lineDown(e, gp, free) {
+  if (!curModel) { toast("Pick a wall model in the palette first", "err"); return; }
+  if (!gp) return;
+  if (ln) { ln.b = constrainEnd(ln.a, gp, free); lineCommit(); return; }
+  const a = [snapv(gp[0], free), snapv(gp[2], free)]; ln = { a, b: a.slice() }; dragState = { mode: "line", cx: e.clientX, cy: e.clientY };
+}
+function lineHover(hg, e) { if (ln && hg) ln.b = constrainEnd(ln.a, hg, e.altKey); }
+function lineUp(e, d) {
+  if (!ln) return;
+  if (Math.hypot(e.clientX - d.cx, e.clientY - d.cy) > 6 && Math.hypot(ln.b[0] - ln.a[0], ln.b[1] - ln.a[1]) > 0.5) lineCommit();   // drag = commit; plain click = wait for the second click
+}
+function lineCommit() {
+  const L = lineLayout(ln.a, ln.b); ln = null; scheduleDraw();
+  if (!L) { toast("Model still loading, try again", "err"); return; }
+  if (!L.pieces.length) { toast("Too short for a single piece", "err"); return; }
+  if (L.pieces.length > 400) { toast("That would place " + L.pieces.length + " pieces, use a shorter run", "err"); return; }
+  checkpoint(); const out = [];
+  for (const p of L.pieces) { const it = addItem("piece", p); out.push({ type: "piece", uid: it.uid }); }
+  if (lineOpts.coll && scene.kind === "hub") {
+    if (L.runs.every((r) => r.axis)) for (const r of L.runs) { const c = addItem("collider", { x: r3(r.cx), z: r3(r.cz), w: r3(r.w), d: r3(r.d) }); out.push({ type: "collider", uid: c.uid }); }
+    else for (const p of L.pieces) { const b = worldBox(L.m, p), c = addItem("collider", { x: r3((b.mn[0] + b.mx[0]) / 2), z: r3((b.mn[2] + b.mx[2]) / 2), w: r3(b.mx[0] - b.mn[0]), d: r3(b.mx[2] - b.mn[2]) }); out.push({ type: "collider", uid: c.uid }); }
+  }
+  lastScale[curModel.url] = placeScale; setSel(out); refreshUI(); scheduleDraw();
+  toast(`Placed ${L.pieces.length} wall piece${L.pieces.length > 1 ? "s" : ""}`, "ok");
+}
+function drawLineGhost() {
+  if (tool !== "line" || !ln) return; const L = lineLayout(ln.a, ln.b); if (!L) return;
+  for (const p of L.pieces) { const b = worldBox(L.m, p); flat(gl.LINES, boxEdges([b.mn[0], .02, b.mn[2]], [b.mx[0], Math.max(.3, b.mx[1]), b.mx[2]]), [.4, 1, .6, .95]); }
+  flat(gl.LINES, [ln.a[0], .08, ln.a[1], ln.b[0], .08, ln.b[1]], [1, 1, .4, 1]);
+}
+/* ============================== environments / backdrops ============================== */
+let imageList = [], musicList = [], previewAudio = null;
+/* ---- music: scene.extra.music = {url, intro?} (hub scene music; battle map music) and extra.bossMusic (battle maps) ---- */
+function stopPreview() { if (previewAudio) { try { previewAudio.pause(); } catch (e) {} previewAudio = null; } }
+function playPreview(m) {
+  stopPreview(); if (!m || !m.url) return;
+  try {
+    const a = new Audio(encodeURI(m.intro || m.url)); previewAudio = a; a.volume = 0.5;
+    if (m.intro) a.onended = () => { if (previewAudio !== a) return; const l = new Audio(encodeURI(m.url)); l.loop = true; l.volume = 0.5; previewAudio = l; l.play().catch(() => {}); };
+    else a.loop = true;
+    a.play().catch(() => toast("The browser blocked playback; click Preview again.", "err"));
+  } catch (e) {}
+}
+function musicSel(label, key) {
+  const cur = scene.extra[key], curUrl = cur && cur.url || "";
+  let list = musicList;
+  if (curUrl && !list.some((m) => m.url === curUrl)) list = [{ url: curUrl, intro: cur.intro, name: modelName(curUrl) + " (missing from the Music folder)", folder: "" }, ...list];
+  const opts = [["", "(default music)"], ...list.map((m, i) => [String(i), m.name + (m.folder ? "  (" + m.folder + ")" : "")])];
+  const idx = curUrl ? String(list.findIndex((m) => m.url === curUrl)) : "";
+  const box = h("div", {}, fSel(label, opts, () => idx, (v) => { if (!v) delete scene.extra[key]; else { const m = list[+v]; scene.extra[key] = m.intro ? { url: m.url, intro: m.intro } : { url: m.url }; } refreshSceneTab(); }));
+  box.append(h("div", { class: "row" }, btn("▶ Preview", () => playPreview(scene.extra[key])), btn("■ Stop", stopPreview),
+    cur ? h("span", { class: "hint", style: "margin:0 0 0 6px" }, cur.intro ? "intro plays once, then the loop" : "loops") : ""));
+  return box;
+}
+function musicPanel(p) {
+  const hub = scene.kind === "hub";
+  p.append(h("h2", {}, "Music"));
+  p.append(musicSel(hub ? "Scene music" : "Battle music", "music"));
+  if (!hub) p.append(musicSel("Boss battle music", "bossMusic"));
+  p.append(h("div", { class: "row" }, btn("Reload music list", async () => { try { musicList = (await getJSON("/api/builder3d/music")).music || []; refreshSceneTab(); toast(musicList.length + " tracks found", "ok"); } catch (e) { toast("Could not list music: " + e.message, "err"); } })),
+    h("div", { class: "hint" }, hub ? "Plays while the player is in this scene; (default music) keeps the hub theme. Takes effect after you save and reload the game page." : "Used by this arena in battles; boss fights use the boss track if set. Drop .mp3 / .wav files into Assets/Music (a '(intro)' + '(loop)' pair becomes one entry), then reload the list."));
+}
+const LY = (name, o) => Object.assign({ url: "/assets/Backgrounds/layers/" + name + ".webp" }, o);
+const ENV_PRESETS = [
+  { id: "dusk", name: "Dusk", img: "sunset_peaks", grad: [[0, "#14103a"], [.45, "#3a2a6a"], [.72, "#b0507a"], [.9, "#f09a6a"], [1, "#ffd08a"]], light: { dir: [-0.4, -1, -0.35], color: [1, 0.9, 0.76], ambient: [0.6, 0.57, 0.68] }, fog: { color: [0.3, 0.26, 0.42], near: 70, far: 170 },
+    layers: [LY("clouds_wisps", { y: .2, height: .22, drift: .007, alpha: .7, tint: [1, .8, .75] }), LY("clouds_puffy", { y: .32, height: .3, drift: .004, alpha: .9, tint: [1, .72, .7], parallax: .2 }), LY("ridges_far", { y: .86, height: .36, parallax: .15, tint: [.62, .4, .68] }), LY("ridges_near", { y: .93, height: .3, parallax: .3, tint: [.4, .26, .5] })], fx: [{ type: "dust", amount: .25 }] },
+  { id: "midday", name: "Midday", img: "clear_day", grad: [[0, "#2a62c8"], [.5, "#6aa6ec"], [1, "#d8eefc"]], light: { dir: [-0.3, -1, -0.2], color: [1, 0.97, 0.9], ambient: [0.62, 0.66, 0.75] }, fog: { color: [0.72, 0.84, 0.95], near: 90, far: 220 },
+    layers: [LY("clouds_wisps", { y: .14, height: .2, drift: .009, alpha: .5 }), LY("clouds_puffy", { y: .28, height: .32, drift: .005, alpha: .95 }), LY("ridges_far", { y: .86, height: .36, parallax: .15, tint: [.5, .66, .86] }), LY("ridges_near", { y: .93, height: .3, parallax: .3, tint: [.3, .52, .34] })], fx: [] },
+  { id: "dawn", name: "Dawn", img: "dawn_mist", grad: [[0, "#2c2c68"], [.4, "#9a6aa0"], [.7, "#f0a090"], [1, "#fff0c8"]], light: { dir: [-0.8, -0.5, -0.3], color: [1, 0.82, 0.62], ambient: [0.58, 0.52, 0.62] }, fog: { color: [0.8, 0.66, 0.7], near: 50, far: 150 },
+    layers: [LY("clouds_puffy", { y: .3, height: .3, drift: .004, alpha: .9, tint: [1, .78, .76], parallax: .2 }), LY("ridges_far", { y: .86, height: .36, parallax: .15, tint: [.74, .6, .74] }), LY("mist", { y: .8, height: .4, drift: .003, alpha: .55, tint: [1, .9, .85] }), LY("ridges_near", { y: .93, height: .3, parallax: .3, tint: [.42, .34, .54] })], fx: [{ type: "dust", amount: .3, color: "#fff0c0" }] },
+  { id: "night", name: "Night", img: "starry_night", grad: [[0, "#03041a"], [.5, "#0e1642"], [1, "#2a3f7a"]], light: { dir: [0.3, -1, 0.4], color: [0.45, 0.55, 0.95], ambient: [0.2, 0.24, 0.4] }, fog: { color: [0.05, 0.07, 0.18], near: 40, far: 130 },
+    layers: [LY("stars", { y: .35, height: .6, parallax: .06, pulse: .35, period: 5 }), LY("clouds_wisps", { y: .3, height: .22, drift: .004, alpha: .5, tint: [.35, .42, .75] }), LY("ridges_far", { y: .86, height: .36, parallax: .15, tint: [.14, .2, .4] }), LY("ridges_near", { y: .93, height: .3, parallax: .3, tint: [.05, .07, .16] })], fx: [{ type: "fireflies", amount: .35 }] },
+  { id: "storm", name: "Storm", img: "storm_clouds", grad: [[0, "#12161e"], [.6, "#38424e"], [1, "#66727a"]], light: { dir: [-0.2, -1, -0.1], color: [0.62, 0.68, 0.74], ambient: [0.38, 0.42, 0.48] }, fog: { color: [0.28, 0.32, 0.36], near: 30, far: 100 },
+    layers: [LY("clouds_heavy", { y: .22, height: .45, drift: .02, tint: [.3, .34, .4] }), LY("clouds_heavy", { y: .4, height: .4, drift: .012, alpha: .8, tint: [.46, .5, .56], parallax: .2 }), LY("ridges_far", { y: .88, height: .36, parallax: .15, tint: [.22, .27, .32] }), LY("treeline", { y: .95, height: .2, parallax: .3, tint: [.1, .12, .14] })], fx: [{ type: "rain", amount: .8, wind: .3 }, { type: "lightning", amount: .5 }] },
+  { id: "volcanic", name: "Volcanic", img: "volcanic_ash", grad: [[0, "#140404"], [.5, "#6a1a0a"], [.85, "#e8661a"], [1, "#ffc040"]], light: { dir: [0.3, -1, 0.2], color: [1, 0.55, 0.3], ambient: [0.5, 0.28, 0.22] }, fog: { color: [0.35, 0.1, 0.06], near: 35, far: 110 },
+    layers: [LY("clouds_heavy", { y: .2, height: .45, drift: .008, tint: [.28, .1, .08] }), LY("clouds_puffy", { y: .5, height: .25, drift: .006, alpha: .6, tint: [1, .45, .15] }), LY("ridges_far", { y: .88, height: .36, parallax: .15, tint: [.45, .12, .06] }), LY("ridges_near", { y: .94, height: .3, parallax: .3, tint: [.12, .04, .03] })], fx: [{ type: "embers", amount: .7 }] },
+  { id: "cavern", name: "Cavern", img: "cavern_glow", grad: [[0, "#03070a"], [.6, "#0c222a"], [1, "#1e5560"]], light: { dir: [0, -1, -0.2], color: [0.4, 0.75, 0.8], ambient: [0.18, 0.3, 0.34] }, fog: { color: [0.03, 0.08, 0.1], near: 12, far: 60 },
+    layers: [LY("mist", { y: .6, height: .5, drift: .004, alpha: .5, tint: [.4, .8, .85] }), LY("ridges_far", { y: .88, height: .4, parallax: .15, tint: [.1, .28, .32] }), LY("ridges_near", { y: .94, height: .3, parallax: .3, tint: [.03, .1, .12] })], fx: [{ type: "dust", amount: .5, color: "#80e0e0" }, { type: "fireflies", amount: .2, color: "#60ffd0" }] },
+  { id: "snow", name: "Snowfall", grad: [[0, "#6a7a96"], [.5, "#a8b6cc"], [1, "#e4ecf4"]], light: { dir: [-0.3, -1, -0.2], color: [0.9, 0.94, 1], ambient: [0.68, 0.72, 0.8] }, fog: { color: [0.82, 0.88, 0.95], near: 30, far: 110 },
+    layers: [LY("clouds_heavy", { y: .22, height: .45, drift: .01, alpha: .9, tint: [.78, .84, .92] }), LY("ridges_far", { y: .88, height: .36, parallax: .15, tint: [.72, .8, .9] }), LY("treeline", { y: .95, height: .2, parallax: .3, tint: [.34, .42, .5] })], fx: [{ type: "snow", amount: .7, wind: .1 }] },
+  { id: "autumn", name: "Autumn", grad: [[0, "#3a4a7a"], [.5, "#d89a68"], [1, "#ffe0a8"]], light: { dir: [-0.6, -0.8, -0.3], color: [1, 0.86, 0.66], ambient: [0.6, 0.54, 0.54] }, fog: { color: [0.82, 0.62, 0.46], near: 60, far: 160 },
+    layers: [LY("clouds_puffy", { y: .28, height: .3, drift: .005, alpha: .85, tint: [1, .85, .72] }), LY("ridges_far", { y: .87, height: .36, parallax: .15, tint: [.7, .5, .4] }), LY("treeline", { y: .95, height: .2, parallax: .3, tint: [.34, .2, .14] })], fx: [{ type: "leaves", amount: .5, wind: .3 }] },
+  { id: "void", name: "Void", color: [0.04, 0.03, 0.08], light: { dir: [-0.4, -1, -0.35], color: [0.8, 0.75, 1], ambient: [0.4, 0.38, 0.55] }, fog: { color: [0.04, 0.03, 0.08], near: 50, far: 140 },
+    layers: [LY("stars", { y: .4, height: .8, parallax: .05, pulse: .5, period: 4 }), LY("mist", { y: .7, height: .6, drift: .002, alpha: .35, tint: [.55, .3, .95] })], fx: [{ type: "dust", amount: .4, color: "#b090ff" }] },
+];
+const DUSK_STOPS = ENV_PRESETS[0].grad, PAINTED = "/assets/Artwork/Background.webp";
+const skyKind = (sk) => sk == null ? "default" : sk === "painted" ? "painted" : Array.isArray(sk) ? "color" : (sk && sk.type) || "default";
+const rgbCss = (c) => `rgb(${c.slice(0, 3).map((v) => Math.round(clamp(v, 0, 1) * 255)).join(",")})`;
+function gradCss(stops, lo, hi) {                       // lo..hi = the slice of the gradient the game actually shows
+  const st = stops.slice().sort((a, b) => a[0] - b[0]).map(([p, c]) => `${c} ${((p - lo) / (hi - lo) * 100).toFixed(1)}%`);
+  return `linear-gradient(to bottom, ${st.join(", ")})`;
+}
+function baseCss(sk, hub) {                              // CSS background for a non-layered sky
+  if (sk == null) sk = hub ? "__dusk" : "painted";
+  if (sk === "painted") return `center / cover no-repeat url(${PAINTED})`;
+  if (sk === "__dusk") return gradCss(DUSK_STOPS, 0.27, 0.73);
+  if (Array.isArray(sk)) return rgbCss(sk);
+  if (sk.type === "color") return rgbCss(sk.color || [0.1, 0.08, 0.2]);
+  if (sk.type === "gradient" && Array.isArray(sk.stops) && sk.stops.length) return gradCss(sk.stops, 1 / 6, 5 / 6);
+  if (sk.type === "image" && sk.url) return `center / cover no-repeat url("${encodeURI(sk.url)}")`;
+  return "";
+}
+function skyCss(s) {
+  if (!s) return "";
+  const sk = s.sky; if (sk && sk.type === "layers") return baseCss(sk.base == null ? (s.kind === "hub" ? "__dusk" : "painted") : sk.base, s.kind === "hub") || "#1a1a2a";
+  return baseCss(sk, s.kind === "hub");
+}
+/* editor-side preview of the sky: a CSS backdrop behind the (transparent) GL canvas; layers are tiled divs animated every frame */
+const skyLayerEls = [];
+let _skyKey = null, _fxKey = null, fxInst = null;
+const aspectCache = new Map();
+function layerAspect(url, cb) { if (aspectCache.has(url)) return cb(aspectCache.get(url)); const im = new Image(); im.onload = () => { aspectCache.set(url, im.naturalWidth / im.naturalHeight); cb(aspectCache.get(url)); }; im.src = encodeURI(url); }
+function syncSkyBg() {
+  const el = $("#skyBg"), on = $("#vEnv").checked && scene, css = on ? skyCss(scene) : "";
+  const lay = on && scene.sky && scene.sky.type === "layers" ? scene.sky.layers || [] : [];
+  const key = css + "|" + !!on + "|" + JSON.stringify(lay); if (key !== _skyKey) {
+    _skyKey = key; el.innerHTML = ""; skyLayerEls.length = 0;
+    el.style.background = css || "none"; el.style.display = on ? "block" : "none";
+    lay.slice(0, 12).forEach((d, i) => {
+      if (!d || !d.url) return;
+      const div = h("div", { style: `position:absolute;left:0;right:0;background-image:url("${encodeURI(d.url)}");background-repeat:${d.tile === false ? "no-repeat" : "repeat-x"};background-size:auto 100%;pointer-events:none` });
+      if (d.tint) { const id = "skyTint" + i, t = d.tint; el.insertAdjacentHTML("beforeend", `<svg width="0" height="0" style="position:absolute"><filter id="${id}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${t[0]} 0 0 0 0  0 ${t[1]} 0 0 0  0 0 ${t[2]} 0 0  0 0 0 1 0"/></filter></svg>`); div.style.filter = `url(#${id})`; }
+      const rec = { div, d, aspect: 4 }; skyLayerEls.push(rec); el.append(div); layerAspect(d.url, (a) => { rec.aspect = a; });
+    });
+  }
+  const need = on && skyLayerEls.length; if (need && !syncSkyBg.raf) syncSkyBg.raf = requestAnimationFrame(skyAnim);
+}
+function skyAnim(now) {
+  syncSkyBg.raf = 0; if (!skyLayerEls.length) return; syncSkyBg.raf = requestAnimationFrame(skyAnim);
+  const st = $("#stage"), W = st.clientWidth, Hh = st.clientHeight, t = now / 1000;
+  for (const { div, d, aspect } of skyLayerEls) {
+    const par = d.parallax == null ? 0.3 : +d.parallax, hh = (d.height == null ? 0.35 : +d.height) * Hh, ww = hh * aspect, yc = d.y == null ? 0.35 : +d.y;
+    const shift = (-cam.yaw * 0.0009 * par + (d.drift || 0) * t) * W, lift = clamp(-cam.pitch * 0.012 * Hh * (0.4 + par), -Hh * 0.2, Hh * 0.2);
+    div.style.top = ((yc - (d.height == null ? 0.35 : +d.height) / 2) * Hh + lift) + "px"; div.style.height = hh + "px";
+    div.style.backgroundPositionX = (W / 2 - ww / 2 + shift) + "px";
+    div.style.opacity = (d.alpha == null ? 1 : +d.alpha) * (d.pulse ? 1 - d.pulse * (0.5 + 0.5 * Math.sin(t * 6.2832 / (d.period || 6))) : 1);
+  }
+}
+function syncFx() {
+  if (!window.EnvFX) return; if (!fxInst) fxInst = EnvFX.create($("#stage"), cv);
+  const on = $("#vEnv").checked && !!scene, list = on && scene.fx ? scene.fx : [], key = JSON.stringify(list);
+  if (key !== _fxKey) { _fxKey = key; fxInst.set(list); }
+  fxInst.setVisible(on);
+}
+const envPreviewOn = () => !!($("#vEnv") && $("#vEnv").checked && scene && skyCss(scene));
+
+function layersAvailable(p) { return p.layers && p.layers.every((l) => imageList.some((i) => i.url === l.url)); }
+function applyPreset(p) {
+  const hub = scene.kind === "hub", img = p.img && imageList.find((i) => i.url === "/assets/Backgrounds/" + p.img + ".webp");
+  const baseSky = p.color ? p.color.slice() : { type: "gradient", stops: p.grad.map((s) => s.slice()) };
+  checkpoint();
+  scene.sky = layersAvailable(p) ? { type: "layers", base: baseSky, layers: JSON.parse(JSON.stringify(p.layers)) } : img ? { type: "image", url: img.url } : baseSky;
+  scene.light = JSON.parse(JSON.stringify(p.light));
+  const k = hub ? 1 : 0.6; scene.fog = { color: p.fog.color.slice(), near: Math.round(p.fog.near * k), far: Math.round(p.fog.far * k) };
+  if (p.fx && p.fx.length) scene.fx = JSON.parse(JSON.stringify(p.fx)); else delete scene.fx;
+  refreshSceneTab(); scheduleDraw(); toast(`Applied ${p.name}: sky, light, fog and effects`, "ok");
+}
+function setSkyKind(kind) {
+  const prev = skyKind(scene.sky); if (prev === kind) return; checkpoint();
+  if (kind === "default" || kind === "painted") scene.sky = scene.kind === "hub" ? undefined : "painted";
+  else if (kind === "color") scene.sky = [0.08, 0.06, 0.16];
+  else if (kind === "gradient") scene.sky = { type: "gradient", stops: DUSK_STOPS.map((s) => s.slice()) };
+  else if (kind === "image") { const i = imageList.find((x) => !x.url.includes("/layers/")); scene.sky = { type: "image", url: i ? i.url : "" }; }
+  else if (kind === "layers") { const keep = scene.sky && scene.sky.type === "gradient" ? scene.sky : { type: "gradient", stops: DUSK_STOPS.map((s) => s.slice()) }; const c = imageList.find((x) => x.url.endsWith("/clouds_puffy.webp")); scene.sky = { type: "layers", base: keep, layers: c ? [{ url: c.url, y: 0.3, height: 0.3, parallax: 0.2, drift: 0.004 }] : [] }; }
+  if (scene.sky === undefined) delete scene.sky;
+  refreshSceneTab(); scheduleDraw();
+}
+function gradientBox(sky, title) {
+  const st = sky.stops, box = h("div", { class: "box" }, h("div", { class: "hd" }, h("b", {}, title || "Gradient stops"), h("span", { class: "hint", style: "margin:0 0 0 auto" }, "0 = top, 1 = horizon")));
+  st.forEach((stop, i) => box.append(h("div", { class: "row" },
+    h("input", { type: "number", step: "0.05", min: "0", max: "1", value: stop[0], style: "width:64px", onchange: (e) => edit(() => { stop[0] = clamp(parseFloat(e.target.value) || 0, 0, 1); }) }),
+    h("input", { type: "color", value: stop[1], onchange: (e) => edit(() => { stop[1] = e.target.value; }) }),
+    st.length > 2 ? btn("✕", () => edit(() => { st.splice(i, 1); refreshSceneTab(); })) : null)));
+  box.append(h("div", { class: "row" }, btn("+ stop", () => edit(() => { const last = st[st.length - 1]; st.push([clamp(last[0] + 0.1, 0, 1), last[1]]); refreshSceneTab(); })),
+    btn("Fog = horizon colour", () => edit(() => { const l = st.slice().sort((a, b) => a[0] - b[0]).pop(); scene.fog.color = unhex(l[1]); refreshSceneTab(); }))));
+  return box;
+}
+function imageSel(label, cur, filter, set) {
+  const list = imageList.filter(filter), opts = !cur || list.some((i) => i.url === cur) ? list : [{ url: cur, name: modelName(cur), folder: "" }, ...list];
+  return fSel(label, opts.map((i) => [i.url, i.name + (i.folder ? "  (" + i.folder + ")" : "")]), () => cur, set);
+}
+const isLayerImg = (i) => i.url.includes("/layers/");
+function layersEditor(sk) {
+  const wrap = h("div", {}), L = sk.layers;
+  const num = (label, d, k, step, def, lo, hi) => h("div", { class: "f" }, h("span", {}, label), h("input", { type: "number", step, value: d[k] == null ? def : d[k], onchange: (e) => edit(() => { const v = parseFloat(e.target.value); d[k] = isNaN(v) ? def : clamp(v, lo, hi); }) }));
+  L.forEach((d, i) => {
+    const box = h("div", { class: "box" }, h("div", { class: "hd" }, h("b", {}, `${i + 1}. ${modelName(d.url || "layer")}`),
+      btn("↑", () => edit(() => { if (i > 0) [L[i - 1], L[i]] = [L[i], L[i - 1]]; refreshSceneTab(); })), btn("↓", () => edit(() => { if (i < L.length - 1) [L[i + 1], L[i]] = [L[i], L[i + 1]]; refreshSceneTab(); })), btn("✕", () => edit(() => { L.splice(i, 1); refreshSceneTab(); }))));
+    box.append(imageSel("Image", d.url, (x) => isLayerImg(x) || x.url === d.url, (v) => { d.url = v; refreshSceneTab(); }),
+      num("Height", d, "height", "0.05", 0.35, 0.05, 2), num("Vertical pos", d, "y", "0.05", 0.35, -0.5, 1.5), num("Parallax", d, "parallax", "0.05", 0.3, 0, 3), num("Drift", d, "drift", "0.001", 0, -0.2, 0.2), num("Opacity", d, "alpha", "0.05", 1, 0, 1), num("Twinkle", d, "pulse", "0.05", 0, 0, 1),
+      h("div", { class: "f" }, h("span", {}, "Tint"), h("input", { type: "color", value: hex(d.tint || [1, 1, 1]), onchange: (e) => edit(() => { const t = unhex(e.target.value); d.tint = t[0] > .99 && t[1] > .99 && t[2] > .99 ? undefined : t; if (!d.tint) delete d.tint; }) })));
+    wrap.append(box);
+  });
+  wrap.append(h("div", { class: "row" }, btn("+ layer", () => edit(() => { const i = imageList.find(isLayerImg); L.push({ url: i ? i.url : "", y: 0.35, height: 0.3, parallax: 0.3, drift: 0 }); refreshSceneTab(); })),
+    h("div", { class: "hint" }, "Layers draw in order, first = furthest back. Drift is in screen-widths per second; parallax follows camera rotation. Images must tile left-right (stock layers do).")));
+  return wrap;
+}
+const FX_LABEL = { rain: "Rain", snow: "Snow", embers: "Embers", dust: "Dust motes", fireflies: "Fireflies", leaves: "Falling leaves", lightning: "Lightning flashes" };
+function fxEditor(p) {
+  p.append(h("h2", {}, "Effects"));
+  const list = scene.fx || [];
+  list.forEach((e, i) => {
+    const num = (label, k, step, def, lo, hi) => h("div", { class: "f" }, h("span", {}, label), h("input", { type: "number", step, value: e[k] == null ? def : e[k], onchange: (ev) => edit(() => { const v = parseFloat(ev.target.value); e[k] = isNaN(v) ? def : clamp(v, lo, hi); }) }));
+    p.append(h("div", { class: "box" }, h("div", { class: "hd" }, h("b", {}, FX_LABEL[e.type] || e.type), btn("✕", () => edit(() => { list.splice(i, 1); if (!list.length) delete scene.fx; refreshSceneTab(); }))),
+      num("Amount", "amount", "0.05", 0.5, 0, 1), num("Speed", "speed", "0.1", 1, 0.1, 4), e.type === "lightning" ? null : num("Wind", "wind", "0.1", 0, -2, 2),
+      e.type === "lightning" ? null : h("div", { class: "f" }, h("span", {}, "Colour"), h("div", { class: "row", style: "margin:0" }, h("input", { type: "color", value: e.color || "#ffffff", onchange: (ev) => edit(() => { e.color = ev.target.value; }) }), btn("auto", () => edit(() => { delete e.color; refreshSceneTab(); }), "")))));
+  });
+  const add = h("select", {}, h("option", { value: "" }, "+ Add effect…"), EnvFXTypes().map((t) => h("option", { value: t }, FX_LABEL[t] || t)));
+  add.onchange = () => { if (!add.value) return; edit(() => { if (!scene.fx) scene.fx = []; scene.fx.push({ type: add.value, amount: 0.5 }); refreshSceneTab(); }); };
+  p.append(h("div", { class: "f" }, h("span", {}, ""), add), h("div", { class: "hint" }, "Screen-space particles over the 3D view. They are drawn in the game too, not just here."));
+}
+const EnvFXTypes = () => (window.EnvFX ? EnvFX.TYPES : ["rain", "snow", "embers", "dust", "fireflies", "leaves", "lightning"]);
+function envPanel(p) {
+  const s = scene, hub = s.kind === "hub", kind = skyKind(s.sky), sk = s.sky;
+  p.append(h("h2", {}, "Environment"));
+  const ps = h("select", {}, h("option", { value: "" }, "Apply a preset…"), ENV_PRESETS.map((q) => h("option", { value: q.id }, q.name)));
+  ps.onchange = () => { const q = ENV_PRESETS.find((x) => x.id === ps.value); ps.value = ""; if (q) applyPreset(q); };
+  p.append(h("div", { class: "f" }, h("span", {}, "Preset"), ps), h("div", { class: "hint" }, "A preset sets the sky (with moving layers), light, fog and effects together. Tweak any of them afterwards."));
+  const kinds = [[hub ? "default" : "painted", hub ? "built-in dusk" : "painted backdrop"], ["gradient", "gradient"], ["image", "image"], ["layers", "layered (parallax)"], ["color", "solid colour"]];
+  p.append(fSel("Sky", kinds, () => kind, (v) => setSkyKind(v)));
+  if (kind === "color") p.append(fColor("Sky colour", () => s.sky, (c) => { s.sky = c; }));
+  if (kind === "gradient") p.append(gradientBox(sk));
+  if (kind === "image") {
+    p.append(imageSel("Image", sk.url, (i) => !isLayerImg(i), (v) => { sk.url = v; refreshSceneTab(); }));
+    if (sk.url) p.append(h("img", { src: encodeURI(sk.url), style: "width:100%;border-radius:6px;margin:4px 0;border:1px solid var(--line,#333)" }));
+  }
+  if (kind === "layers") {
+    const bk = Array.isArray(sk.base) ? "color" : sk.base && sk.base.type === "gradient" ? "gradient" : sk.base && sk.base.type === "image" ? "image" : "gradient";
+    p.append(h("h2", {}, "Sky behind the layers"), fSel("Base", [["gradient", "gradient"], ["color", "solid colour"], ["image", "image"]], () => bk, (v) => { sk.base = v === "color" ? [0.08, 0.06, 0.16] : v === "image" ? { type: "image", url: (imageList.find((x) => !isLayerImg(x)) || { url: "" }).url } : { type: "gradient", stops: DUSK_STOPS.map((x) => x.slice()) }; refreshSceneTab(); }));
+    if (bk === "gradient") { if (!sk.base || sk.base.type !== "gradient") sk.base = { type: "gradient", stops: DUSK_STOPS.map((x) => x.slice()) }; p.append(gradientBox(sk.base)); }
+    else if (bk === "color") p.append(fColor("Base colour", () => sk.base, (c) => { sk.base = c; }));
+    else p.append(imageSel("Base image", sk.base.url, (i) => !isLayerImg(i), (v) => { sk.base.url = v; refreshSceneTab(); }));
+    p.append(h("h2", {}, "Layers"), layersEditor(sk));
+  }
+  p.append(h("div", { class: "row" }, btn("Reload image list", async () => { try { imageList = (await getJSON("/api/builder3d/images")).images || []; refreshSceneTab(); toast(imageList.length + " images found", "ok"); } catch (e) { toast("Could not list images: " + e.message, "err"); } })),
+    h("div", { class: "hint" }, "Drop .webp / .png / .jpg files into Assets/Backgrounds (full backdrops, 16:9 about 1920×1080) or Assets/Backgrounds/layers (seamless left-right strips with transparency), then reload."));
+  if (kind === "painted") p.append(h("div", { class: "hint" }, "The painted artwork used by the default battle view."));
+  if (kind === "default") p.append(h("div", { class: "hint" }, "The built-in purple-to-gold dusk gradient."));
+  fxEditor(p);
+  musicPanel(p);
+}
+/* ============================== load / save / new ============================== */
+async function getJSON(url) { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(url + " → HTTP " + r.status); return r.json(); }
+function rebuildSceneSelect(cur) {
+  const s = $("#sceneSel"); s.innerHTML = "";
+  for (const k of ["hub", "battle"]) { const g = h("optgroup", { label: k === "hub" ? "Hub scenes (walkable)" : "Battle arenas" }); scenesList.filter((x) => x.kind === k).forEach((x) => g.append(h("option", { value: k + ":" + x.id }, `${x.name} (${x.id})`))); s.append(g); }
+  if (cur) s.value = cur;
+}
+async function openScene(kind, id, force) {
+  if (dirty && !force && !confirm("You have unsaved changes. Discard them?")) { rebuildSceneSelect(scene ? scene.kind + ":" + scene.id : ""); return; }
+  $("#loading").style.display = "block"; $("#loading").textContent = "Loading scene…";
+  try {
+    const def = await getJSON(kind === "hub" ? `/hub3d/${id}.json` : `/battle/maps/${id}.json`);
+    const s = kind === "hub" ? parseHub(def, id) : parseBattle(def, id);
+    const urls = [...new Set(s.pieces.map((p) => p.model))]; let n = 0;
+    $("#loading").textContent = `Loading ${urls.length} models…`;
+    await Promise.all(urls.map((u) => { ensureModel(u); return modelLoading.get(u).then(() => { $("#loading").textContent = `Loading models ${++n}/${urls.length}`; }); }));
+    scene = s; setSel([]); undoS.length = 0; redoS.length = 0; setDirty(false);
+    frameScene(); rebuildSceneSelect(kind + ":" + id); refreshUI(); setTool("select"); try { history.replaceState(null, "", "#" + kind + ":" + id); } catch (e) {}
+  } catch (e) { toast("Could not open scene: " + e.message, "err"); rebuildSceneSelect(scene ? scene.kind + ":" + scene.id : ""); }
+  $("#loading").style.display = "none"; scheduleDraw();
+}
+async function saveScene() {
+  if (!scene) return;
+  try {
+    const body = { kind: scene.kind, id: scene.id, scene: serialize(scene) };
+    const r = await fetch("/api/builder3d/scene", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }), j = await r.json();
+    if (!j.ok) throw new Error(j.error || "save failed");
+    setDirty(false); toast(`Saved ${j.path}`, "ok");
+    scenesList = (await getJSON("/api/builder3d/scenes")).scenes; rebuildSceneSelect(scene.kind + ":" + scene.id);
+  } catch (e) { toast("Save failed: " + e.message, "err"); }
+}
+function newSceneDialog() {
+  const card = $("#modalCard"); card.innerHTML = "";
+  const kind = h("select", {}, h("option", { value: "hub" }, "Hub scene (walkable, NPCs + events)"), h("option", { value: "battle" }, "Battle arena"));
+  const id = h("input", { type: "text", placeholder: "e.g. temple_courtyard", style: "width:100%" }), name = h("input", { type: "text", placeholder: "Display name", style: "width:100%" });
+  const copy = h("input", { type: "checkbox" });
+  card.append(h("h3", {}, "New scene"), h("div", { class: "f" }, h("span", {}, "Kind"), kind), h("div", { class: "f" }, h("span", {}, "Id"), id), h("div", { class: "f" }, h("span", {}, "Name"), name),
+    h("label", { class: "row" }, copy, "Start as a copy of the open scene (same kind only)"), h("div", { class: "hint" }, "Ids are lowercase letters, digits, - and _. Nothing is written to disk until you press Save."),
+    h("div", { class: "row", style: "justify-content:flex-end" }, btn("Cancel", () => $("#modal").classList.remove("open")), btn("Create", () => {
+      const sid = id.value.trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9_\-]{0,47}$/.test(sid)) return toast("Invalid id", "err");
+      if (scenesList.some((s) => s.kind === kind.value && s.id === sid)) return toast("A scene with that id already exists", "err");
+      if (dirty && !confirm("Discard unsaved changes to the open scene?")) return;
+      let s; if (copy.checked && scene && scene.kind === kind.value) { s = JSON.parse(JSON.stringify(scene)); s.id = sid; } else s = blankScene(kind.value, sid, name.value.trim() || sid);
+      if (name.value.trim()) s.name = name.value.trim();
+      scene = s; setSel([]); undoS.length = 0; redoS.length = 0; scenesList.push({ id: sid, name: s.name, kind: kind.value }); rebuildSceneSelect(kind.value + ":" + sid);
+      setDirty(true); frameScene(); refreshUI(); setTool("select"); $("#modal").classList.remove("open"); scheduleDraw(); toast("Scene created (not saved yet)", "ok");
+    }, "on")));
+  $("#modal").classList.add("open"); id.focus();
+}
+function playScene() {
+  if (!scene) return; if (dirty) { toast("Save first so the game loads your changes", "err"); return; }
+  window.open(scene.kind === "hub" ? `/?view=3d&scene=${encodeURIComponent(scene.id)}` : `/battle?view=3d&map=${encodeURIComponent(scene.id)}`, "_blank");
+}
+
+/* ============================== boot ============================== */
+$("#btnNew").onclick = newSceneDialog; $("#btnSave").onclick = saveScene; $("#btnPlay").onclick = playScene; $("#btnWalk").onclick = () => (play ? stopPlay() : startPlay()); $("#btnUndo").onclick = undo; $("#btnRedo").onclick = redo;
+$("#sceneSel").onchange = (e) => { const [k, ...r] = e.target.value.split(":"); openScene(k, r.join(":")); };
+$("#snap").onchange = (e) => { grid = parseFloat(e.target.value) || 0; scheduleDraw(); };
+["vGrid", "vRef", "vLabels", "vEnv"].forEach((i) => $("#" + i).addEventListener("change", scheduleDraw));
+$("#modal").addEventListener("pointerdown", (e) => { if (e.target.id === "modal") $("#modal").classList.remove("open"); });
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+const _sd = setDirty; setDirty = function (d) { _sd(d); $("#btnUndo").disabled = !undoS.length; $("#btnRedo").disabled = !redoS.length; };
+(async function boot() {
+  buildTools(); resize();
+  try {
+    const [sc, md, sp] = await Promise.all([getJSON("/api/builder3d/scenes"), getJSON("/api/builder3d/models"), getJSON("/hub3d/sprites.json").catch(() => ({ npcs: {} }))]);
+    imageList = await getJSON("/api/builder3d/images").then((r) => r.images || []).catch(() => []);
+    musicList = await getJSON("/api/builder3d/music").then((r) => r.music || []).catch(() => []);
+    scenesList = sc.scenes; modelList = md.models; npcSprites = Object.keys(sp.npcs || {}); sheets = sp.walk ? sp : null;
+  } catch (e) { toast("Could not reach the editor API: " + e.message + ". Is hub_server.py running?", "err"); }
+  buildPalette(); rebuildSceneSelect();
+  const hash = location.hash.slice(1), want = hash && scenesList.find((s) => hash === s.kind + ":" + s.id) || scenesList.find((s) => s.kind === "hub" && s.id === "olympus") || scenesList[0];
+  if (want) await openScene(want.kind, want.id, true); else { $("#loading").style.display = "block"; $("#loading").textContent = "No scenes yet. Use New scene…"; }
+  window.__ed = { get fxInst() { return fxInst; }, applyPreset, ENV_PRESETS, setSkyKind, skyCss, get imageList() { return imageList; }, get selSet() { return selSet; }, selectMany, lineOpts, lineLayout, get ln() { return ln; }, pasteClip, copySel, get play() { return play; }, startPlay, stopPlay,  get scene() { return scene; }, cam, get sel() { return sel; }, pick, project, setTool, selectItem, getItem, modelReady, serialize };
+})();
+</script>
+</body>
+</html>

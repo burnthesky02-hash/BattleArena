@@ -5,6 +5,7 @@ window is closed, the server shuts down.
     python launcher.py            normal
     python launcher.py --debug    enable Battle Debug / debug tools
     python launcher.py --browser  open in your normal browser instead of an app window
+    python launcher.py --fullscreen  borderless fullscreen (no title bar at all; Alt+F4 closes it)
 
 Also the entry point of the packaged .exe (see build_exe.bat). When frozen, saves
 are kept in a "saves" folder next to the .exe.
@@ -72,7 +73,7 @@ def _find_app_browser():
     return next((c for c in candidates if os.path.isfile(c)), None)
 
 
-def _open_window(use_browser: bool) -> None:
+def _open_window(use_browser: bool, fullscreen: bool = False) -> None:
     """Waits for the server, opens the window, and exits the whole process when it's closed."""
     for _ in range(200):
         if _port_open(HTTP_PORT):
@@ -86,10 +87,16 @@ def _open_window(use_browser: bool) -> None:
         return
     profile = os.path.join(os.environ.get("LOCALAPPDATA", APP_DIR), "BattleArena", "window-profile")
     os.makedirs(profile, exist_ok=True)
-    proc = subprocess.Popen([
+    flags = [
         exe, f"--app={URL}", f"--user-data-dir={profile}", "--window-size=1366,820",
         "--no-first-run", "--no-default-browser-check",
-    ])
+        "--disable-pinch", "--overscroll-history-navigation=0",     # no pinch zoom / swipe back
+        "--autoplay-policy=no-user-gesture-required",               # music can start without a click
+        "--disable-features=Translate,TranslateUI",
+    ]
+    if fullscreen:
+        flags.append("--kiosk")
+    proc = subprocess.Popen(flags)
     proc.wait()               # returns when the game window is closed
     time.sleep(0.5)
     print("[launcher] window closed -- shutting down.")
@@ -100,10 +107,11 @@ def main() -> None:
     _redirect_output_if_headless()
     args = sys.argv[1:]
     use_browser = "--browser" in args
-    sys.argv = [sys.argv[0]] + [a for a in args if a != "--browser"]   # hub_server has its own argparse
+    fullscreen = "--fullscreen" in args
+    sys.argv = [sys.argv[0]] + [a for a in args if a not in ("--browser", "--fullscreen")]   # hub_server has its own argparse
 
     if _port_open(HTTP_PORT):                       # server already running -> just open a window
-        threading.Thread(target=_open_window, args=(use_browser,), daemon=True).start()
+        threading.Thread(target=_open_window, args=(use_browser, fullscreen), daemon=True).start()
         while True:
             time.sleep(3600)
     try:
@@ -112,7 +120,7 @@ def main() -> None:
         _message_box("Battle Arena", "The 'websockets' package is missing.\n\nRun:  python -m pip install websockets")
         return
     import hub_server
-    threading.Thread(target=_open_window, args=(use_browser,), daemon=True).start()
+    threading.Thread(target=_open_window, args=(use_browser, fullscreen), daemon=True).start()
     hub_server.main()                               # blocks; serves pages + battle WebSocket
 
 
