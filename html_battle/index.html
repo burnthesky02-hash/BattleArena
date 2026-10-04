@@ -104,6 +104,7 @@
     transform: translate(-50%, -100%); /* anchor = feet position */
   }
   .sprite-anchor.ko .sprite-mirror { opacity: 0.35; filter: grayscale(1); }
+  .sprite-mirror { transition: opacity .7s, filter .7s; }
   .sprite-anchor.targetable .sprite-frame { filter: drop-shadow(0 0 8px #ffe27acc); }
   .sprite-anchor.targetable:hover .sprite-frame,
   .sprite-anchor.hl .sprite-frame { filter: drop-shadow(0 0 14px #fff) drop-shadow(0 0 6px #ffe27a); }
@@ -248,14 +249,18 @@
   #boss-bar .bb-tag.unyielding { background: #8a6a1a; color: #fff0c0; }
   #boss-bar .bb-tag.chant { background: #4a5a80; color: #fff; }
   #boss-bar .bb-tag.rage { background: #b01010; color: #fff; }
-  #dialogue { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(760px, 92%); z-index: 30; display: none;
-    background: rgba(10,8,18,0.95); border: 2px solid var(--panel-border); border-radius: 14px; padding: 16px 20px; cursor: pointer;
-    box-shadow: 0 0 40px rgba(0,0,0,0.7); }
-  #dialogue .dlg-row { display: flex; gap: 16px; align-items: flex-start; }
-  #dialogue .dlg-portrait { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; object-position: top center; display: none; flex: none; }
-  #dialogue .dlg-speaker { font-weight: 800; color: #ffe27a; font-size: 15px; margin-bottom: 6px; letter-spacing: 0.04em; }
-  #dialogue .dlg-text { font-size: 16px; line-height: 1.5; min-height: 48px; color: var(--text-main); }
-  #dialogue .dlg-hint { text-align: right; font-size: 11px; color: var(--text-dim); margin-top: 8px; }
+  #dialogue { box-sizing: border-box; position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); width: min(820px, 94%); z-index: 30; display: none;
+    background: linear-gradient(180deg, rgba(34,28,52,0.98), rgba(12,10,22,0.98)); border: 2px solid #e8c766; border-radius: 16px; padding: 30px 26px 28px; cursor: pointer;
+    box-shadow: 0 0 0 3px rgba(0,0,0,.65), 0 0 0 5px rgba(232,199,102,.35), 0 14px 44px rgba(0,0,0,.75), 0 0 36px rgba(232,199,102,.18); }
+  #dialogue .dlg-row { display: flex; gap: 20px; align-items: flex-start; }
+  #dialogue .dlg-portrait { width: 140px; height: 176px; border-radius: 12px; object-fit: cover; object-position: top center; display: none; flex: none;
+    border: 2px solid #e8c766; background: #120f1c; box-shadow: 0 0 0 3px rgba(0,0,0,.7), 0 8px 24px rgba(0,0,0,.7); margin-top: -50px; }
+  #dialogue .dlg-speaker { position: absolute; left: 26px; top: -15px; padding: 4px 18px 5px; border-radius: 9px; font-weight: 800; font-size: 14px; letter-spacing: .09em;
+    text-transform: uppercase; color: #241a05; background: linear-gradient(180deg, #f2d67e, #b8892c); box-shadow: 0 3px 12px rgba(0,0,0,.6); }
+  #dialogue .dlg-speaker:empty { display: none; }
+  #dialogue.has-pic .dlg-speaker { left: 186px; }
+  #dialogue .dlg-text { font-size: 18px; line-height: 1.55; min-height: 56px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  #dialogue .dlg-hint { text-align: right; font-size: 12px; color: #e8c766; margin-top: 8px; }
   #dim { position: absolute; inset: 0; background: rgba(0,0,0,0.35); display: none; z-index: 25; }
   #announce { position: absolute; left: 0; right: 0; top: 34%; text-align: center; z-index: 28; pointer-events: none; display: none;
     font-size: 40px; font-weight: 900; letter-spacing: 0.12em; color: #ffe27a; text-shadow: 0 0 24px #ff7a2a, 0 3px 0 #000; }
@@ -267,6 +272,28 @@
   #stage.shake { animation: shk 0.5s linear; }
   @keyframes shk { 0%,100% { transform: translate(0,0); } 15% { transform: translate(-9px,4px); } 30% { transform: translate(8px,-5px); }
     45% { transform: translate(-7px,-3px); } 60% { transform: translate(6px,5px); } 80% { transform: translate(-3px,2px); } }
+
+
+  /* --- level-up screen --- */
+  #levelup-overlay { position: absolute; inset: 0; z-index: 1100; background: rgba(4,3,8,0.92); display: none; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; padding: 16px; overflow-y: auto; }
+  #levelup-overlay h1 { margin: 0; font-size: 34px; letter-spacing: 3px; color: #ffe27a; text-shadow: 0 0 18px rgba(255,200,60,0.6); animation: lvpulse 1.4s ease-in-out infinite; }
+  @keyframes lvpulse { 50% { text-shadow: 0 0 30px rgba(255,220,100,0.95); } }
+  #levelup-cards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 1100px; }
+  .lv-card { width: 230px; padding: 12px; border: 1px solid rgba(255,226,122,0.6); border-radius: 12px; color: #fff; text-align: center;
+    background: linear-gradient(180deg, rgba(60,48,20,0.92), rgba(24,20,34,0.95)); box-shadow: 0 6px 22px rgba(255,220,100,0.18);
+    animation: lvin .45s ease-out both; }
+  @keyframes lvin { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+  .lv-card img { width: 96px; height: 96px; object-fit: cover; border-radius: 50%; border: 2px solid #ffe27a; background: #1a1626; }
+  .lv-card .nm { font-size: 17px; font-weight: 800; margin-top: 6px; }
+  .lv-card .cl { font-size: 11px; opacity: .7; text-transform: capitalize; }
+  .lv-card .lvl { font-size: 20px; font-weight: 800; color: #ffe27a; margin: 6px 0 8px; }
+  .lv-card table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .lv-card td { padding: 2px 4px; text-align: right; }
+  .lv-card td:first-child { text-align: left; opacity: .8; }
+  .lv-card .up { color: #8fe8a0; font-weight: 700; }
+  .lv-card .tp { margin-top: 8px; font-size: 12px; color: #9fd3ff; font-weight: 700; }
+  #levelup-overlay button { padding: 10px 32px; border-radius: 999px; border: none; background: var(--accent); color: white; font-weight: 700; font-size: 14px; cursor: pointer; }
 
   /* --- end overlay --- */
   #end-overlay {
@@ -360,6 +387,7 @@
       <div class="dlg-hint">click or press Space to continue &#9654;</div>
     </div>
     <div id="ladder-hud"></div>
+    <div id="levelup-overlay"><h1>LEVEL UP!</h1><div id="levelup-cards"></div><button id="levelup-ok">Continue</button></div>
     <div id="end-overlay">
       <h1 id="end-title">Victory!</h1>
       <div id="end-sub" style="color:var(--text-dim);font-size:13px;"></div>
@@ -558,6 +586,26 @@ function sheetUrl(name, pose) {
   return `/assets/Battlers/${encodeURIComponent(name)}/${encodeURIComponent(name)}-${pose}.png`;
 }
 
+// Visible (non-transparent) bounds of a static sprite, measured once per image.
+function staticBounds(img) {
+  if (img._bounds) return img._bounds;
+  let b = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
+  try {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+      if (d[(y * c.width + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 >= x0 && y1 >= y0) b = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  } catch (e) { /* tainted/unreadable canvas: use the full image */ }
+  img._bounds = b;
+  return b;
+}
+
 const urlSheetCache = new Map();
 function loadUrlSheet(url) {
   if (urlSheetCache.has(url)) return urlSheetCache.get(url);
@@ -656,10 +704,13 @@ function windupMs(actorSprite, kind) {
    One sprite: owns its DOM nodes, current pose/frame, and position.
 --------------------------------------------------------------------- */
 class SpriteView {
-  constructor(id, name, facingRight, bossCfg) {
+  constructor(id, name, facingRight, bossCfg, staticCfg) {
+    // staticCfg: single-image art for a regular enemy ({url, scale, native_left}); a boss with "static" art
+    // keeps its bossCfg (boss-sized, boss bar...) and also renders through the static path.
+    this.staticCfg = (bossCfg && bossCfg.static) ? bossCfg : (staticCfg || null);
     this.bossCfg = bossCfg || null;   // {url, scale, native_left, idle_only} or {scale, poses{}} for scripted bosses
     this.poseCfg = (this.bossCfg && this.bossCfg.poses) || null;   // multi-pose boss: pose -> {url, ref_h, foot, frames, fps, loop}
-    this.baseScale = this.bossCfg ? this.bossCfg.scale : 1;
+    this.baseScale = this.bossCfg ? this.bossCfg.scale : (this.staticCfg ? this.staticCfg.scale : 1);
     this.hScale = this.baseScale;
     this.hScaleTarget = this.baseScale;
     this.castMode = null;             // null | "start" | "loop" | "broken" (Selene's revive chant)
@@ -693,16 +744,45 @@ class SpriteView {
     this._ensurePose("Idle");
   }
 
+  /* Stills have no frames to play, so they get procedural life: a slow breathing bob always, plus short
+     reactions -- "hit" (shake + white flash), "lunge" (squash-and-stretch on a melee swing), "cast"
+     (rise and swell). tick() turns this.fx into a CSS translate/scale (2D) and battle3d.js reads the same
+     numbers (3D). Only sprites with staticCfg use it. */
+  poke(kind) { if (this.staticCfg) this.react = { kind, t0: performance.now() }; }
+
+  _updateFx(now) {
+    const fx = this.fx || (this.fx = { dx: 0, dy: 0, sy: 1, sx: 1, flash: 0 });
+    const H = SPRITE_H * this.hScale;
+    this._phase = this._phase ?? (Math.random() * 6.28);
+    const b = Math.sin(now / 520 + this._phase);
+    let dx = 0, dy = -b * H * 0.008, sy = 1 + b * 0.012, sx = 1 - b * 0.006, flash = 0;
+    const r = this.react;
+    if (r) {
+      const t = (now - r.t0) / (r.kind === "hit" ? 320 : 420);
+      if (t >= 1) this.react = null;
+      else if (r.kind === "hit") { dx = Math.sin(t * 38) * (1 - t) * H * 0.045; flash = t < 0.35 ? 1 - t / 0.35 : 0; sy *= 1 - 0.05 * (1 - t); }
+      else if (r.kind === "lunge") { const k = Math.sin(t * Math.PI); sy *= 1 + 0.10 * k; sx *= 1 - 0.05 * k; dy -= k * H * 0.03; }
+      else if (r.kind === "cast") { const k = Math.sin(t * Math.PI); dy -= k * H * 0.06; sy *= 1 + 0.05 * k; sx *= 1 + 0.05 * k; }
+    }
+    if (this.anchor.classList.contains("ko")) { dy = H * 0.04; sy = 0.94; sx = 1.03; }
+    fx.dx = dx; fx.dy = dy; fx.sy = sy; fx.sx = sx; fx.flash = flash;
+    return fx;
+  }
+
   _resolvePose(pose) {
     if (this.poseCfg) return this.poseCfg[pose] ? pose : "Idle";
-    return this.bossCfg ? "Idle" : pose;   // single-sheet bosses only have an idle sheet
+    return (this.bossCfg || this.staticCfg) ? "Idle" : pose;   // single-sheet bosses only have an idle sheet
   }
 
   async _ensurePose(pose) {
     pose = this._resolvePose(pose);
     if (this.sheets[pose] !== undefined) return this.sheets[pose];
-    const url = this.poseCfg ? this.poseCfg[pose].url : (this.bossCfg ? this.bossCfg.url : null);
-    const img = url ? await loadUrlSheet(url) : await loadSheet(this.name, pose);
+    const url = this.poseCfg ? this.poseCfg[pose].url : (this.staticCfg ? this.staticCfg.url : (this.bossCfg ? this.bossCfg.url : null));
+    let img = url ? await loadUrlSheet(url) : await loadSheet(this.name, pose);
+    if (!img && this.staticCfg) {          // static art missing/unreadable: fall back to the sheet chain
+      this.staticCfg = null;
+      img = await loadSheet(this.name, "Idle");
+    }
     this.sheets[pose] = img;
     return img;
   }
@@ -820,9 +900,28 @@ class SpriteView {
       this.hScale += (this.hScaleTarget - this.hScale) * 0.06;
       this.nameplate.style.top = `${-SPRITE_H * this.hScale - 30}px`;
     }
+    const H = SPRITE_H * this.hScale;
+    if (this.staticCfg) {
+      // One still image, no animation: crop to the art's visible bounds so H is the creature's true
+      // height and its feet sit on the ground line regardless of the PNG's transparent padding.
+      const bb = staticBounds(img);
+      const k = H / bb.h;
+      this.frameEl.style.width = `${bb.w * k}px`;
+      this.frameEl.style.height = `${H}px`;
+      this.frameEl.style.backgroundImage = `url(${img.src})`;
+      this.frameEl.style.backgroundSize = `${img.naturalWidth * k}px ${img.naturalHeight * k}px`;
+      this.frameEl.style.backgroundPosition = `${-bb.x * k}px ${-bb.y * k}px`;
+      const fx = this._updateFx(now);
+      this.frameEl.style.transformOrigin = "50% 100%";
+      this.frameEl.style.translate = `${fx.dx}px ${fx.dy}px`;
+      this.frameEl.style.scale = `${fx.sx} ${fx.sy}`;
+      this.frameEl.style.filter = fx.flash > 0 ? `brightness(${1 + fx.flash * 2.2})` : "";
+      const flipS = this.staticCfg.native_left;
+      this.mirror.style.transform = (this.facingRight !== !!flipS) ? "scaleX(1)" : "scaleX(-1)";
+      return;
+    }
     const frameW = img.naturalWidth / FRAME_COLS;
     const frameH = img.naturalHeight / FRAME_ROWS;
-    const H = SPRITE_H * this.hScale;
     const fps = cfg ? cfg.fps : IDLE_FPS;
     const first = cfg ? cfg.frames[0] : 0, last = cfg ? cfg.frames[1] : FRAME_COLS * FRAME_ROWS - 1;
     if (now - this.lastFrameTime > 1000 / fps) {
@@ -904,6 +1003,7 @@ async function animateMelee(actorSprite, targetSprite) {
   actorSprite.setPose("Run");
   await tweenPosition(actorSprite, engageX, actorSprite.homeY, 320);
   actorSprite.setPose(poseFor("melee", actorSprite.name));
+  actorSprite.poke("lunge");
   // Resolve at the moment of impact so the damage numbers / HP change land with the blow; the rest of the
   // swing and the run back continue in the background. The NEXT action (a counter-attack, the next
   // combatant's turn...) waits on `returnDone` so it never starts until this attacker is back in place.
@@ -1030,6 +1130,7 @@ function emitCombatText(state) {
         const crit = !!(hint && hint.crit.has(c.id)), weak = !!(hint && hint.weak.has(c.id));
         const tag = crit ? "<small>CRITICAL</small>" : weak ? "<small>WEAK</small>" : "";
         spawnFloat(c.id, `${tag}${-dHp}${crit ? "!" : ""}`, "dmg" + (crit ? " crit" : ""), DMG_COLORS[type] || "#fff");
+        const hs = sprites.get(c.id); if (hs && c.alive) hs.poke("hit");
       } else if (dHp > 0) {
         spawnFloat(c.id, `+${dHp}`, "heal", DMG_COLORS.heal);
         // Revive (was KO'd, is alive again -- e.g. a phoenix item or holy_reset) gets its own stinger;
@@ -1080,7 +1181,7 @@ function layoutAllSprites() {
 function placeSprite(c, slot, isEnemy) {
   let sprite = sprites.get(c.id);
   if (!sprite) {
-    sprite = new SpriteView(c.id, c.sprite_name, isEnemy, c.boss_sprite);
+    sprite = new SpriteView(c.id, c.sprite_name, isEnemy, c.boss_sprite, c.static_sprite);
     sprites.set(c.id, sprite);
     spriteLayer.appendChild(sprite.anchor);
   }
@@ -1332,7 +1433,7 @@ function mergeStaticFields(state, prev) {
     for (const c of state[side] || []) {
       const old = (prev[side] || []).find((o) => o.id === c.id);
       if (!old) continue;
-      for (const k of ["level", "sprite_name", "boss_sprite", "role", "stats", "status_detail", "resist"]) if (c[k] === undefined && old[k] !== undefined) c[k] = old[k];
+      for (const k of ["level", "sprite_name", "boss_sprite", "static_sprite", "role", "stats", "status_detail", "resist"]) if (c[k] === undefined && old[k] !== undefined) c[k] = old[k];
     }
   }
   return state;
@@ -1577,8 +1678,12 @@ function nextDialogueLine() {
   document.getElementById("dim").style.display = "block";
   document.getElementById("dlg-speaker").textContent = line.speaker || "";
   const pic = document.getElementById("dlg-portrait");
-  if (line.portrait) { pic.src = `/assets/Portraits/${encodeURIComponent(line.portrait)}.webp`; pic.style.display = "block"; }
-  else pic.style.display = "none";
+  const pname = line.portrait || line.speaker;      // no explicit portrait: try /assets/Portraits/<speaker>.webp (hidden if absent)
+  const lp = pname ? (/[\/.]/.test(pname) ? (pname[0] === "/" ? pname : "/assets/" + pname)
+    : `/assets/Portraits/${encodeURIComponent(pname)}.webp`) : "";
+  pic.style.display = "none"; box.classList.remove("has-pic");
+  pic.onerror = function () { this.style.display = "none"; box.classList.remove("has-pic"); }; pic.onload = function () { this.style.display = "block"; box.classList.add("has-pic"); };
+  if (lp) pic.src = lp; else pic.removeAttribute("src");
   const el = document.getElementById("dlg-text");
   el.textContent = "";
   let i = 0;
@@ -1815,6 +1920,7 @@ async function handleActionEvent(msg) {
                    : (msg.target_id ? [msg.target_id] : []);
   const targets = targetIds.map((id) => sprites.get(id)).filter(Boolean);
 
+  if (animKind !== "melee") actor.poke("cast");
   if (animKind === "melee") {
     await animateMelee(actor, targets[0] || null);
     return;
@@ -1870,6 +1976,34 @@ function handleAiEvent(rec) {
 
 function fmtReward(r) { return `${r.money} gold, ${r.gems} gems, ${r.xp} XP`; }
 
+const LV_STATS = [["max_hp", "HP"], ["max_mp", "MP"], ["atk", "ATK"], ["def_", "DEF"], ["mag", "MAG"], ["res", "RES"], ["spd", "SPD"], ["luk", "LUK"]];
+let _lvTimer = null;
+// Level-up screen: one card per hero that gained a level, showing level and every stat before -> after.
+function showLevelUps(list, onClose) {
+  const ov = document.getElementById("levelup-overlay");
+  if (!list || !list.length || !ov) { if (onClose) onClose(); return; }
+  const wrap = document.getElementById("levelup-cards"); wrap.innerHTML = "";
+  list.forEach((h, i) => {
+    const card = document.createElement("div"); card.className = "lv-card"; card.style.animationDelay = (i * 0.15) + "s";
+    const b = (h.stats && h.stats.before) || {}, a = (h.stats && h.stats.after) || {};
+    const rows = LV_STATS.filter(([k]) => a[k] !== undefined).map(([k, label]) => {
+      const d = (a[k] || 0) - (b[k] || 0);
+      return `<tr><td>${label}</td><td>${b[k] || 0} &rarr; <b>${a[k] || 0}</b></td><td class="${d > 0 ? "up" : ""}">${d > 0 ? "+" + d : ""}</td></tr>`;
+    }).join("");
+    const img = document.createElement("img"); img.src = h.portrait || ""; img.alt = ""; img.onerror = function () { this.style.visibility = "hidden"; };
+    card.appendChild(img);
+    const tail = document.createElement("div");
+    tail.innerHTML = `<div class="nm"></div><div class="cl"></div><div class="lvl">Lv ${h.from} &rarr; ${h.to}</div><table>${rows}</table>` +
+      (h.talent_points_gained > 0 ? `<div class="tp">+${h.talent_points_gained} Talent Point${h.talent_points_gained > 1 ? "s" : ""}!</div>` : "");
+    tail.querySelector(".nm").textContent = h.name; tail.querySelector(".cl").textContent = String(h["class"] || "").replace(/_/g, " ");
+    while (tail.firstChild) card.appendChild(tail.firstChild);
+    wrap.appendChild(card);
+  });
+  const btn = document.getElementById("levelup-ok");
+  btn.onclick = function () { ov.style.display = "none"; if (onClose) onClose(); };
+  ov.style.display = "flex";
+}
+
 let cashingOut = false;
 let debugBattle = false;
 function handleBattleEnd(msg) {
@@ -1890,7 +2024,7 @@ function handleBattleEnd(msg) {
   if (result === "victory") {
     let t = `This win: ${fmtReward(msg)}`;
     if (msg.multiplier > 1) t += ` (x${msg.multiplier} streak bonus)`;
-    rw.textContent = t + `\nCurrent reward: ${fmtReward(msg.pot)}`;
+    rw.textContent = msg.from_world ? t : t + `\nCurrent reward: ${fmtReward(msg.pot)}`;
     sub.textContent = msg.can_continue
       ? `HP/MP carry over. Next win pays x${msg.next_multiplier}. If you are defeated you lose the whole reward.` : "";
     hubBtn.textContent = msg.can_continue ? "Cash Out & Return to Colosseum" : returnLabel;
@@ -1950,6 +2084,7 @@ function handleBattleEnd(msg) {
   const tk = (o) => Object.entries(o || {}).filter(([, n]) => n > 0).map(([k, n]) => `+${n} ${k === "premium" ? "Premium" : "Common"} Ticket${n > 1 ? "s" : ""}`).join(", ");
   const won = tk(msg.tickets_won), potT = tk(msg.pot_tickets), lost = tk(msg.forfeited && msg.forfeited.tickets);
   if (result === "victory" && won && !msg.debug) rw.textContent += `\nTickets found: ${won}` + (msg.boss ? "" : ` (held in the pot: ${potT})`);
+  if (result === "victory" && msg.items_won && msg.items_won.length && !msg.debug) rw.textContent += `\nItems found: ${msg.items_won.map((x) => (x.n > 1 ? x.n + "x " : "") + x.name).join(", ")}`;
   if (msg.paid && msg.paid.tickets && tk(msg.paid.tickets)) rw.textContent += `\nTickets received: ${tk(msg.paid.tickets)}`;
   if (lost) rw.textContent += `\nTickets lost: ${lost}`;
   document.getElementById("btn-next").style.display = (msg.can_continue && !(L && L.perk_choices)) ? "" : "none";
@@ -1970,7 +2105,11 @@ function handleBattleEnd(msg) {
     else { hubBtn.textContent = { olympus: "Back to the Colosseum", asteroid: "Back to the Base", vault: "Back to the Base" }[new URLSearchParams(window.location.search).get("scene")] || "Back to the Village"; }
   }
   cashingOut = msg.can_continue;
-  overlay.style.display = "flex";
+  if (msg.paid && msg.paid.levelups && msg.paid.levelups.length && !msg.debug) {
+    showLevelUps(msg.paid.levelups, function () { overlay.style.display = "flex"; });
+  } else {
+    overlay.style.display = "flex";
+  }
 }
 
 // ---- Ladder Mode ----
@@ -2095,7 +2234,12 @@ async function dispatchMessage(msg) {
     case "battle_end": await returnDone; handleBattleEnd(msg); break;
     case "ladder_status": renderLadderHud(msg); break;
     case "perk_applied": handlePerkApplied(msg); break;
-    case "cashed_out": window.location.href = HUB_URL; break;
+    case "cashed_out": {
+      const lu = msg.paid && msg.paid.levelups;
+      if (lu && lu.length) showLevelUps(lu, function () { window.location.href = HUB_URL; });
+      else window.location.href = HUB_URL;
+      break;
+    }
   }
 }
 
@@ -2117,7 +2261,7 @@ document.getElementById("stage").style.backgroundImage = "url(/assets/Artwork/Ba
 
 requestAnimationFrame(animationLoop);
 if (window.B3D) B3D.init({
-  sprites, SPRITE_H, NAMED_POSE_CFG, ROW_DEPTH_X, ROW_SLOT_GAP_Y,
+  sprites, SPRITE_H, NAMED_POSE_CFG, ROW_DEPTH_X, ROW_SLOT_GAP_Y, staticBounds,
   // re-run the layout after switching 2D <-> 3D (the two use different coordinate spaces)
   relayout: () => { layoutAllSprites(); sprites.forEach((s) => s.setPosition(s.homeX, s.homeY)); },
 });

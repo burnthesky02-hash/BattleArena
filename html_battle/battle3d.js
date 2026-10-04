@@ -546,19 +546,27 @@ void main(){
       const s = it.s, g = it.g;
       const img = s.sheets[s.pose], tex = texFor(img);
       if (!tex) continue;
-      const q = quadFor(s, img);
-      const flipOpt = !!(s.bossCfg && s.bossCfg.native_left);
+      let q = null, rect, epsx = 0.5 / img.naturalWidth, epsy = 0.5 / img.naturalHeight;
+      if (s.staticCfg) {
+        // Single still image (see SpriteView.tick): draw only its visible bounds, feet on the ground.
+        const bb = C.staticBounds(img), kk = (C.SPRITE_H * s.hScale) / bb.h, iw = img.naturalWidth, ih = img.naturalHeight;
+        q = { w: bb.w * kk, h: bb.h * kk, ax: 0.5, ay: 0 };
+        rect = [bb.x / iw, bb.y / ih, bb.w / iw, bb.h / ih];
+      } else {
+        q = quadFor(s, img);
+        rect = [(s.frame % COLS) / COLS, Math.floor(s.frame / COLS) / ROWS, 1 / COLS, 1 / ROWS];
+      }
+      const flipOpt = !!((s.staticCfg || s.bossCfg) && (s.staticCfg || s.bossCfg).native_left);
       const flipped = (s.facingRight === flipOpt);        // same rule as the 2D mirror: sheets are drawn facing right
       const cl = s.anchor.classList;
       let tint = [1, 1, 1, 1];
       if (cl.contains("ko")) tint = [0.5, 0.5, 0.55, 0.5];
       else if (cl.contains("enraged")) { const e = 0.8 + 0.2 * Math.sin(now / 1000 * 7); tint = [1, e, e, 1]; }
       if ((cl.contains("hl") || (cl.contains("targetable") && s.anchor.matches(":hover"))) && !cl.contains("ko")) tint = [tint[0] * 1.25, tint[1] * 1.2, tint[2] * 1.0, tint[3]];
-      const col = s.frame % COLS, row = Math.floor(s.frame / COLS);
       drawQuad({
         tex, origin: [g.wx, 0, g.wz], right: cam.right, up: [0, 1, 0],
         w: q.w / PX, h: q.h / PX, ax: flipped ? 1 - q.ax : q.ax, ay: q.ay, flip: flipped,
-        rect: [col / COLS, row / ROWS, 1 / COLS, 1 / ROWS], epsx: 0.5 / img.naturalWidth, epsy: 0.5 / img.naturalHeight, tint,
+        rect, epsx, epsy, tint,
       });
     }
     return info;

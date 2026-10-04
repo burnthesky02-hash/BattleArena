@@ -93,6 +93,7 @@ import re
 import queue
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
@@ -152,7 +153,7 @@ from game.summon import summon_character_batch, summon_equipment_batch, summon_c
 from data.summon_pool import (COMMON_SUMMON_COST, COMMON_SUMMON_COST_X10, COMMON_SUMMON_WEIGHTS, TARGET_SHARE,
                               TICKET_LABEL, EQUIPMENT_RARITY_WEIGHTS, EQUIPMENT_SHARD_SUMMON_COST,
                               EQUIPMENT_SALVAGE_YIELD)
-from game.rewards import roll_ticket_drops, roll_equipment_shard_drops
+from game.rewards import roll_ticket_drops, roll_equipment_shard_drops, roll_item_drops
 
 try:
     import websockets
@@ -201,13 +202,38 @@ def enemy_scale_factors(num_heroes: int, num_enemies: int, wins: int):
     return max(0.05, hp), max(0.05, other), chain
 
 
-def apply_enemy_scaling(setup, wins: int = 0):
+# A slave's ordinary Colosseum bouts (Kael alone, no gear to speak of) were far too easy: enemies were weakened for being
+# "outnumbered" and a single hero chewed through them in 2-3 rounds. In those fights the size discount is dropped and
+# every enemy gets these extra per-stat factors. Retune by feel; boss fights use SLAVE_BOSS_MULT instead.
+SLAVE_FIGHT_MULT = {"max_hp": 1.5, "atk": 1.2, "mag": 1.2, "def_": 1.15, "res": 1.15}
+
+
+# Story heroes (Mythic) grow 30% faster AND carry a 1.35x rarity multiplier, so by about level 8 they were
+# out-scaling every wild monster (fights ended in 3 rounds at 85-90% HP). Wild/dungeon fights fought by a story
+# party get these extra per-level enemy ramps (value = added fraction per level above 1). Retune by feel.
+STORY_RAMP_HP = 0.045
+STORY_RAMP_OTHER = 0.025
+STORY_RAMP_CAP = 2.0
+
+
+def story_ramp(level: int):
+    """(hp_factor, other_factor) for an enemy of this level facing a story party."""
+    n = max(0, int(level) - 1)
+    return min(STORY_RAMP_CAP, 1 + STORY_RAMP_HP * n), min(STORY_RAMP_CAP, 1 + STORY_RAMP_OTHER * n)
+
+
+def apply_enemy_scaling(setup, wins: int = 0, slave: bool = False, story_level: int = 0):
     hp_m, other_m, chain = enemy_scale_factors(setup.num_heroes, setup.num_enemies, wins)
+    if slave:
+        hp_m, other_m = max(1.0, hp_m), max(1.0, other_m)
+    if story_level:
+        ramp_hp, ramp_other = story_ramp(story_level)
+        hp_m, other_m = hp_m * ramp_hp, other_m * ramp_other
     setup._enemy_scale = (hp_m, other_m, chain)
     for e in setup.enemies:
         st = e.base_stats
         for name in SCALED_ENEMY_STATS:
-            m = (hp_m if name == "max_hp" else other_m) * chain
+            m = (hp_m if name == "max_hp" else other_m) * chain * (SLAVE_FIGHT_MULT.get(name, 1.0) if slave else 1.0)
             setattr(st, name, max(1, round(getattr(st, name) * m)))
         e.hp = st.max_hp
     return setup
@@ -221,7 +247,7 @@ def build_scaled_battle(party, wins: int = 0, equipment_db=None, legacy_db=None)
         return _build_rank_boss_setup(BOSSES[boss_id], party, challenge=False, equipment_db=equipment_db, legacy_db=legacy_db)
     n = random.randint(MIN_ENEMIES, MAX_ENEMIES)
     setup = build_battle(party, equipment_db, DEMO_DIFFICULTY, n, legacy_db=legacy_db)
-    return apply_enemy_scaling(setup, wins)
+    return apply_enemy_scaling(setup, wins, slave=bool(story_slave))
 
 
 def _build_rank_boss_setup(bdef, party_pcs, challenge: bool, equipment_db=None, legacy_db=None):
@@ -231,19 +257,37 @@ def _build_rank_boss_setup(bdef, party_pcs, challenge: bool, equipment_db=None, 
     setup._rank_challenge = challenge
     return setup
 
-def _build_range_battle(party_pcs, lo: int, hi: int, pool, equipment_db=None, legacy_db=None):
+# Optional mini-bosses ("elite" fights in the 3D scenes): one monster, much sturdier and harder-hitting than a normal wild
+# fight. The scene's `battle` action passes `elite` (1.0 = standard; 0.5 / 1.5 scale how much of these factors apply).
+ELITE_MULT = {"max_hp": 2.6, "atk": 1.45, "mag": 1.45, "def_": 1.2, "res": 1.2}
+
+
+def apply_elite(setup, strength: float = 1.0):
+    for e in setup.enemies:
+        st = e.base_stats
+        for name, v in ELITE_MULT.items():
+            setattr(st, name, max(1, round(getattr(st, name) * (1 + (v - 1) * strength))))
+        e.hp = st.max_hp
+    return setup
+
+
+def _build_range_battle(party_pcs, lo: int, hi: int, pool, equipment_db=None, legacy_db=None, elite: float = 0):
     """A random dungeon fight: 1-3 monsters (never a boss or hero rival) at one level rolled from [lo, hi]."""
     equipment_db = EQUIPMENT if equipment_db is None else equipment_db
     ids = [i for i in (pool or []) if i in ENEMY_ARCHETYPES] or list(ENEMY_IDS)
     level = random.randint(lo, hi)
     n = min(len(ids), random.randint(1, max(1, min(3, len(party_pcs) + 1))))
+    if elite:
+        n = 1
     chosen = random.sample(ids, k=n)
     enemies = [build_enemy_combatant(i, level) for i in chosen]
     apply_squad_formations(enemies)
     setup = BattleSetup(difficulty="normal", enemy_level=level, enemy_ids=chosen,
                         party=[c.build_combatant(equipment_db, legacy_db) for c in party_pcs],
                         enemies=enemies, enemy_hero_recruits=[None] * len(enemies))
-    return apply_enemy_scaling(setup, 0)
+    story_lvl = round(party_average_level(party_pcs)) if any(getattr(pc, "is_story", False) for pc in party_pcs) else 0
+    apply_enemy_scaling(setup, 0, story_level=story_lvl)
+    return apply_elite(setup, elite) if elite else setup
 
 
 # ---- Story: the slave arc ("The Pit") -------------------------------------------------------
@@ -254,7 +298,14 @@ story_slave = False
 SLAVE_ALLY_COUNT = 3
 # Bosses are tuned for a full 4-hero party with gear. A slave has Kael plus three ungeared, uncontrolled helpers,
 # so a boss met in the Pit is weakened by these per-stat factors.
-SLAVE_BOSS_MULT = {"max_hp": 0.30, "atk": 0.60, "mag": 0.60, "def_": 0.80, "res": 0.80}
+SLAVE_BOSS_MULT = {"max_hp": 0.25, "atk": 0.50, "mag": 0.50, "def_": 0.75, "res": 0.75}
+# The 0.25 HP factor above was tuned back when a slave had three borrowed allies; Kael alone now tears through the
+# Unbroken Pair in ~4 rounds at 90% HP. Per-boss overrides (the champion's old numbers still play fine), plus a
+# per-level ramp because a mythic Kael out-grows the bosses' own flat growth.
+SLAVE_BOSS_MULT_BY = {"unbroken_pair_boss": {"max_hp": 0.50, "atk": 0.60, "mag": 0.60, "def_": 0.80, "res": 0.80}}
+SLAVE_BOSS_RAMP_FROM = 14      # Kael level where the per-level ramp starts
+SLAVE_BOSS_RAMP_HP = 0.015
+SLAVE_BOSS_RAMP_OTHER = 0.008
 
 
 def slave_hero(state):
@@ -762,10 +813,47 @@ def _serialize_menu_state() -> dict:
 # ----------------------------------------------------------------------
 # Serialization helpers -- Shop / Party Select
 # ----------------------------------------------------------------------
+_SHOP_STAT_KEYS = ("max_hp", "max_mp", "atk", "def_", "mag", "res", "spd", "luk")
+
+
+def _shop_hero_card(c: PlayerCharacter, edb) -> dict:
+    st = c.effective_stats(edb, player_state.legacy_instances)
+    worn = {}
+    for slot in SLOTS:
+        iid = c.equipped.get(slot)
+        it = edb.get(iid) if iid else None
+        worn[slot] = {"name": it.name, "bonus_text": it.bonus_text(), "rarity": it.rarity} if it else None
+    return {"id": c.id, "name": c.name, "class_name": c.archetype.name, "level": c.level,
+            "portrait": f"/assets/Portraits/{c.name}.webp", "rarity_color": _rarity_hex(c.rarity),
+            "is_story": c.is_story, "stats": {k: getattr(st, k) for k in _SHOP_STAT_KEYS}, "worn": worn}
+
+
+def _shop_fit(c: PlayerCharacter, item, edb) -> dict:
+    """What `item` (a catalog piece) would do for hero `c`: can they wear it, and each stat's change versus what
+    is in that slot now. Computed by swapping the slot in place and restoring it, so it uses the exact
+    same math as the real stats (growth, stars, rarity, other gear, legacy bonuses)."""
+    a = c.archetype
+    can = class_can_equip(item, a.weapon_types, a.offhand_types, a.armor_weight)
+    cur_id = c.equipped.get(item.slot)
+    cur = edb.get(cur_id) if cur_id else None
+    out = {"can": bool(can), "current": ({"name": cur.name, "bonus_text": cur.bonus_text()} if cur else None)}
+    if can:
+        before = c.effective_stats(edb, player_state.legacy_instances)
+        c.equipped[item.slot] = item.id
+        try:
+            after = c.effective_stats(edb, player_state.legacy_instances)
+        finally:
+            c.equipped[item.slot] = cur_id
+        out["delta"] = {k: getattr(after, k) - getattr(before, k) for k in _SHOP_STAT_KEYS if getattr(after, k) != getattr(before, k)}
+    return out
+
+
 def _serialize_shop_state() -> dict:
     items = [
         {"id": it.id, "name": it.name, "description": it.description, "cost": it.cost,
-         "owned": player_state.inventory.get(it.id, 0)}
+         "owned": player_state.inventory.get(it.id, 0),
+         "heal_hp": getattr(it, "heal_hp", 0), "heal_mp": getattr(it, "heal_mp", 0),
+         "revive": bool(getattr(it, "revive", False))}
         for it in ITEMS.values() if it.cost > 0
     ]
     # "owned" = how many un-rolled (shop-bought/debug) instances of this base item are sitting in the
@@ -775,14 +863,22 @@ def _serialize_shop_state() -> dict:
         inst = player_state.equipment_instances.get(iid)
         if inst:
             owned_counts[inst.base_id] = owned_counts.get(inst.base_id, 0) + 1
-    equipment = [
-        {"id": e.id, "name": e.name, "slot": e.slot, "subtype": e.subtype, "rarity": e.rarity, "cost": e.cost,
-         "bonus_text": e.bonus_text(), "description": e.description,
-         "owned": owned_counts.get(e.id, 0)}
-        for e in EQUIPMENT.values() if e.cost > 0
-    ]
+    edb = _resolved_equipment_db()
+    colo = party_logic.active_party_characters(player_state)
+    story = party_logic.story_party_characters(player_state)
+    heroes_by_id = {c.id: c for c in colo + story}
+    equipment = []
+    for e in EQUIPMENT.values():
+        if e.cost <= 0:
+            continue
+        equipment.append({"id": e.id, "name": e.name, "slot": e.slot, "subtype": e.subtype, "rarity": e.rarity,
+                          "cost": e.cost, "bonus_text": e.bonus_text(), "description": e.description,
+                          "bonuses": dict(e.stat_bonuses), "owned": owned_counts.get(e.id, 0),
+                          "fits": {cid: _shop_fit(c, e, edb) for cid, c in heroes_by_id.items()}})
     return {"money": player_state.money, "items": items, "equipment": equipment, "slots": list(SLOTS),
-            "equipment_shards": player_state.equipment_shards}
+            "equipment_shards": player_state.equipment_shards,
+            "party_colosseum": [_shop_hero_card(c, edb) for c in colo],
+            "party_story": [_shop_hero_card(c, edb) for c in story]}
 
 
 def _serialize_party_hero(c: PlayerCharacter, equipment_db) -> dict:
@@ -891,12 +987,40 @@ def _serialize_battle_state(engine: BattleEngine) -> dict:
                    "level": getattr(engine, "_levels", {}).get(c.name)} for c in engine.party],
         "enemies": [{**_serialize_combatant(c),
                      "level": getattr(engine, "_enemy_levels", {}).get(c.id, getattr(engine, "_enemy_level", None)),
-                     "boss_sprite": getattr(engine, "_boss_sprites", {}).get(c.id)}
+                     "boss_sprite": getattr(engine, "_boss_sprites", {}).get(c.id),
+                     "static_sprite": None if c.id in getattr(engine, "_boss_sprites", {}) else _static_enemy_sprite(_sprite_name_for(c.name))}
                     for c in engine.enemies],
         "debug": bool(config.DEBUG),
         "damage": dict(getattr(engine, "_damage", {})),  # combatant id -> total damage dealt this fight (debug graphs)
         "result": engine.result.value,
     }
+
+
+# Static (single-image) art for regular enemies: data/Battlers/Enemies/<Name-With-Dashes>.png, matched
+# case-insensitively against the combatant name. Scale is x SPRITE_H of the image's visible bounds, so
+# small things (imps, leeches) read small and hulks read big; unlisted enemies use 1.0.
+_STATIC_ENEMY_SCALE = {
+    "iron golem": 1.2, "forge juggernaut": 1.3, "null reaper": 1.2, "abyssal horror": 1.25, "stone gargoyle": 1.1,
+    "flame imp": 0.8, "rift leech": 0.8, "arc drone": 0.85, "venom spider": 0.7, "phase hound": 0.8,
+    "goblin skirmisher": 0.85, "storm harpy": 0.95, "frost mirage": 1.0, "lattice medic": 1.0,
+}
+_STATIC_ENEMY_FLIP = set()   # names whose art faces left (enemies stand on the left and face right)
+_static_enemy_index: Optional[dict] = None
+
+
+def _static_enemy_sprite(name: str) -> Optional[dict]:
+    """Sprite payload for an enemy with a static image under data/Battlers/Enemies, else None."""
+    global _static_enemy_index
+    if _static_enemy_index is None:
+        d = BATTLERS_DIR / "Enemies"
+        _static_enemy_index = {p.stem.lower().replace("_", "-"): p.name for p in d.glob("*.png")} if d.is_dir() else {}
+    key = name.lower().replace(" ", "-")
+    fn = _static_enemy_index.get(key)
+    if not fn:
+        return None
+    low = name.lower()
+    return {"url": "/assets/Battlers/Enemies/" + fn, "scale": _STATIC_ENEMY_SCALE.get(low, 1.0),
+            "native_left": low in _STATIC_ENEMY_FLIP, "idle_only": True, "static": True, "plain": True}
 
 
 def _boss_sprite_payloads(bdef, enemies) -> dict:
@@ -907,7 +1031,7 @@ def _boss_sprite_payloads(bdef, enemies) -> dict:
         if "poses" in sp:
             out["poses"] = {name: {**cfg, "url": "/assets/" + cfg["file"]} for name, cfg in sp["poses"].items()}
         else:
-            out.update({"url": "/assets/" + sp["file"], "idle_only": sp.get("idle_only", False)})
+            out.update({"url": "/assets/" + sp["file"], "idle_only": sp.get("idle_only", False), "static": bool(sp.get("static"))})
         return out
     if bdef.members:
         return {c.id: payload(m.sprite) for c, m in zip(enemies, bdef.members)}
@@ -981,6 +1105,9 @@ def _action_from_message(actor_id: str, msg: dict) -> Action:
     if kind == "flee":
         return Action.flee(actor_id)
     return Action.defend(actor_id)  # unrecognized/missing -- safe default, never crashes the battle
+
+
+_fish = {"tokens": 6.0, "t": 0.0}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1062,6 +1189,12 @@ class Handler(BaseHTTPRequestHandler):
             return
         if route_path in ("/heroes", "/heroes/", "/heroes/index.html"):
             self._send_html_file(HTML_DIR, "heroes.html")
+            return
+        if route_path in ("/summon", "/summon/", "/summon/index.html") and story_slave:
+            self._send_bytes(200, ("<!doctype html><meta charset=utf-8><body style='background:#0b0a10;color:#ddd;font:20px sans-serif;text-align:center;padding-top:20vh'>"
+                                   "<p>No one answers the summoning stones. A slave has no one to call.</p>"
+                                   "<p>That will come later.</p>"
+                                   "<p><button style='font-size:20px' onclick='history.back()'>Back</button></p>").encode("utf-8"), "text/html; charset=utf-8")
             return
         if route_path in ("/summon", "/summon/", "/summon/index.html"):
             self._send_html_file(HTML_DIR, "summon.html")
@@ -1258,6 +1391,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_buy(shop_logic.buy_item, ITEMS, "item_id")
         elif self.path == "/api/shop/buy_equipment":
             self._handle_buy(shop_logic.buy_equipment, EQUIPMENT, "equipment_id")
+        elif self.path == "/api/shop/buy_equip":
+            self._handle_buy_equip()
         elif self.path == "/api/party/confirm":
             self._handle_party_confirm()
         elif self.path == "/api/ladder/start":
@@ -1280,6 +1415,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_story_chest()
         elif self.path == "/api/story/pass_time":
             self._handle_pass_time()
+        elif self.path == "/api/story/game":
+            self._handle_story_game()
         elif self.path == "/api/story/slave":
             story_slave = bool(self._read_json_body().get("slave"))
             self._send_json(200, {"ok": True, "slave": story_slave})
@@ -1428,6 +1565,16 @@ class Handler(BaseHTTPRequestHandler):
                 save_system.save_game(player_state)
             self._send_json(200, {"ok": ok, "message": message, **_serialize_shop_state()})
 
+    def _handle_buy_equip(self) -> None:
+        """Shop > Buy & Equip: one purchase that goes straight onto the chosen hero (nothing is spent if they can't wear it)."""
+        msg = self._read_json_body()
+        with _state_lock:
+            ok, message = shop_logic.buy_and_equip(player_state, msg.get("equipment_id"), msg.get("character_id"),
+                                                   EQUIPMENT, _resolved_equipment_db)
+            if ok:
+                save_system.save_game(player_state)
+            self._send_json(200, {"ok": ok, "message": message, **_serialize_shop_state()})
+
     def _handle_ladder_start(self) -> None:
         global pending_ladder, pending_challenge, debug_battle
         with _state_lock:
@@ -1435,7 +1582,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, {"ok": False, "message": "You are too wounded to fight. Rest on your cot to pass time."})
                 return
             pending_ladder, pending_challenge, debug_battle = True, None, None
-            self._send_json(200, {"ok": True, "url": "/party"})
+            self._send_json(200, {"ok": True, "url": "/battle" if story_slave else "/party"})     # a slave fights alone: no party select
 
     def _handle_boss_challenge(self) -> None:
         """Hub's boss card: starts the challenge flow (party select, then the fight) if the renown is there."""
@@ -1451,7 +1598,7 @@ class Handler(BaseHTTPRequestHandler):
             pending_challenge = boss_id
             pending_ladder = False
             debug_battle = None
-            self._send_json(200, {"ok": True, "boss": BOSSES[boss_id].name, "url": "/party"})
+            self._send_json(200, {"ok": True, "boss": BOSSES[boss_id].name, "url": "/battle" if story_slave else "/party"})
 
     def _handle_party_confirm(self) -> None:
         msg = self._read_json_body()
@@ -1464,6 +1611,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": ok, "message": message})
 
     def _handle_summon_character(self) -> None:
+        if story_slave:
+            self._send_json(200, {"ok": False, "message": "A slave has no one to summon.", "gems": player_state.gems, "results": []})
+            return
         msg = self._read_json_body()
         count = msg.get("count", 1)
         pay = "ticket" if msg.get("pay") == "ticket" else "currency"
@@ -1484,6 +1634,9 @@ class Handler(BaseHTTPRequestHandler):
                                    "results": _serialize_character_results(results) if ok else []})
 
     def _handle_summon_equipment(self) -> None:
+        if story_slave:
+            self._send_json(200, {"ok": False, "message": "A slave has no one to summon.", "gems": player_state.gems, "results": []})
+            return
         msg = self._read_json_body()
         count = msg.get("count", 1)
         if count not in (1, SUMMON_X10_COUNT):
@@ -1638,7 +1791,8 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_story_chest(self) -> None:
         """A treasure chest in a 3D scene (Shard Vault). Body: {loot: {gold, gems, shards, tickets:{common|premium:n}, items:{id:n}, equipment:[ids]}}.
         Reuses the debug grants (game/debug_tools.py) so every id is validated; amounts are clamped. Opened-chest state is a story flag kept in the browser."""
-        loot = self._read_json_body().get("loot") or {}
+        body = self._read_json_body()
+        loot = body.get("loot") or {}
 
         def _n(v, hi):
             try:
@@ -1662,8 +1816,71 @@ class Handler(BaseHTTPRequestHandler):
                 grant({"action": "add_equipment", "id": eid, "count": 1})
             if found:
                 save_system.save_game(player_state)
-        msg = ("You open the chest and find: " + ", ".join(found) + ".") if found else "The chest is empty."
+        lead = str(body.get("text") or "")[:90] or "You open the chest and find"
+        msg = (lead + ": " + ", ".join(found) + ".") if found else "The chest is empty."
         self._send_json(200, {"ok": bool(found), "message": msg})
+
+    def _handle_story_game(self) -> None:
+        """Little activities in the 3D scenes. Body {game: "fish"} (free, random catch) or {game: "dice", stake: 100}
+        (a wager against the house: win doubles the stake, a tie refunds it, a loss forfeits it)."""
+        body = self._read_json_body()
+        game = body.get("game")
+        if game == "fish":
+            roll = random.random()
+            with _state_lock:
+                # a token bucket so a fishing spot is a pleasant break, not an income machine: 6 casts, one more every 45 s
+                now = time.time()
+                _fish["tokens"] = min(6.0, _fish["tokens"] + (now - _fish["t"]) / 45.0); _fish["t"] = now
+                if _fish["tokens"] < 1:
+                    self._send_json(200, {"ok": False, "message": "The fish have stopped biting for now. Give the water a minute."})
+                    return
+                _fish["tokens"] -= 1
+                if roll < 0.30:
+                    msg = random.choice(["You wait. The float never moves.", "Just weeds on the hook.", "Something big tugs and slips away."])
+                elif roll < 0.62:
+                    gold = random.randint(15, 50)
+                    player_state.money += gold
+                    msg = f"You land a fat silver fish and sell it on the pier for {gold} gold."
+                elif roll < 0.77:
+                    player_state.inventory["potion"] = player_state.inventory.get("potion", 0) + 1
+                    msg = "You hook a waterlogged satchel. Inside: a Potion."
+                elif roll < 0.89:
+                    player_state.inventory["antidote"] = player_state.inventory.get("antidote", 0) + 1
+                    msg = "You reel in a corked bottle holding an Antidote."
+                elif roll < 0.97:
+                    player_state.inventory["potion"] = player_state.inventory.get("potion", 0) + 2
+                    msg = "A sunken supply pouch! Two Potions, still sealed."
+                else:
+                    player_state.gems += 2
+                    msg = "Your hook snags a sunken pouch. 2 gems!"
+                save_system.save_game(player_state)
+            self._send_json(200, {"ok": True, "message": msg})
+            return
+        if game == "dice":
+            try:
+                stake = int(body.get("stake") or 0)
+            except (TypeError, ValueError):
+                stake = 0
+            stake = stake if stake in (50, 100, 250, 400, 1000) else 100
+            with _state_lock:
+                if player_state.money < stake:
+                    self._send_json(200, {"ok": False, "message": f"You can't cover a {stake} gold stake."})
+                    return
+                you, house = random.randint(1, 6) + random.randint(1, 6), random.randint(1, 6) + random.randint(1, 6)
+                if random.random() < 0.06:                      # a touch of house edge: a few close rolls go to the house
+                    house = max(house, you)
+                if you > house:
+                    player_state.money += stake
+                    msg = f"You roll {you}, the house rolls {house}. You win {stake} gold!"
+                elif you == house:
+                    msg = f"You both roll {you}. A push, and your stake is returned."
+                else:
+                    player_state.money -= stake
+                    msg = f"You roll {you}, the house rolls {house}. You lose {stake} gold."
+                save_system.save_game(player_state)
+            self._send_json(200, {"ok": True, "message": msg})
+            return
+        self._send_json(400, {"ok": False, "message": "Unknown game."})
 
     def _handle_pass_time(self) -> None:
         """The Pit's cot: sleeping lets time pass. Each rest counts as one finished run for every wounded hero
@@ -1720,13 +1937,18 @@ class Handler(BaseHTTPRequestHandler):
                 pending_world_encounter = True
                 lo = _int(msg.get("level_min")); hi = _int(msg.get("level_max"))
                 pool = [p for p in (msg.get("pool") or []) if isinstance(p, str)]
+                try:
+                    elite = max(0.0, min(3.0, float(msg.get("elite") or 0)))
+                except (TypeError, ValueError):
+                    elite = 0.0
                 rel = msg.get("level_rel")
                 if lo or hi:                           # a random fight at a set level range (dungeon encounters)
                     lo = max(1, min(MAX_LEVEL, lo or hi)); hi = max(lo, min(MAX_LEVEL, hi or lo))
                     pending_world_level = {"min": lo, "max": hi, "pool": pool}
+                    pending_world_level["elite"] = elite
                 elif isinstance(rel, (list, tuple)) and len(rel) == 2 and all(isinstance(v, (int, float)) for v in rel):
                     # a fight relative to the party: the average party level plus [lo, hi] (story ambushes that should scale)
-                    pending_world_level = {"rel": [int(rel[0]), int(rel[1])], "pool": pool}
+                    pending_world_level = {"rel": [int(rel[0]), int(rel[1])], "pool": pool, "elite": elite}
         self._send_json(200, {"ok": True, "boss": bool(boss_id in WORLD_BOSSES)})
 
     def _handle_world_interact(self) -> None:
@@ -2115,11 +2337,11 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
             setup = _build_boss_setup(challenge_boss, party, world_level["boss_level"], equipment_db=edb, legacy_db=ldb)
             setup._rank_challenge = False                  # a set-level dungeon boss
         elif from_world and not challenge_boss and world_level and world_level.get("min"):
-            setup = _build_range_battle(party, world_level["min"], world_level["max"], world_level.get("pool"), edb, ldb)
+            setup = _build_range_battle(party, world_level["min"], world_level["max"], world_level.get("pool"), edb, ldb, world_level.get("elite") or 0)
         elif from_world and not challenge_boss and world_level and world_level.get("rel"):
             avg = round(sum(getattr(pc, "level", 1) for pc in party) / max(1, len(party)))
             lo = max(1, min(MAX_LEVEL, avg + world_level["rel"][0])); hi = max(lo, min(MAX_LEVEL, avg + world_level["rel"][1]))
-            setup = _build_range_battle(party, lo, hi, world_level.get("pool"), edb, ldb)
+            setup = _build_range_battle(party, lo, hi, world_level.get("pool"), edb, ldb, world_level.get("elite") or 0)
         else:
             setup = (_build_rank_boss_setup(challenge_boss, party, challenge=is_rank_challenge, equipment_db=edb, legacy_db=ldb) if challenge_boss
                      else build_scaled_battle(party, equipment_db=edb, legacy_db=ldb))
@@ -2195,6 +2417,39 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
     pot_tickets = {"common": 0, "premium": 0}     # summon tickets ride in the pot too
     pot_rivals = []
 
+    _STAT_KEYS = ("max_hp", "max_mp", "atk", "def_", "mag", "res", "spd", "luk")
+
+    def _snap_party() -> dict:
+        """level + effective stats of every party hero (call under _state_lock) -- for the level-up screen"""
+        edb_, ldb_ = _resolved_equipment_db(), player_state.legacy_instances
+        out = {}
+        for c in party:
+            try:
+                st = c.effective_stats(edb_, ldb_)
+                out[c.name] = (c.level, {k: int(getattr(st, k, 0) or 0) for k in _STAT_KEYS}, c.talent_points_earned())
+            except Exception:
+                out[c.name] = (c.level, {}, 0)
+        return out
+
+    def _grant_party_xp(amount: int):
+        """grant XP to the whole party; returns (level_ups {name: levels}, levelups [detail for the level-up screen])"""
+        before = _snap_party()
+        level_ups = {}
+        for character in party:
+            gained = character.grant_xp(amount)
+            if gained:
+                level_ups[character.name] = gained
+        details = []
+        if level_ups:
+            after = _snap_party()
+            for c in party:
+                if c.name not in level_ups: continue
+                l0, s0, t0 = before[c.name]; l1, s1, t1 = after[c.name]
+                details.append({"name": c.name, "class": c.class_id, "portrait": f"/assets/Portraits/{c.name}.webp",
+                                "from": l0, "to": l1, "stats": {"before": s0, "after": s1},
+                                "talent_points_gained": max(0, t1 - t0)})
+        return level_ups, details
+
     def cash_out() -> dict:
         if dbg:
             return {"money": 0, "gems": 0, "xp": 0, "level_ups": {}}
@@ -2206,14 +2461,11 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
             paid_tickets = {k: v for k, v in pot_tickets.items() if v}
             for k in pot_tickets:
                 pot_tickets[k] = 0
-            level_ups = {}
+            level_ups, levelups = {}, []
             if pot["xp"]:
-                for character in party:
-                    gained = character.grant_xp(pot["xp"])
-                    if gained:
-                        level_ups[character.name] = gained
+                level_ups, levelups = _grant_party_xp(pot["xp"])
             save_system.save_game(player_state)
-            paid = dict(pot, level_ups=level_ups, tickets=paid_tickets)
+            paid = dict(pot, level_ups=level_ups, levelups=levelups, tickets=paid_tickets)
             for k in pot:
                 pot[k] = 0
             pot_rivals.clear()
@@ -2277,18 +2529,15 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
         if slave_fight and getattr(setup, "_boss_def", None):
             if not getattr(setup, "_slave_scaled", False):
                 setup._slave_scaled = True
+                mults = SLAVE_BOSS_MULT_BY.get(getattr(setup._boss_def, "id", None), SLAVE_BOSS_MULT)
+                over = max(0, round(party_average_level(party)) - SLAVE_BOSS_RAMP_FROM)
                 for e in setup.enemies:
                     st = e.base_stats
                     for name in SCALED_ENEMY_STATS:
-                        setattr(st, name, max(1, round(getattr(st, name) * SLAVE_BOSS_MULT.get(name, 1.0))))
+                        ramp = 1 + (SLAVE_BOSS_RAMP_HP if name == "max_hp" else SLAVE_BOSS_RAMP_OTHER) * over
+                        setattr(st, name, max(1, round(getattr(st, name) * mults.get(name, 1.0) * ramp)))
                     e.hp = st.max_hp
-            with _state_lock:
-                ally_level = round(sum(getattr(pc, "level", 1) for pc in party) / max(1, len(party)))
-                borrowed = build_slave_allies(ally_level, edb, ldb, {pc.name for pc in party})
-            for c, _h in borrowed:
-                heroes.append(c); auto_ids.add(c.id)
-            outbound.put({"type": "log", "message": "Three fighters are thrown into the pit beside you -- you can't command them: "
-                          + ", ".join(c.name for c, _h in borrowed) + "."})
+            outbound.put({"type": "log", "message": "A slave fights alone."})
         elif slave_fight:
             outbound.put({"type": "log", "message": "A slave fights alone."})
         roles = {ch.name: ch.class_id for ch in party}
@@ -2410,29 +2659,30 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
         paid = None
         first_clear = False
         this_tickets = {}
+        items_won = []     # [{id, name, n}] consumables dropped by a won random (from_world) fight
         if bdef:
             # Boss fights: no win-streak pot. First clear pays big (tracked in the save), rematches pay less.
             if result == BattleResult.VICTORY:
                 with _state_lock:
                     first_clear = bdef.id not in player_state.cleared_bosses
                 this_win = dict(bdef.rewards_first if first_clear else bdef.rewards_repeat)
-                this_tickets = roll_ticket_drops(boss_first_clear=first_clear)
-                this_shards = roll_equipment_shard_drops(boss_first_clear=first_clear)
+                if from_world:      # outside the Colosseum: no summon tickets / equipment shards
+                    this_tickets, this_shards = {}, 0
+                else:
+                    this_tickets = roll_ticket_drops(boss_first_clear=first_clear)
+                    this_shards = roll_equipment_shard_drops(boss_first_clear=first_clear)
                 if pay_boss_rewards:
                     with _state_lock:
                         player_state.add_rewards(this_win.get("money", 0), this_win.get("gems", 0))
                         player_state.add_tickets(this_tickets)
                         player_state.add_equipment_shards(this_shards)
-                        level_ups = {}
+                        level_ups, levelups = {}, []
                         if not dbg and this_win.get("xp"):   # debug parties aren't owned heroes
-                            for character in party:
-                                gained = character.grant_xp(this_win["xp"])
-                                if gained:
-                                    level_ups[character.name] = gained
+                            level_ups, levelups = _grant_party_xp(this_win["xp"])
                         if bdef.id not in player_state.cleared_bosses:
                             player_state.cleared_bosses.append(bdef.id)
                         save_system.save_game(player_state)
-                    paid = dict(this_win, level_ups=level_ups, tickets=dict(this_tickets), equipment_shards=this_shards)
+                    paid = dict(this_win, level_ups=level_ups, levelups=levelups, tickets=dict(this_tickets), equipment_shards=this_shards)
         elif result == BattleResult.VICTORY:
             wins += 1
             multiplier = 2 ** (wins - 1)
@@ -2446,7 +2696,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
                 this_win["xp"] = story_fight_xp(getattr(setup, "enemy_level", 1) or 1)     # the story heroes' longer level curve
             for k in pot:
                 pot[k] += this_win[k]
-            this_tickets = roll_ticket_drops(ladder=ladder is not None)
+            this_tickets = {} if from_world else roll_ticket_drops(ladder=ladder is not None)
             for k, n in this_tickets.items():
                 pot_tickets[k] += n
             # Equipment shards: awarded immediately on every win, the same simple way money/gems from
@@ -2455,14 +2705,26 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
             # for shards to "sometimes drop" -- it didn't ask for them to be at risk on a ladder flee/
             # loss the way pot money and pot tickets are), so a shard drop is kept even on a later
             # forfeit or defeat in this same ladder run.
-            this_shards = roll_equipment_shard_drops(ladder=ladder is not None)
+            this_shards = 0 if from_world else roll_equipment_shard_drops(ladder=ladder is not None)
             if this_shards:
                 with _state_lock:
                     player_state.add_equipment_shards(this_shards)
-            pot_rivals.extend(
-                (recruit, enemy) for recruit, enemy in zip(setup.enemy_hero_recruits, setup.enemies)
-                if recruit is not None
-            )
+            if not from_world:      # hero-rival shards are a Colosseum reward
+                pot_rivals.extend(
+                    (recruit, enemy) for recruit, enemy in zip(setup.enemy_hero_recruits, setup.enemies)
+                    if recruit is not None
+                )
+            else:
+                # a wild / dungeon win ends the session right here (can_continue is off), so pay the pot now
+                paid = cash_out()
+            if from_world and not dbg:
+                drops = roll_item_drops(getattr(setup, "enemy_level", 1) or 1)
+                if drops:
+                    with _state_lock:
+                        for iid, n in drops.items():
+                            player_state.inventory[iid] = player_state.inventory.get(iid, 0) + n
+                        save_system.save_game(player_state)
+                    items_won = [{"id": iid, "name": ITEMS[iid].name if iid in ITEMS else iid, "n": n} for iid, n in drops.items()]
         elif result == BattleResult.FLED and ladder is not None:
             # Ladder Mode: you can't slip away with the loot -- only a scheduled cash-out pays out.
             forfeited = dict(pot, tickets={k: v for k, v in pot_tickets.items() if v})
@@ -2484,7 +2746,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
 
         # Renown: every real (non-debug) fight moves the ladder meter; a won rank challenge promotes you.
         renown_info = None
-        if not dbg:
+        if not dbg and not from_world:       # renown is a Colosseum thing: wild / dungeon / island fights don't touch it
             chain = getattr(setup, "_enemy_scale", (1.0, 1.0, 1.0))[2]
             fight_mult = reward_multiplier(DEMO_DIFFICULTY, setup.num_heroes, setup.num_enemies) * chain
             with _state_lock:
@@ -2517,7 +2779,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
         outbound.put({"type": "battle_end", "result": result.value,
                       "money": this_win["money"], "gems": this_win["gems"], "xp": this_win["xp"],
                       "pot": dict(pot), "win_streak": wins,
-                      "tickets_won": this_tickets, "pot_tickets": {k: v for k, v in pot_tickets.items() if v},
+                      "tickets_won": this_tickets, "items_won": items_won, "pot_tickets": {k: v for k, v in pot_tickets.items() if v},
                       "multiplier": multiplier,
                       "next_multiplier": (round(ladder.reward_multiplier(2 ** wins), 2) if ladder is not None else 2 ** wins),
                       "can_continue": can_continue, "from_world": bool(getattr(setup, "_from_world", False)),

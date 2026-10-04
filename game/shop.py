@@ -105,6 +105,42 @@ def equip_from_stash(player_state: PlayerState, character_id: str, instance_id: 
     return True, f"Equipped {item.name} on {character.name}."
 
 
+def buy_and_equip(player_state: PlayerState, equipment_id: str, character_id: str,
+                  catalog_db: Dict[str, Equipment], resolve_db) -> Tuple[bool, str]:
+    """Shop's "Buy & Equip": buys one catalog item and puts it straight on `character_id`. Everything that
+    could refuse (unknown item/character, summon-only, too poor, class can't wear it) is checked BEFORE any
+    money moves, so a refusal never costs anything. `resolve_db` is a zero-arg callable returning a fresh
+    resolved equipment db (the new instance only exists in it after the purchase). Whatever the hero was
+    wearing in that slot goes back to the stash, same as equip_from_stash."""
+    item = catalog_db.get(equipment_id)
+    if item is None:
+        return False, "That equipment doesn't exist."
+    character = _find_character(player_state, character_id)
+    if character is None:
+        return False, "Unknown character."
+    if item.cost > 0:
+        archetype = character.archetype
+        if not class_can_equip(item, archetype.weapon_types, archetype.offhand_types, archetype.armor_weight):
+            return False, f"{character.name} ({archetype.name}) can't equip {item.name}."
+    old_id = character.equipped.get(item.slot)
+    stash_before = set(player_state.equipment_stash)
+    ok, msg = buy_equipment(player_state, equipment_id, catalog_db)
+    if not ok:
+        return False, msg
+    new_ids = [i for i in player_state.equipment_stash if i not in stash_before]
+    if not new_ids:
+        return True, msg + " (it is in your stash)"
+    edb = resolve_db()
+    old_name = edb[old_id].name if old_id and old_id in edb else None
+    ok2, msg2 = equip_from_stash(player_state, character_id, new_ids[0], edb)
+    if not ok2:
+        return True, f"{msg} It is in your stash ({msg2})"
+    text = f"Bought {item.name} for {item.cost} money and equipped it on {character.name}."
+    if old_name:
+        text += f" {old_name} went to the stash."
+    return True, text
+
+
 def salvage_equipment(player_state: PlayerState, instance_id: str,
                        equipment_db: Dict[str, Equipment]) -> Tuple[bool, str]:
     """Breaks down one unequipped stash instance into equipment shards (data/summon_pool.py's

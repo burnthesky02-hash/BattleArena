@@ -29,7 +29,11 @@ effective_stats applies them with plain getattr/setattr.
 from engine.equipment import Equipment
 
 
+SHOP_PRICE_MULT = 9        # shop prices were too cheap: every shop-buyable item's listed cost is multiplied by this (cost 0 = summon-only stays 0)
+
+
 def _e(id, name, slot, subtype, rarity, cost, bonuses, desc):
+    cost = cost * SHOP_PRICE_MULT if cost > 0 else cost
     return Equipment(id=id, name=name, slot=slot, subtype=subtype, rarity=rarity, cost=cost,
                      stat_bonuses=bonuses, description=desc)
 

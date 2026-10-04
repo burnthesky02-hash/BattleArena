@@ -2328,5 +2328,8 @@
    "type": "dust",
    "amount": 0.25
   }
- ]
+ ],
+ "music": {
+  "url": "/assets/Music/mp3/21. Malicious Scheme.mp3"
+ }
 }

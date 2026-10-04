@@ -1,0 +1,34 @@
+{
+ "forest": {
+  "briarmaw": "Bosses/Briarmaw/Briarmaw.png",
+  "gob1": "Battlers/Enemies/Goblin-Skirmisher.png",
+  "gob2": "Battlers/Enemies/Goblin-Skirmisher.png",
+  "spider": "Battlers/Enemies/Venom-Spider.png"
+ },
+ "dungeon": {
+  "dg_boss": "Bosses/DrownedSovereign/Drowned_Sovereign.png",
+  "dg_g1": "Battlers/Enemies/Stone-Gargoyle.png",
+  "dg_g2": "Battlers/Enemies/Venom-Spider.png",
+  "dg_g3": "Battlers/Enemies/Dark-Cultist.png"
+ },
+ "vault": {
+  "vt_g1": "Bosses/VaultSentinel/Vault-Sentinel.png",
+  "vt_g2": "Bosses/PhaseStalker/Phase-Stalker.png",
+  "vt_g3": "Bosses/RiftColossus/Rift-Colossus.png",
+  "vt_boss": "Bosses/VaultWarden/Vault-Warden.png"
+ },
+ "island": {
+  "raid1": "Battlers/Enemies/Bandit-Rogue.png",
+  "raid2": "Battlers/Enemies/Bandit-Rogue.png",
+  "raid3": "Battlers/Enemies/Dark-Cultist.png"
+ },
+ "olympus": {
+  "st_b1": "Battlers/Enemies/Bandit-Rogue.png",
+  "st_b2": "Battlers/Enemies/Bandit-Rogue.png",
+  "st_b3": "Battlers/Enemies/Dark-Cultist.png"
+ },
+ "reach": {
+  "rc_g1": "Battlers/Enemies/Forge-Juggernaut.png",
+  "rc_boss": "Battlers/Enemies/Null-Reaper.png"
+ }
+}

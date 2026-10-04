@@ -6,7 +6,9 @@ import numpy as np
 from PIL import Image
 from glbkit import write_glb, encode, normals, fnoise, vnoise3
 from islandshape import q_of, CX, CZ, RX, RZ, FLAT
+import islandheight as IH
 OUT = sys.argv[1] if len(sys.argv) > 1 else '.'
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.makedirs(OUT, exist_ok=True)
 
 def vn2(X, Z, s, seed):
@@ -16,25 +18,37 @@ def height(X, Z):
     q = q_of(X, Z); return np.where(q < FLAT, 0.0, np.where(q < 1.0, -(q - FLAT) / (1 - FLAT) * 1.4, -1.4 - (q - 1.0) * 30))
 
 def colour(X, Z):
+    from villagemap import dist_to_paths, PLAZA, FARM, TERRACE, HW
     q = q_of(X, Z); n1 = vn2(X, Z, 5.0, 5)[..., None]; n2 = vn2(X, Z, 1.4, 9)[..., None]; n3 = vn2(X, Z, 14.0, 12)[..., None]
-    dry = np.array([0.72, 0.62, 0.42]); grass = np.array([0.34, 0.54, 0.20]); lush = np.array([0.22, 0.42, 0.16]); sand = np.array([0.80, 0.70, 0.48])
-    wet = np.array([0.60, 0.53, 0.37]); stone = np.array([0.60, 0.57, 0.50]); rock = np.array([0.42, 0.40, 0.37]); path = np.array([0.66, 0.56, 0.40])
-    g = grass * (0.8 + 0.4 * n1)
-    base = dry * (1 - n1 * .55) + g * (n1 * .55)                                   # patchy lawn on sandy ground
-    forest = np.clip((np.abs(X) - 26) / 10, 0, 1) * np.clip((q_of(X, Z) < .86) * 1.0, 0, 1)
-    forest = np.maximum(forest, np.clip((-(Z + 30)) / 14, 0, 1) * 0.8)              # jungle toward the east, west and north
-    base = base * (1 - forest[..., None] * .75) + lush * (0.75 + 0.5 * n3) * (forest[..., None] * .75)
-    r0 = np.hypot(X, Z + 1.0); base = np.where((r0 < 12)[..., None], dry * (0.95 + 0.1 * n2), base)      # swept plaza
-    sx = 2.0 * np.sin(Z / 9.0); road = (np.abs(X - sx) < 2.3) & (Z < 12) & (Z > -46)                    # ancient road north to the cave
-    base = np.where(road[..., None], path * (0.92 + 0.16 * n2), base)
-    road2 = (np.abs(X) < 3.0) & (Z >= 10) & (Z < 24); base = np.where(road2[..., None], path * (0.92 + 0.16 * n2), base)     # plaza -> dock
-    for cx, cz, rr in ((0, -38, 13), (31, -29, 10), (-31, -33, 9)):                                    # ruin forecourts: dusty stone
-        d = np.hypot(X - cx, Z - cz) / rr; base = np.where((d < 1)[..., None], stone * (0.85 + 0.25 * n2) * (1 - 0.15 * d[..., None]) + base * 0.0, base)
-    mt = np.clip((-(Z + 42)) / 6, 0, 1) * (np.abs(X) < 44); base = base * (1 - mt[..., None] * .8) + rock * (0.8 + 0.4 * n2) * mt[..., None] * .8      # rocky ground at the headland
-    base = np.where((q >= 0.80)[..., None], base * (1 - np.clip((q - .8) / .08, 0, 1)[..., None]) + sand * (0.9 + 0.1 * n2) * np.clip((q - .8) / .08, 0, 1)[..., None], base)
+    grass = np.array([0.33, 0.50, 0.20]); lush = np.array([0.18, 0.36, 0.14]); sand = np.array([0.84, 0.76, 0.54]); wet = np.array([0.62, 0.55, 0.38])
+    stone = np.array([0.62, 0.58, 0.52]); rock = np.array([0.45, 0.42, 0.38]); path = np.array([0.70, 0.58, 0.38]); cob = np.array([0.60, 0.56, 0.50]); soil = np.array([0.38, 0.27, 0.16])
+    base = grass * (0.82 + 0.36 * n1)
+    base = base * (1 - 0.5 * (n3 > 0.62) * 0.5) + lush * 0.0                                                   # darker patches of long grass
+    rim = np.clip((np.hypot(X - CX, Z - CZ) - 40) / 16, 0, 1)[..., None]                                       # woodland toward the outer ring
+    base = base * (1 - rim * 0.55) + lush * (0.8 + 0.4 * n3) * rim * 0.55
+    d = dist_to_paths(X, Z); w = np.clip((HW + 0.5 - d) / 1.4, 0, 1)[..., None]                                   # winding dirt paths, soft edge
+    base = base * (1 - w) + path * (0.9 + 0.2 * n2) * w
+    pr = np.hypot(X - PLAZA[0], Z - PLAZA[1]) / PLAZA[2]; pc = np.clip((1.0 - pr) / 0.12, 0, 1)[..., None]       # cobbled plaza with a ring pattern
+    ring = (0.9 + 0.12 * np.sin(pr[..., None] * 18)) * (0.92 + 0.12 * n2)
+    base = base * (1 - pc) + cob * ring * pc
+    fx = np.clip(1 - np.maximum(np.abs(X - FARM[0]) - FARM[2], np.abs(Z - FARM[1]) - FARM[3]) / 1.0, 0, 1)[..., None]     # tilled field with furrows
+    furrow = (0.82 + 0.3 * (np.sin(X * 2.6) > 0))[..., None] * (0.95 + 0.1 * n2)
+    base = base * (1 - fx) + soil * furrow * fx
+    tr = np.hypot(X - TERRACE[0], Z - TERRACE[1]) / TERRACE[2]; tc = np.clip((1.0 - tr) / 0.15, 0, 1)[..., None]  # stone terrace
+    base = base * (1 - tc) + stone * (0.9 + 0.2 * n2) * tc
+    mt = np.clip((-(Z + 41)) / 6, 0, 1) * (np.abs(X) < 44) * (1 - np.clip(1 - np.abs(X) / 9, 0, 1) * np.clip((Z + 56) / 14, 0, 1) * 0)     # rocky headland
+    base = base * (1 - mt[..., None] * .8) + rock * (0.8 + 0.4 * n2) * mt[..., None] * .8
+    fz = np.clip((9 - np.hypot(X, Z + 43)) / 3, 0, 1)[..., None]                                                 # flagged forecourt before the cave
+    base = base * (1 - fz) + stone * (0.85 + 0.25 * n2) * fz
+    sw = np.clip((q - .80) / .08, 0, 1)[..., None]; base = base * (1 - sw) + sand * (0.9 + 0.1 * n2) * sw
     base = np.where((q >= 0.97)[..., None], wet, base)
     base = np.where((q >= 1.05)[..., None], np.array([0.35, 0.58, 0.55]), base)
-    return base * (0.93 + 0.14 * n2)
+    h0 = IH.gy_many(X, Z); gxs = IH.gy_many(X + .6, Z) - IH.gy_many(X - .6, Z); gzs = IH.gy_many(X, Z + .6) - IH.gy_many(X, Z - .6); sl = np.hypot(gxs, gzs) / 1.2
+    rk = np.clip((sl - 0.42) / 0.3, 0, 1)[..., None]                                                          # steep ground shows bare rock
+    base = base * (1 - rk * 0.85) + np.array([0.52, 0.48, 0.42]) * (0.75 + 0.5 * n1) * rk * 0.85
+    base = base * (1 - np.clip((0.5 - h0) / 0.5, 0, 1)[..., None] * 0.0)
+    lit = np.clip(0.88 + 0.55 * (gxs * 0.5 + gzs * 0.35), 0.62, 1.15)[..., None]                               # baked relief shading (sun from the north-west)
+    return base * (0.93 + 0.14 * n2) * lit
 
 def ocean_col(X, Z):
     R = np.hypot(X - CX, Z - CZ); near = np.array([0.22, 0.7, 0.7]); mid = np.array([0.06, 0.45, 0.62]); far = np.array([0.03, 0.27, 0.5])
@@ -55,9 +69,19 @@ def grid_mesh(n, ext, hfn, cz):
 def bake(cfn, ext, cz, px, q=84):
     xs = np.linspace(-ext, ext, px); zs = np.linspace(-ext, ext, px) + cz; X, Z = np.meshgrid(xs, zs); return encode(cfn(X, Z), 'JPEG', q)[0]
 
-EXT = 100.0
-p, n, i, uv = grid_mesh(220, EXT, height, CZ)
-write_glb(os.path.join(OUT, 'SM_island_ground.glb'), p, n, i, 'SM_island_ground', uv=uv, img=bake(colour, EXT, CZ, 2048, 82), repeat=False)
+def terrain_mesh():
+    xs = IH.GX0 + np.arange(IH.GNX) * IH.CELL; zs = IH.GZ0 + np.arange(IH.GNZ) * IH.CELL; X, Z = np.meshgrid(xs, zs); Y = IH.hgrid()
+    pos = np.stack([X, Y, Z], -1).reshape(-1, 3).astype(np.float32); W = IH.GNX; idx = []
+    for r in range(IH.GNZ - 1):
+        for c in range(W - 1):
+            a = r * W + c; b = a + 1; d = a + W; e = d + 1; idx += [(a, d, b), (b, d, e)] if (r + c) % 2 == 0 else [(a, d, e), (a, e, b)]
+    idx = np.array(idx, np.uint32); nrm = normals(pos, idx); nrm[nrm[:, 1] < 0] *= -1
+    uv = np.stack([(pos[:, 0] - IH.GX0) / ((W - 1) * IH.CELL), (pos[:, 2] - IH.GZ0) / ((IH.GNZ - 1) * IH.CELL)], -1)
+    return pos, nrm, idx, uv
+def bake_rect(cfn, px_w, px_h, q=84):
+    xs = np.linspace(IH.GX0, IH.GX0 + (IH.GNX - 1) * IH.CELL, px_w); zs = np.linspace(IH.GZ0, IH.GZ0 + (IH.GNZ - 1) * IH.CELL, px_h); X, Z = np.meshgrid(xs, zs); return encode(cfn(X, Z), 'JPEG', q)[0]
+p, n, i, uv = terrain_mesh()
+write_glb(os.path.join(OUT, 'SM_island_ground.glb'), p, n, i, 'SM_island_ground', uv=uv, img=bake_rect(colour, 2048, 1792, 82), repeat=False)
 p, n, i, uv = grid_mesh(50, 300, lambda X, Z: np.zeros_like(X) - 0.9, CZ)
 write_glb(os.path.join(OUT, 'SM_ocean.glb'), p, n, i, 'SM_ocean', uv=uv, img=bake(ocean_col, 300, CZ, 768), repeat=False)
 

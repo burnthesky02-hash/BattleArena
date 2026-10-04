@@ -1,0 +1,82 @@
+[
+ {
+  "if": "sq_net_q",
+  "unless": "sq_net",
+  "text": "Pua (island pier): find his lost fishing net in the Whispering Wood"
+ },
+ {
+  "if": "sq_net",
+  "unless": "sq_net_done",
+  "text": "Pua: bring the net back"
+ },
+ {
+  "if": "sq_fence_q",
+  "unless": "sq_fence",
+  "text": "Old Tane (island farm): beat the goblin brute by his fence"
+ },
+ {
+  "if": "sq_fence",
+  "unless": "sq_fence_done",
+  "text": "Old Tane: collect your reward"
+ },
+ {
+  "if": "sq_pg_q",
+  "unless": "sq_pg_done",
+  "text": "Scholar Nema (island): find the torn glyph pages (cave path, Whispering Wood)",
+  "count": [
+   "sq_pg1",
+   "sq_pg2",
+   "sq_pg3"
+  ]
+ },
+ {
+  "if": "sq_moss_q",
+  "unless": "sq_spring",
+  "text": "Mossbeard (Whispering Wood): drink from the spirit spring"
+ },
+ {
+  "if": "sq_spring",
+  "unless": "sq_moss_done",
+  "text": "Mossbeard: tell him what you heard"
+ },
+ {
+  "if": "sq_locket_q",
+  "unless": "sq_locket",
+  "text": "Mara (Colosseum town): find her locket on the harbour road"
+ },
+ {
+  "if": "sq_locket",
+  "unless": "sq_locket_done",
+  "text": "Mara: return the locket"
+ },
+ {
+  "if": "sq_bounty_q",
+  "unless": "sq_bounty",
+  "text": "Pip (Colosseum town): defeat the runaway knight on the road"
+ },
+ {
+  "if": "sq_bounty",
+  "unless": "sq_bounty_done",
+  "text": "Pip: collect your reward"
+ },
+ {
+  "if": "sq_salv_q",
+  "unless": "sq_salv_done",
+  "text": "Scrapper Vel (Outpost Kestrel): recover the loose salvage crates",
+  "count": [
+   "sq_s1",
+   "sq_s2",
+   "sq_s3"
+  ]
+ },
+ {
+  "if": "sq_drone_q",
+  "unless": "sq_drone",
+  "text": "Corporal Dun (Outpost Kestrel): shut down the rogue drone past the east scaffolding"
+ },
+ {
+  "if": "sq_drone",
+  "unless": "sq_drone_done",
+  "text": "Corporal Dun: collect the reserve"
+ }
+]

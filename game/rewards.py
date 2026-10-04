@@ -128,6 +128,29 @@ def roll_ticket_drops(rng: Optional[_random_module.Random] = None, *, boss_first
     return out
 
 
+# Item drops from random (wild / dungeon) fights. Colosseum bouts pay gems/tickets/shards instead.
+ITEM_DROP_CHANCE = 0.40                 # chance that a won random fight drops anything at all
+# (item id, weight, min enemy level) -- potions are common, ethers and revives are rare finds.
+ITEM_DROP_TABLE = (("potion", 55, 1), ("antidote", 18, 1), ("hi_potion", 14, 12), ("ether", 9, 8), ("phoenix_down", 4, 10))
+
+
+def roll_item_drops(enemy_level: int = 1, rng: Optional[_random_module.Random] = None) -> Dict[str, int]:
+    """Consumables dropped by one won random fight: ITEM_DROP_CHANCE of a single item picked from
+    ITEM_DROP_TABLE (rarer entries only unlock at higher enemy levels), and a one-in-five chance of a second.
+    Returns {item_id: count} (empty when nothing dropped); the caller adds it to the inventory."""
+    r = rng or _random_module
+    if r.random() >= ITEM_DROP_CHANCE:
+        return {}
+    pool = [(iid, w) for iid, w, lo in ITEM_DROP_TABLE if (enemy_level or 1) >= lo]
+    if not pool:
+        return {}
+    out: Dict[str, int] = {}
+    for _ in range(2 if r.random() < 0.2 else 1):
+        iid = r.choices([i for i, _w in pool], weights=[w for _i, w in pool])[0]
+        out[iid] = out.get(iid, 0) + 1
+    return out
+
+
 def roll_equipment_shard_drops(rng: Optional[_random_module.Random] = None, *,
                                 boss_first_clear: Optional[bool] = None, ladder: bool = False) -> int:
     """Equipment shards earned by one victory -- the battle-drop half of the equipment-shard economy

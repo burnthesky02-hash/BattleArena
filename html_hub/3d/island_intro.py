@@ -1,0 +1,37 @@
+"""Opening cutscene of a new game (island `autorun`, plays once: flag st_intro). Used by make_island.py and by the one-off patch of island.json."""
+S = lambda who, text: dict(type="say", who=who, text=text)
+INTRO = [
+    # saves that already have story progress are marked as having seen it by hub3d.js, so this only ever plays on a fresh game
+    dict(unless="st_intro", cine=True, actions=[
+        dict(type="cine", on=True), dict(type="music", url="/assets/Music/mp3/17. Unknown Island.mp3"),
+        dict(type="tp", x=-0.2, z=30.2, fade=False), dict(type="face", who="player", dir="north"),
+        dict(type="cam", x=-4, z=-4, yaw=28, pitch=27, dist=58, t=0),
+        dict(type="wait", t=0.8),
+        dict(type="title", text="THE COLOSSEUM", sub="A tale of steel and sea", t=4.6),
+        dict(type="fade", to="clear", t=2.4, wait=False),
+        dict(type="cam", x=3, z=14, yaw=-8, pitch=24, dist=44, t=22, wait=False),
+        S("", "Far across the water stands the Colosseum: a city built around a single arena, where fighters fight their way up the ranks for gold, for glory, and for a name the whole world will say."),
+        S("", "Its champions are not bound to a script. Every opponent in that sand is guided by a mind of its own. It studies how you fight, it remembers, and it adapts."),
+        S("", "But every legend starts somewhere small. Today, that somewhere is Paradise Island."),
+        dict(type="cam", x=0, z=25.5, yaw=-14, pitch=21, dist=19, t=2.6),
+        dict(type="walk", who="player", x=0, z=25.4, speed=2.6),
+        dict(type="face", who="player", dir="south"),
+        dict(type="wait", t=0.5),
+        S("Ferryman Osk", "End of the line, friend. The tide is turning, so this is the last crossing I make today."),
+        S("Kael", "Suits me. I didn't cross a sea to stare at it."),
+        S("Ferryman Osk", "Ha! They all say that. What does a swordsman want on Paradise Island, anyway? Nothing here but fishermen and goats."),
+        S("Kael", "I'm headed for the Colosseum. Word is the ferry runs both ways."),
+        S("Ferryman Osk", "Whenever the tide allows. But the Colosseum doesn't open its gates to nobodies. You'll want a few wins first, and a few friends."),
+        S("Ferryman Osk", "If it's work you're after, the mayor has been asking about a stranger who can fight. Big blue-roofed house, up the hill past the plaza. You can't miss it."),
+        S("Kael", "Then a name is what I'll make. Starting with the mayor's."),
+        dict(type="face", who="player", dir="north"),
+        dict(type="follow", t=0.6),
+        dict(type="walk", who="player", x=0, z=14.5, speed=4.4),
+        dict(type="cam", x=19, z=-17, yaw=-12, pitch=27, dist=34, t=3.2),
+        S("", "Up the hill, past the fountain, the mayor's blue-roofed house watches over the harbour. Whatever he wants, it won't be a quiet job."),
+        S("Kael", "Alright, Orrin. Let's see what an island needs a blade for."),
+        dict(type="follow", t=1.8),
+        dict(type="flag", key="st_intro"),
+        S("", "Move with WASD or the arrow keys (Shift to run), or click the ground. Press E to talk. Find Mayor Orrin."),
+    ]),
+]

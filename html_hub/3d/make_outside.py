@@ -107,7 +107,7 @@ DEC += [dict(type="glow", x=0, z=-12.4, r=6.5, color=[1, 0.8, 0.45, 1])]
 EV += [dict(id="enter_colosseum", name="Colosseum gate", x=0, z=-13.6, w=7, d=2.6, trigger="touch", once=False,
             actions=[dict(type="warp", scene="olympus", x=0, z=14.2)])]
 EV += [dict(id="ferry_to_island", name="Ferry to Paradise Island", x=0, z=37.8, w=7, d=1.6, trigger="touch", once=False,
-            actions=[dict(type="warp", scene="island", x=0, z=19.8)])]
+            actions=[dict(type="warp", scene="island", x=0, z=25.5)])]
 EV += [dict(id="notice", name="Notice board", x=-19.0, z=-6.0, w=3.2, d=3.2, trigger="talk", prompt="Read the notice board",
             actions=[dict(type="say", who="Notice Board", text="BOUT SCHEDULE: Recruit bouts at dawn. The Unbroken Pair will face any who clear Rank 2."),
                      dict(type="say", who="Notice Board", text="Mercenaries wanted. Apply at the Summoning Circle, inside.")])]

@@ -4,7 +4,7 @@
    own logic (currencies, party, ladder, navigation, tutorial, debug); this file only adds:
      - a WebGL canvas behind the DOM: Kenney GLB pieces for the town (see plaza.json), sprite billboards for the
        player (4-direction walk cycle) and the NPCs (idle sheets), blob shadows, floor glyph decals;
-     - walking (WASD / arrows, click-to-move), collision, a follow camera with drag-orbit and wheel zoom;
+     - walking (WASD / arrows, click-to-move), collision, an auto-follow camera (swings behind the direction of travel; drag only tilts) and wheel zoom;
      - NPC interaction (E / Enter / Space, or click). Each NPC just triggers the hub's existing [data-action] control.
    Hub3D.init({ activate(action), sfx(url), SFX }) is called once by the page; Hub3D.onState(state) on every refresh.
    `?view=2d|3d` and localStorage `hubView` choose the view; if WebGL fails the page stays in its 2D layout. */
@@ -39,11 +39,25 @@
 
   /* ---------- camera ---------- */
   const cam = { yaw: 0, pitch: 33, dist: 29, fov: 34, tx: 0, tz: 8, goalYaw: 0, goalPitch: 33, goalDist: 29, vp: null, pos: [0, 10, 30], fwd: [0, 0, -1], camX: [1, 0, 0], camY: [0, 1, 0], camZ: [0, 0, 1], w: 1, h: 1, aspect: 1, free: false };
+  /* ---------- terrain: scene.terrain = {x0, z0, cell, nx, nz, scale, data: base64 int16-LE heights / scale}; gh(x, z) = ground height (0 when flat) ---------- */
+  function decodeTerrain(T) {
+    if (!T || !T.data) return null;
+    const bin = atob(T.data), n = bin.length >> 1, h = new Float32Array(n), sc = T.scale || 100;
+    for (let i = 0; i < n; i++) { let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v & 0x8000) v -= 0x10000; h[i] = v / sc; }
+    return { x0: T.x0, z0: T.z0, cell: T.cell, nx: T.nx, nz: T.nz, h };
+  }
+  function gh(x, z) {
+    const T = S && S.terrain; if (!T) return 0;
+    let fx = (x - T.x0) / T.cell, fz = (z - T.z0) / T.cell;
+    fx = Math.max(0, Math.min(T.nx - 1.001, fx)); fz = Math.max(0, Math.min(T.nz - 1.001, fz));
+    const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j, h = T.h, o = j * T.nx + i;
+    return (h[o] * (1 - u) + h[o + 1] * u) * (1 - v) + (h[o + T.nx] * (1 - u) + h[o + T.nx + 1] * u) * v;
+  }
   function updateCamera(dt, instant) {
     const k = instant ? 1 : 1 - Math.pow(0.0008, dt), k2 = instant ? 1 : 1 - Math.pow(0.05, dt);
     cam.yaw = lerp(cam.yaw, cam.goalYaw, k); cam.pitch = lerp(cam.pitch, cam.goalPitch, k); cam.dist = lerp(cam.dist, cam.goalDist * Math.max(1, 1.5 / cam.aspect), k2);
-    if (!cam.free && S) { cam.tx = lerp(cam.tx, S.player.x, k2); cam.tz = lerp(cam.tz, S.player.z + 1.5, k2); }
-    const ya = cam.yaw * Math.PI / 180, pi = cam.pitch * Math.PI / 180, target = [cam.tx, 1.6, cam.tz];
+    if (!cam.free && S) { cam.tx = lerp(cam.tx, S.player.x, k2); cam.tz = lerp(cam.tz, S.player.z + 1.5, k2); cam.ty = instant || cam.ty === undefined ? gh(S.player.x, S.player.z) : lerp(cam.ty, gh(S.player.x, S.player.z), k2); }
+    const ya = cam.yaw * Math.PI / 180, pi = cam.pitch * Math.PI / 180, target = [cam.tx, 1.6 + (cam.ty || 0), cam.tz];
     const pos = V.add(target, [Math.sin(ya) * Math.cos(pi) * cam.dist, Math.sin(pi) * cam.dist, Math.cos(ya) * Math.cos(pi) * cam.dist]);
     const L = lookAt(pos, target, [0, 1, 0]);
     cam.pos = pos; cam.camX = L.x; cam.camY = L.y; cam.camZ = L.z; cam.fwd = V.mul(L.z, -1);
@@ -58,8 +72,9 @@
     const t = Math.tan(cam.fov * Math.PI / 360), nx = (sx / cam.w * 2 - 1) * t * cam.aspect, ny = (1 - sy / cam.h * 2) * t;
     const d = V.norm(V.add(V.add(V.mul(cam.camX, nx), V.mul(cam.camY, ny)), V.mul(cam.camZ, -1)));
     if (d[1] > -0.01) return null;
-    const s = -cam.pos[1] / d[1];
-    return { x: cam.pos[0] + d[0] * s, z: cam.pos[2] + d[2] * s };
+    let h = 0, px = 0, pz = 0;
+    for (let k = 0; k < 5; k++) { const s = (h - cam.pos[1]) / d[1]; px = cam.pos[0] + d[0] * s; pz = cam.pos[2] + d[2] * s; h = gh(px, pz); }
+    return { x: px, z: pz };
   }
 
   /* ---------- GL: sprite billboards ---------- */
@@ -230,6 +245,12 @@ void main(){
     } catch (e) { console.warn("[H3D] sky failed, using the default:", e); }
     return null;
   }
+  /* a piece's 7th element: "key" = hide once set, "!key" = show once set, "H:<spec>" / "S:<spec>" = hide / show when a flag spec holds (see has()) */
+  function pieceVis(v) {
+    if (v.slice(0, 2) === "H:") return { hideIf: v.slice(2) };
+    if (v.slice(0, 2) === "S:") return { showIf: v.slice(2) };
+    return v[0] === "!" ? { showIf: v.slice(1) } : { hideIf: v };
+  }
   async function loadScene(name, onProgress) {
     const def = await (await fetch(BASE + name + ".json", { cache: "no-store" })).json();
     const kit = def.kit || "";
@@ -241,13 +262,15 @@ void main(){
     await Promise.all(names.map(async (n) => { models[n] = await loadModel(kit + n + ".glb"); onProgress && onProgress(++done / (names.length + 1)); }));
     const T = def.tile || 4, items = [], cleared = getCleared();
     for (const p of def.pieces) {
-      if (p[6] && !visible({ hideIf: p[6][0] === "!" ? null : p[6], showIf: p[6][0] === "!" ? p[6].slice(1) : null }, cleared)) continue;
+      let ins = null;                                   // "I:x0,z0,x1,z1" = hidden while the player stands inside that rectangle (roofs of enterable buildings)
+      if (typeof p[6] === "string" && p[6].slice(0, 2) === "I:") ins = p[6].slice(2).split(",").map(Number);
+      else if (p[6] && !visible(pieceVis(p[6]), cleared)) continue;
       const [name, x, z, rot, y, sc] = p, mdl = models[name], s = sc === undefined || sc === null ? T : sc, mm = trs(x, y || 0, z, rot || 0, s);
       for (const { g, o } of mdl.gpu) {
         const lo = o.min, hi = o.max, cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2;
         const c = [mm[0] * cx + mm[8] * cz + mm[12], (lo[1] + hi[1]) / 2 * s + (y || 0), mm[2] * cx + mm[10] * cz + mm[14]];
         const m = o.material;
-        items.push({ g, mat: m, model: new Float32Array(mm), center: c, top: hi[1] * s + (y || 0), rad: Math.max(hi[0] - lo[0], hi[2] - lo[2]) * s / 2,
+        items.push({ g, mat: m, inside: ins, model: new Float32Array(mm), center: c, top: hi[1] * s + (y || 0), rad: Math.max(hi[0] - lo[0], hi[2] - lo[2]) * s / 2,
           tex: m.image >= 0 ? mdl.texs[m.image] : null, mode: m.alphaMode === "BLEND" ? 2 : m.alphaMode === "MASK" ? 1 : 0 });
       }
     }
@@ -258,10 +281,31 @@ void main(){
     await Promise.all([...wanted].map(async (f) => { const im = await loadImage(BASE + f); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); stex[f] = makeTexture(im, {}); }));
     onProgress && onProgress(1);
     const npcs = (def.npcs || []).filter((n) => visible(n, cleared)).map((n) => Object.assign({ radius: 1.1, h: 2.3, phase: Math.random() * 10, bossTex: null }, n, { sheet: n.sprite ? sheets.npcs[n.sprite] : null }));
+    // Static art for hostile NPCs: html_hub/3d/stills.json maps scene -> { npcId: "Bosses/.../Art.png" } (under /assets/).
+    // The image is cropped to its visible bounds and drawn as an upright billboard, like the Colosseum boss card.
+    try {
+      const stills = await (await fetch(BASE + "stills.json", { cache: "no-store" })).json();
+      const mine = (stills && stills[name]) || {};
+      await Promise.all(npcs.map(async (n) => {
+        const path = n.still || mine[n.id]; if (!path) return;
+        try {
+          const im = await loadImage("/assets/" + path);
+          const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
+          const g2 = c.getContext("2d", { willReadFrequently: true }); g2.drawImage(im, 0, 0);
+          const d = g2.getImageData(0, 0, c.width, c.height).data; let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+          for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (d[(y * c.width + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+          if (x1 < x0) return;
+          const bw = x1 - x0 + 1, bh = y1 - y0 + 1, c2 = document.createElement("canvas"); c2.width = bw; c2.height = bh;
+          c2.getContext("2d").drawImage(c, x0, y0, bw, bh, 0, 0, bw, bh);
+          gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+          n.bossTex = { tex: makeTexture(c2, {}), aspect: bw / bh }; n.still = path;
+        } catch (e) { /* art missing: keep the walking sprite */ }
+      }));
+    } catch (e) { /* no stills.json */ }
     const colliders = (def.colliders || []).filter((c) => visible(c, cleared)).map((c) => ({ minX: c.x - c.w / 2, maxX: c.x + c.w / 2, minZ: c.z - c.d / 2, maxZ: c.z + c.d / 2 }));
     const events = (def.events || []).filter((e) => visible(e, cleared)).map((e) => Object.assign({ w: 3, d: 3, trigger: "touch", inside: false, done: false }, e));
     const skyInfo = await buildSky(def.sky);
-    return { name, def, skyInfo, items, npcs, events, sheets, stex, colliders, bounds: def.bounds || { minX: -24, maxX: 24, minZ: -16, maxZ: 16 },
+    return { name, def, skyInfo, items, npcs, events, sheets, stex, colliders, terrain: decodeTerrain(def.terrain), bounds: def.bounds || { minX: -24, maxX: 24, minZ: -16, maxZ: 16 },
       player: { x: def.spawn ? def.spawn.x : 0, z: def.spawn ? def.spawn.z : 8, face: "south", moving: false, t: 0, target: null, wantNpc: null, h: def.playerHeight || 2.3 } };
   }
 
@@ -273,14 +317,10 @@ void main(){
     gl.uniform3f(MU.u_ldir, ld[0], ld[1], ld[2]); gl.uniform3f(MU.u_lcol, lc[0], lc[1], lc[2]); gl.uniform3f(MU.u_amb, am[0], am[1], am[2]);
     gl.uniform3f(MU.u_fogc, fc[0], fc[1], fc[2]); gl.uniform2f(MU.u_fogr, F.near === undefined ? 70 : F.near, F.far === undefined ? 190 : F.far);
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
-    // Tall pieces standing between the camera and the player fade out (skipped) so the hero is never hidden behind a wall or tree.
-    const p3 = [S.player.x, 1.2, S.player.z], cp = V.sub(p3, cam.pos), cl = Math.hypot(cp[0], cp[1], cp[2]) || 1, cd = V.mul(cp, 1 / cl);
     const opaque = [], blend = [];
+    const pp = S.player;
     for (const it of S.items) {
-      if (it.top > 2.2) {
-        const w = V.sub(it.center, cam.pos), t = V.dot(w, cd);
-        if (t > 1 && t < cl - 0.5) { const q = V.sub(w, V.mul(cd, t)); if (Math.hypot(q[0], q[1], q[2]) < it.rad + 1.6 && it.center[1] > 0) continue; }
-      }
+      if (it.inside && pp.x > it.inside[0] && pp.x < it.inside[2] && pp.z > it.inside[1] && pp.z < it.inside[3]) continue;
       (it.mode === 2 ? blend : opaque).push(it);
     }
     const draw = (it) => {
@@ -339,7 +379,7 @@ void main(){
   function drawSpriteFrame(texKey, sheet, frame, wx, wz, h, flip, tint) {
     const q = spriteQuad(sheet, h), col = frame % sheet.cols, row = Math.floor(frame / sheet.cols);
     const right = V.norm([cam.camX[0], 0, cam.camX[2]]);
-    drawQuad({ tex: S.stex[texKey], origin: [wx, 0, wz], right, up: [0, 1, 0], w: q.w, h: q.h, ax: flip ? 1 - q.ax : q.ax, ay: q.ay, flip,
+    drawQuad({ tex: S.stex[texKey], origin: [wx, gh(wx, wz), wz], right, up: [0, 1, 0], w: q.w, h: q.h, ax: flip ? 1 - q.ax : q.ax, ay: q.ay, flip,
       rect: [col / sheet.cols, row / sheet.rows, 1 / sheet.cols, 1 / sheet.rows], tint: tint || [1, 1, 1, 1], fogd: Math.hypot(wx - cam.pos[0], wz - cam.pos[2]) });
   }
 
@@ -363,11 +403,11 @@ void main(){
 
     // floor decals: glyph circles (additive, slowly turning) and soft light pools
     BLEND_ADD();
-    if (S._decFor !== S.def) { S._decFor = S.def; const cl = getCleared(); S._dec = (S.def.decals || []).filter((d) => (!d.hideIf || !cl.has(d.hideIf)) && (!d.showIf || cl.has(d.showIf))); }
+    if (S._decFor !== S.def) { S._decFor = S.def; const cl = getCleared(); S._dec = (S.def.decals || []).filter((d) => visible(d, cl)); }
     for (const dc of S._dec) {
       const a = (dc.spin ? clock * dc.spin : 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), pulse = 0.8 + 0.2 * Math.sin(clock * 2 + dc.x);
       const col = dc.color || [0.7, 0.55, 1, 1];
-      drawQuad({ tex: dc.type === "glow" ? TEX.glow : TEX.glyph, origin: [dc.x, 0.06, dc.z], right: [c, 0, s], up: [-s, 0, c],
+      drawQuad({ tex: dc.type === "glow" ? TEX.glow : TEX.glyph, origin: [dc.x, gh(dc.x, dc.z) + 0.06, dc.z], right: [c, 0, s], up: [-s, 0, c],
         w: dc.r * 2, h: dc.r * 2, ax: 0.5, ay: 0.5, tint: [col[0] * pulse, col[1] * pulse, col[2] * pulse, 1] });
     }
     BLEND_N();
@@ -375,9 +415,9 @@ void main(){
     const act = S.active;
     // shadows
     const actors = [{ x: S.player.x, z: S.player.z, w: 1.6 }].concat(S.npcs.map((n) => ({ x: n.x, z: n.z, w: (n.h || 2.3) * 0.7 })));
-    for (const a of actors) drawQuad({ tex: TEX.shadow, origin: [a.x, 0.04, a.z], right: [1, 0, 0], up: [0, 0, -1], w: a.w, h: a.w * 0.55, ax: 0.5, ay: 0.5 });
-    if (act) { BLEND_ADD(); const p = 0.7 + 0.3 * Math.sin(clock * 6); drawQuad({ tex: TEX.ring, origin: [act.x, 0.08, act.z], right: [1, 0, 0], up: [0, 0, -1], w: 2.6, h: 2.6, ax: 0.5, ay: 0.5, tint: [1, 0.85, 0.4, p] }); BLEND_N(); }
-    if (S.player.target) { BLEND_ADD(); const p = 0.6 + 0.4 * Math.sin(clock * 8); drawQuad({ tex: TEX.ring, origin: [S.player.target.x, 0.08, S.player.target.z], right: [1, 0, 0], up: [0, 0, -1], w: 1.1, h: 1.1, ax: 0.5, ay: 0.5, tint: [0.6, 0.9, 1, p] }); BLEND_N(); }
+    for (const a of actors) drawQuad({ tex: TEX.shadow, origin: [a.x, gh(a.x, a.z) + 0.04, a.z], right: [1, 0, 0], up: [0, 0, -1], w: a.w, h: a.w * 0.55, ax: 0.5, ay: 0.5 });
+    if (act) { BLEND_ADD(); const p = 0.7 + 0.3 * Math.sin(clock * 6); drawQuad({ tex: TEX.ring, origin: [act.x, gh(act.x, act.z) + 0.08, act.z], right: [1, 0, 0], up: [0, 0, -1], w: 2.6, h: 2.6, ax: 0.5, ay: 0.5, tint: [1, 0.85, 0.4, p] }); BLEND_N(); }
+    if (S.player.target) { BLEND_ADD(); const p = 0.6 + 0.4 * Math.sin(clock * 8); drawQuad({ tex: TEX.ring, origin: [S.player.target.x, gh(S.player.target.x, S.player.target.z) + 0.08, S.player.target.z], right: [1, 0, 0], up: [0, 0, -1], w: 1.1, h: 1.1, ax: 0.5, ay: 0.5, tint: [0.6, 0.9, 1, p] }); BLEND_N(); }
 
     // sprites, farthest first
     const right = V.norm([cam.camX[0], 0, cam.camX[2]]);
@@ -395,7 +435,7 @@ void main(){
         const n = o.n;
         if (n.bossTex) {
           const bt = n.bossTex, h = n.h, w = h * bt.aspect, tint = n.locked ? [0.35, 0.35, 0.42, 1] : [1, 1, 1, 1];
-          drawQuad({ tex: bt.tex, origin: [n.x, n.base || 0, n.z], right, up: [0, 1, 0], w, h, ax: 0.5, ay: 0, tint, fogd: o.d });
+          drawQuad({ tex: bt.tex, origin: [n.x, gh(n.x, n.z) + (n.base || 0), n.z], right, up: [0, 1, 0], w, h, ax: 0.5, ay: 0, tint, fogd: o.d });
         } else if (n.sheet) {
           const toP = (S.player.x - n.x) * right[0] + (S.player.z - n.z) * right[2];
           const faceRight = Math.abs(toP) < 0.3 ? !n.faceLeft : toP > 0;
@@ -438,6 +478,10 @@ void main(){
       else if (!blocked(nx, p.z, R)) { p.x = nx; moved = true; }
       else if (!blocked(p.x, nz, R)) { p.z = nz; moved = true; }
       if (moved) encounterStep(Math.hypot(p.x - ox, p.z - oz));
+      if (moved && !cam.free && !(iy < 0)) {                               // auto-follow: swing the camera round behind the direction of travel (no manual yaw)
+        const want = Math.atan2(-mx, -mz) * 180 / Math.PI, d = ((want - cam.goalYaw) % 360 + 540) % 360 - 180, lim = 115 * dt;
+        cam.goalYaw += Math.max(-lim, Math.min(lim, d * 2.0 * dt));
+      }
       if (!moved) { p.moving = false; if (p.target) { p.target = null; if (p.wantNpc) { const n = p.wantNpc; p.wantNpc = null; if (Math.hypot(n.x - p.x, n.z - p.z) < 6) interact(n); } } }
       // facing as seen on screen
       const sx = mx * cam.camX[0] + mz * cam.camX[2];                      // + = screen right
@@ -471,32 +515,141 @@ void main(){
      name of a scene key such as "freeRank") */
   const rankOf = () => (state && state.ladder && state.ladder.rank) || 0;
   function minRankOf(e) { let m = e.minRank; if (typeof m === "string") m = S && S.def ? S.def[m] : 0; return +m || 0; }
-  function condOk(e, c) { return !((e.if && !c.has(e.if)) || (e.unless && c.has(e.unless)) || (minRankOf(e) && rankOf() < minRankOf(e))); }
+  /* flag specs: "key" (set), or a comma list "a,!b,c" = every term must hold ("!x" = x is not set). Used by if / unless / showIf / hideIf. */
+  function has(c, spec) { if (!spec) return true; return String(spec).split(",").every((t) => { t = t.trim(); return !t || (t[0] === "!" ? !c.has(t.slice(1)) : c.has(t)); }); }
+  function condOk(e, c) { return !((e.if && !has(c, e.if)) || (e.unless && has(c, e.unless)) || (minRankOf(e) && rankOf() < minRankOf(e))); }
   let autorunPending = false;
   function endScript(noRefresh) {
-    const dirty = script && script.dirty; script = null; if (sayEl) sayEl.style.display = "none";
+    const dirty = script && script.dirty; if (script && script.cineRun) cineEnd(script.toBattle); if (script && script.musicChanged && !script.toBattle) applySceneMusic(); script = null; if (sayEl) sayEl.style.display = "none";
     renderQuest();
     if (dirty && !noRefresh && S && S.name) switchScene(S.name, S.player.x, S.player.z, true);   // a flag changed: re-filter npcs / pieces
+  }
+
+  /* ---------- cutscenes ----------
+     Timed, camera-directed sequences made of ordinary script actions. A script that runs {type:"cine"} gets letterbox bars, the HUD is
+     hidden, a Skip button / Esc skips to the end, and when the script ends the camera goes back to following the hero.
+       cine  {on}                          bars + hidden HUD (on:false to leave early)
+       fade  {to:"black"|"clear", t, wait} fade the screen
+       wait  {t}
+       title {text, sub, t}                a big title card
+       cam   {x, z, yaw, pitch, dist, t, wait}   move the free camera (x,z = the point it looks at; omitted values stay put)
+       follow {t}                          hand the camera back to the hero
+       walk  {who:"player"|npc name/id, x, z, speed, face}   walk there (blocking)
+       face  {who, dir}                    north | south | east | west
+       music {url, intro, volume}          switch the music for the cutscene (the scene's own music returns when the script ends); {restore:true} brings it back at once
+       say   {who:null}                    narration: no name plate (who:"" inside an npc script falls back to that npc's name)
+     plus the usual say / flag / warp / battle ... A scene entry in `autorun` may carry cine:true to start on a black screen at once. */
+  const cine = { on: false, tasks: [], els: null };
+  const ease = (p) => p * p * (3 - 2 * p);
+  function cineEls() {
+    if (cine.els && cine.els.bars.parentNode === sceneEl) return cine.els;
+    const mk = (id, css, html) => { const e = document.createElement("div"); e.id = id; e.style.cssText = css; if (html) e.innerHTML = html; sceneEl.appendChild(e); return e; };
+    cine.els = {
+      bars: mk("h3d-bars", "position:absolute;inset:0;z-index:2;pointer-events:none;display:none", '<i class="cb-top"></i><i class="cb-bot"></i>'),
+      fade: mk("h3d-cfade", "position:absolute;inset:0;z-index:5;pointer-events:none;background:#000;opacity:0"),
+      title: mk("h3d-ctitle", "position:absolute;inset:0;z-index:6;pointer-events:none;display:none;opacity:0", '<b></b><span></span>'),
+      skip: mk("h3d-cskip", "position:absolute;right:22px;bottom:16px;z-index:7;display:none", "Skip &#9654;&#9654;"),
+    };
+    cine.els.skip.addEventListener("click", (e) => { e.stopPropagation(); skipCine(); });
+    return cine.els;
+  }
+  function cineUi(on) {
+    const E = cineEls(); cine.on = on; document.body.classList.toggle("h3d-cine", on);
+    E.bars.style.display = on ? "block" : "none"; E.skip.style.display = on ? "block" : "none";
+  }
+  function setFade(to, t) {
+    const E = cineEls(); E.fade.style.transition = t > 0 ? "opacity " + t + "s linear" : "none";
+    void E.fade.offsetWidth; E.fade.style.opacity = to;
+  }
+  function dropCamTasks() { cine.tasks = cine.tasks.filter((k) => !k.cam); }                 // a new camera move replaces any move still running
+  function cineWait(dur, fn, end, isCam) {
+    const sc = script; sc.waiting = true; sc.lock = true;
+    cine.tasks.push({ cam: !!isCam, t: 0, dur: Math.max(0.01, dur), fn, done: () => { if (end) end(); if (script === sc) { sc.lock = false; sc.waiting = false; stepScript(); } } });
+  }
+  function stepCine(dt) {
+    if (!cine.tasks.length) return;
+    for (const k of cine.tasks.slice()) {
+      k.t += dt; const p = Math.min(1, k.t / k.dur); if (k.fn) k.fn(p, dt);
+      if (p >= 1) { const i = cine.tasks.indexOf(k); if (i >= 0) cine.tasks.splice(i, 1); if (k.done) k.done(); }
+    }
+  }
+  function cineEntity(who) { return !who || who === "player" ? S.player : (S.npcs.find((n) => n.id === who || n.name === who) || null); }
+  function showTitle(text, sub, on) {
+    const E = cineEls(), el = E.title; el.querySelector("b").textContent = text || ""; el.querySelector("span").textContent = sub || "";
+    if (on) { el.style.display = "flex"; void el.offsetWidth; el.style.opacity = 1; } else { el.style.opacity = 0; setTimeout(() => { if (el.style.opacity === "0") el.style.display = "none"; }, 900); }
+  }
+  /* returns true when the action started something that blocks the script until it finishes */
+  function doCine(a) {
+    const sk = !!script.skip, t = a.t == null ? 1 : +a.t;
+    if (a.type === "music") { script.musicChanged = true; if (a.restore || !a.url) applySceneMusic(); else { try { if (O && O.music) O.music({ url: a.url, intro: a.intro, volume: a.volume }); } catch (e) {} } return false; }
+    if (a.type === "cine") { script.cineRun = true; cineUi(a.on !== false); return false; }
+    if (a.type === "wait") { if (!sk) { cineWait(t); return true; } return false; }
+    if (a.type === "fade") { setFade(a.to === "black" ? 1 : 0, sk ? 0 : t); if (!sk && a.wait !== false && t > 0) { cineWait(t); return true; } return false; }
+    if (a.type === "title") {
+      if (sk) return false;
+      showTitle(a.text, a.sub, true); cineWait(a.t == null ? 3.5 : a.t, null, () => showTitle("", "", false)); return true;
+    }
+    if (a.type === "face") { const e = cineEntity(a.who); if (e && a.dir) { if (e === S.player) e.face = a.dir; else e.faceLeft = a.dir === "west"; } return false; }
+    if (a.type === "cam") {
+      cam.free = true; dropCamTasks();
+      const to = { x: a.x != null ? a.x : cam.tx, z: a.z != null ? a.z : cam.tz, yaw: a.yaw != null ? a.yaw : cam.goalYaw, pitch: a.pitch != null ? a.pitch : cam.goalPitch, dist: a.dist != null ? a.dist : cam.goalDist };
+      const fr = { x: cam.tx, z: cam.tz, ty: cam.ty || 0, yaw: cam.goalYaw, pitch: cam.goalPitch, dist: cam.goalDist }, ty1 = gh(to.x, to.z);
+      const apply = (e) => { cam.tx = fr.x + (to.x - fr.x) * e; cam.tz = fr.z + (to.z - fr.z) * e; cam.ty = fr.ty + (ty1 - fr.ty) * e; cam.goalYaw = fr.yaw + (to.yaw - fr.yaw) * e; cam.goalPitch = fr.pitch + (to.pitch - fr.pitch) * e; cam.goalDist = fr.dist + (to.dist - fr.dist) * e; };
+      if (sk || t <= 0) { apply(1); if (sk) { cam.yaw = cam.goalYaw; cam.pitch = cam.goalPitch; } return false; }
+      if (a.wait === false) { cine.tasks.push({ cam: true, t: 0, dur: t, fn: (p) => apply(ease(p)), done: null }); return false; }
+      cineWait(t, (p) => apply(ease(p)), null, true); return true;
+    }
+    if (a.type === "follow") { dropCamTasks(); cam.free = false; sceneCam(); if (!sk && a.wait !== false && t > 0) { cineWait(t); return true; } return false; }
+    if (a.type === "walk") {
+      const e = cineEntity(a.who); if (!e) return false;
+      const x1 = a.x, z1 = a.z, x0 = e.x, z0 = e.z, d = Math.hypot(x1 - x0, z1 - z0), isP = e === S.player;
+      if (sk || d < 0.05) { e.x = x1; e.z = z1; if (isP) { e.moving = false; if (a.face) e.face = a.face; } return false; }
+      const dur = d / (a.speed || 3.6), dx = (x1 - x0) / d, dz = (z1 - z0) / d;
+      if (isP) {                                     // facing as seen on screen, like normal movement
+        const sx = dx * cam.camX[0] + dz * cam.camX[2], sz = dx * cam.fwd[0] + dz * cam.fwd[2];
+        e.face = Math.abs(sx) > Math.abs(sz) ? (sx > 0 ? "east" : "west") : (sz > 0 ? "north" : "south");
+      } else e.faceLeft = dx < 0;
+      cineWait(dur, (p, dt) => { e.x = x0 + (x1 - x0) * p; e.z = z0 + (z1 - z0) * p; if (isP) { e.moving = true; e.t += dt; } },
+        () => { if (isP) { e.moving = false; e.t = 0; if (a.face) e.face = a.face; } });
+      return true;
+    }
+    return false;
+  }
+  const CINE_TYPES = new Set(["music", "cine", "wait", "fade", "title", "face", "cam", "follow", "walk"]);
+  function skipCine() {
+    if (!script || !script.cineRun || script.skip) return;
+    script.skip = true; cine.tasks.length = 0; script.lock = false; script.waiting = false; S.player.moving = false; S.player.t = 0;
+    if (sayEl) sayEl.style.display = "none"; showTitle("", "", false); stepScript();
+  }
+  function cineEnd(keepFade) {                                   // keepFade: leaving for a battle, so a black screen stays up until the page changes
+    cine.tasks.length = 0;
+    if (cine.on) { cineUi(false); cam.free = false; sceneCam(); }
+    if (!keepFade) setFade(0, 0.9);
+    showTitle("", "", false);
   }
   function stepScript() {
     while (script && script.queue.length) {
       const a = script.queue.shift();
       if (!condOk(a, getCleared())) continue;                                                              // conditional step
+      if (CINE_TYPES.has(a.type)) { if (doCine(a)) return; continue; }
+      if (a.type === "say" && script.skip) continue;
       if (a.type === "say") {
-        script.waiting = true; sayEl.querySelector(".s-who").textContent = a.who || (script.owner.name || ""); sayEl.querySelector(".s-text").textContent = a.text || "";
-        sayEl.style.display = "block"; return;
+        script.waiting = true; showSay(a.who === null ? "" : (a.who || (script.owner.name || "")), a.text || "", a.portrait || (script.owner && script.owner.portrait));
+        return;
       }
       if (a.type === "hub") { if (a.action && O) { savePos(); O.activate(a.action); } continue; }
       if (a.type === "warp") { endScript(true); switchScene(a.scene, a.x, a.z); return; }
       if (a.type === "tp") { const pl = S.player; pl.x = a.x; pl.z = a.z; pl.target = null; pl.wantNpc = null; primeEvents(); cam.tx = pl.x; cam.tz = pl.z + 1.5; updateCamera(0.016, true); if (a.fade !== false) flashOff(); continue; }   // same-scene teleport (fades the flash back out)
-      if (a.type === "battle") { endScript(true); startBattle(a); return; }
+      if (a.type === "battle") { script.toBattle = true; endScript(true); startBattle(a); return; }
       if (a.type === "flag") { const c = getCleared(); c.add(a.key); setCleared(c); script.dirty = true; continue; }
       if (a.type === "flash") { script.waiting = true; script.lock = true; flashOn(); const sc = script; setTimeout(() => { sc.lock = false; sc.waiting = false; if (script === sc) stepScript(); }, 1300); return; }
       if (a.type === "rest") { script.waiting = true; restParty(); return; }
-      if (a.type === "chest") { script.waiting = true; restParty("/api/story/chest", { loot: a.loot || {} }); return; }
+      if (a.type === "chest") { script.waiting = true; restParty("/api/story/chest", { loot: a.loot || {}, text: a.text || "" }); return; }
+      if (a.type === "game") { script.waiting = true; restParty("/api/story/game", { game: a.game, stake: a.stake || 0 }); return; }   // fish | dice (server rolls it)
       if (a.type === "recruit") { script.waiting = true; restParty("/api/story/recruit", { name: a.name }); return; }
       if (a.type === "pass_time") { script.waiting = true; restParty("/api/story/pass_time"); return; }
       if (a.type === "reset_progress") { resetCleared(a.prefix || ""); continue; }
+      if (a.type === "unflag") { const c = getCleared(); if (a.key) c.delete(a.key); if (a.prefix) for (const k of [...c]) if (k.indexOf(a.prefix) === 0) c.delete(k); setCleared(c); script.dirty = true; continue; }
     }
     endScript();
   }
@@ -518,12 +671,12 @@ void main(){
   }
   syncSlave();
   function resetCleared(prefix) { const c = getCleared(); for (const k of [...c]) if (!prefix || k.indexOf(prefix) === 0) c.delete(k); setCleared(c); if (S && S.name) switchScene(S.name, S.def.spawn ? S.def.spawn.x : 0, S.def.spawn ? S.def.spawn.z : 0, true); }
-  const visible = (o, c) => (!o.hideIf || !c.has(o.hideIf)) && (!o.showIf || c.has(o.showIf));
+  const visible = (o, c) => (!o.hideIf || !has(c, o.hideIf)) && (!o.showIf || has(c, o.showIf));
   function say(who, text) { script = { owner: { name: who }, queue: [{ type: "say", who, text }], waiting: false }; stepScript(); }
   async function startBattle(a) {
-    if (!(state && ((state.story_party || state.party) || []).length)) { say("", "You have no story heroes to fight with."); return; }
-    try { await fetch("/api/world/hub_battle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ boss_id: a.boss || "", level: Array.isArray(a.level) ? 0 : (a.level || 0), level_min: Array.isArray(a.level) ? a.level[0] : (a.level_min || 0), level_max: Array.isArray(a.level) ? a.level[1] : (a.level_max || 0), pool: a.pool || [], level_rel: a.level_rel || null }) }); }
-    catch (e) { say("", "The battle server could not be reached."); return; }
+    if (!(state && ((state.story_party || state.party) || []).length)) { setFade(0, 0.4); say("", "You have no story heroes to fight with."); return; }
+    try { await fetch("/api/world/hub_battle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ boss_id: a.boss || "", level: Array.isArray(a.level) ? 0 : (a.level || 0), level_min: Array.isArray(a.level) ? a.level[0] : (a.level_min || 0), level_max: Array.isArray(a.level) ? a.level[1] : (a.level_max || 0), pool: a.pool || [], level_rel: a.level_rel || null, elite: a.elite || 0 }) }); }
+    catch (e) { setFade(0, 0.4); say("", "The battle server could not be reached."); return; }
     savePos();
     location.href = "/battle?return=hub3d&scene=" + encodeURIComponent(S.name || "olympus") + (a.key ? "&key=" + encodeURIComponent(a.key) : "") + (S.def && S.def.restart ? "&restart=" + encodeURIComponent(S.def.restart) : "");
   }
@@ -531,11 +684,12 @@ void main(){
     let text = "You rest a while.";
     try { const r = await (await fetch(url || "/api/menu/rest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })).json(); if (r && r.message) text = r.message; if (O && O.refresh) O.refresh(); } catch (e) { text = "You try to rest, but nothing happens."; }
     if (O && O.sfx && O.SFX) O.sfx(O.SFX.confirm);
-    sayEl.querySelector(".s-who").textContent = ""; sayEl.querySelector(".s-text").textContent = text; sayEl.style.display = "block";
+    showSay("", text);
   }
   /* ---------- story: objective line, screen flash, scene autorun ---------- */
   function storyObjective() {
     const c = getCleared();
+    if (S && S.def && Array.isArray(S.def.objectives)) { for (const o of S.def.objectives) if (condOk(o, c)) return o.text || ""; }   // scene.objectives = [{if, unless, text}], first match wins
     if (S && S.name === "vault") return c.has("vt_boss") ? "The Warden has fallen. Take the lift back up to Outpost Kestrel."
       : c.has("vt_g3") ? "The north sector is cleared. The sealed door to the Warden's core is open."
       : c.has("vt_g2") ? "Cross the north walkways and defeat the Rift Colossus. The Warden's core lies beyond."
@@ -546,6 +700,8 @@ void main(){
       if (!c.has("st_met")) return "Speak with Captain Rhea.";
       if (!c.has("st_lyra")) return "Find Lyra, the rift scholar Captain Rhea told you about (the mess hall, west of the pad).";
       if (!c.has("vt_boss")) return "Lyra's compass points beneath the base. Take the hatch west of the landing pad and clear the Shard Vault.";
+      if (c.has("rc_end")) return "The Harbinger is gone and the rift is quiet. Rest at Outpost Kestrel.";
+      if (S.name === "asteroid") return "A new coordinate has resolved on the rift console. Step into the rift gate east of the pad.";
       return "The Shard Vault is silent. Report to Captain Rhea: the trail leads further than this base.";
     }
     if (c.has("st_siege")) return "Defend the Colosseum!";
@@ -555,14 +711,35 @@ void main(){
       return S && S.name === "prison" ? `You are a slave of the Colosseum. Fight for the Overseer until you rise past Rank ${fr - 1} to win your freedom` + (r ? ` (you are Rank ${r}).` : ".") : "";
     }
     if (!c.has("st_quest")) return "Speak with Elder Mahina in the village.";
-    if (!c.has("st_found")) return "Find the missing villager, Lani, in the Hollow Crypt (north of the village).";
+    if (!c.has("st_found")) return "Find the missing villager, Lani, in the Hollow Cave (north of the village).";
     if (!c.has("st_attack")) return "Leave the crypt.";
     return "Defend the village!";
   }
+  /* side quests: html_hub/3d/sidequests.json = [{if, unless, text, count:[flag,...]}]. Every entry whose flags match is listed under the main
+     objective ("count" appends how many of those flags are set, e.g. glyph pages 1/3). Made by make_sidequests.py. */
+  let sideQuests = null;
+  function sideLines() {
+    if (sideQuests === null) {
+      sideQuests = [];
+      fetch(BASE + "sidequests.json", { cache: "no-store" }).then((r) => r.json()).then((j) => { sideQuests = Array.isArray(j) ? j : []; renderQuest(); }).catch(() => {});
+    }
+    const c = getCleared(), out = [];
+    for (const q of sideQuests) {
+      if (!condOk(q, c)) continue;
+      let t = q.text || ""; if (q.count && q.count.length) t += " (" + q.count.filter((k) => c.has(k)).length + "/" + q.count.length + ")";
+      out.push(t);
+    }
+    return out;
+  }
   function renderQuest() {
     if (!hudEls.quest) return;
-    const t = (S && S.def && S.def.story) ? storyObjective() : "";
-    hudEls.quest.style.display = t ? "block" : "none"; hudEls.quest.innerHTML = t ? "<b>QUEST</b><span></span>" : ""; if (t) hudEls.quest.lastChild.textContent = t;
+    const t = (S && S.def && S.def.story) ? storyObjective() : "", side = sideLines();
+    hudEls.quest.style.display = (t || side.length) ? "block" : "none";
+    hudEls.quest.innerHTML = t ? "<b>QUEST</b><span></span>" : ""; if (t) hudEls.quest.lastChild.textContent = t;
+    if (side.length) {
+      const h = document.createElement("b"); h.textContent = "SIDE"; h.style.display = "block"; h.style.marginTop = t ? "8px" : "0"; hudEls.quest.appendChild(h);
+      for (const line of side.slice(0, 5).concat(side.length > 5 ? ["+" + (side.length - 5) + " more (see the bounty board)"] : [])) { const d = document.createElement("span"); d.style.display = "block"; d.textContent = "\u2022 " + line; hudEls.quest.appendChild(d); }
+    }
   }
   function flashOn() {
     let f = document.getElementById("h3d-flash");
@@ -579,13 +756,14 @@ void main(){
     if (!state && S.def.autorun.some((e) => e.minRank)) { autorunPending = true; return; }                 // rank checks need the hub state first
     for (const e of S.def.autorun) {
       if (!condOk(e, c)) continue;
-      setTimeout(() => { if (!script && S && !S.switching) runActions({ name: "", actions: e.actions }); }, 700); return;
+      if (e.cine) { cineUi(true); setFade(1, 0); }                                                       // start behind a black screen, no glimpse of the scene
+      setTimeout(() => { if (!script && S && !S.switching) runActions({ name: "", actions: e.actions }); else if (e.cine) cineEnd(); }, e.cine ? 450 : 700); return;
     }
   }
   /* Where the player stood when they left for a battle / shop / heroes page, so coming back puts them there
      instead of at the scene's spawn point. Per tab (sessionStorage), read once on the next load. */
   const POS_KEY = "h3dPos";
-  function savePos() { try { if (S && S.name) sessionStorage.setItem(POS_KEY, JSON.stringify({ scene: S.name, x: S.player.x, z: S.player.z, face: S.player.face })); } catch (e) {} }
+  function savePos() { try { if (S && S.name) sessionStorage.setItem(POS_KEY, JSON.stringify({ scene: S.name, x: S.player.x, z: S.player.z, face: S.player.face, yaw: cam.goalYaw, pitch: cam.goalPitch, dist: cam.goalDist })); } catch (e) {} }
   /* Random encounters: scene.encounters = {rate, level:[lo,hi], pool:[enemy ids], zones:[{x,z,w,d}]}. Walking inside a zone
      counts distance; every ~rate units an ambush starts a wild fight at a level rolled from the range. */
   function encounterStep(dist) {
@@ -593,6 +771,7 @@ void main(){
     const p = S.player, zs = enc.zones;
     let zone = null;
     if (zs && zs.length) { zone = zs.find((z) => Math.abs(p.x - z.x) <= z.w / 2 && Math.abs(p.z - z.z) <= z.d / 2); if (!zone) return; }
+    if (zone && zone.safe) return;                                                                          // zone.safe: no ambushes here (camps)
     const rate = (zone && zone.rate) || enc.rate || 100;
     if (S.encNext == null) S.encNext = rate * (0.8 + Math.random() * 0.8);
     S.encDist = (S.encDist || 0) + dist;
@@ -614,21 +793,56 @@ void main(){
       e.inside = inside;
     }
   }
-  function applySceneMusic() { try { if (O && O.music) O.music(S && S.def && S.def.music ? S.def.music : null); } catch (e) {} }   // scene.music = {url, intro?} set in the 3D editor
+  // The Colosseum title + rank/renown panel only belong in the Colosseum scenes (scene.colosseum in the 3D editor overrides)
+  function applyColosseumUI() {
+    try {
+      const name = S && S.name, def = S && S.def;
+      const colo = def && typeof def.colosseum === "boolean" ? def.colosseum : (name === "olympus" || name === "prison");
+      document.body.classList.toggle("h3d-nocolo", !colo);
+    } catch (e) {}
+  }
+  function applySceneMusic() { applyColosseumUI(); try { if (O && O.music) O.music(S && S.def && S.def.music ? S.def.music : null); } catch (e) {} }   // scene.music = {url, intro?} set in the 3D editor
+  function sceneCam() {                                   // scene.camera = {pitch, dist}: a per-scene default tilt / zoom, applied when the scene changes
+    if (!S || cam.free || cam.forScene === S.name) return; cam.forScene = S.name;
+    const c = (S.def && S.def.camera) || {}; cam.goalPitch = c.pitch || 33; cam.goalDist = c.dist || 29;
+  }
   async function switchScene(name, x, z, force) {
     if (S && S.switching) return; if (S) S.switching = true;
-    const old = S; if (hudEls.load) { hudEls.load.textContent = "Loading…"; hudEls.load.classList.remove("done"); }
+    const old = S, refresh = !!(force && old && old.name === name);          // same-scene refresh after a flag changed: no loading screen
+    if (hudEls.load && !refresh) { hudEls.load.textContent = "Loading…"; hudEls.load.classList.remove("done"); }
     try {
       const loaded = await loadScene(name, null);
       if (ui && ui.parentNode) ui.parentNode.removeChild(ui);
-      S = loaded; S.player.face = old ? old.player.face : "south";
+      S = loaded; S.player.face = old ? old.player.face : "south"; sceneCam();
+      if (old) { try { Object.values(old.stex || {}).forEach((t) => gl.deleteTexture(t)); if (old.skyInfo && old.skyInfo.tex) gl.deleteTexture(old.skyInfo.tex); } catch (e) {} }
       if (x != null) S.player.x = x; if (z != null) S.player.z = z;
       primeEvents(); buildDom(); sayEl = null; buildSayBox(); cam.free = false; cam.tx = S.player.x; cam.tz = S.player.z + 1.5; updateCamera(0.016, true);
       if (state) H3.onState(state); hudEls.load.classList.add("done"); applySceneMusic(); try { O && O.refresh && O.refresh(); } catch (e) {} runAutorun();
     } catch (err) { console.warn("[Hub3D] warp failed:", err); flashOff(); if (old) old.switching = false; if (hudEls.load) { hudEls.load.textContent = "Could not load scene: " + name; setTimeout(() => hudEls.load.classList.add("done"), 1500); } }
   }
+  /* Dialogue box: a big framed panel with a speaker name plate and, for heroes / important NPCs, a portrait frame.
+     Portrait = action.portrait or npc.portrait (a name, or a path under /assets/), else /assets/Portraits/<speaker>.webp when that file exists. */
+  const noPortrait = new Set();
+  function portraitUrl(who, p) {
+    if (p) return /[\/.]/.test(p) ? (p[0] === "/" ? p : "/assets/" + p) : "/assets/Portraits/" + encodeURIComponent(p) + ".webp";
+    if (!who || noPortrait.has(who)) return "";
+    return "/assets/Portraits/" + encodeURIComponent(who) + ".webp";
+  }
+  function showSay(who, text, portrait) {
+    if (!sayEl) return;
+    sayEl.querySelector(".s-who").textContent = who || ""; sayEl.querySelector(".s-text").textContent = text || "";
+    const img = sayEl.querySelector(".s-pic img"), url = portraitUrl(who, portrait);
+    sayEl.classList.remove("has-pic"); img.removeAttribute("src");
+    if (url) {
+      img.onload = () => { if (img.getAttribute("src") === url) sayEl.classList.add("has-pic"); };
+      img.onerror = () => { noPortrait.add(who); img.removeAttribute("src"); sayEl.classList.remove("has-pic"); };
+      img.src = url;
+    }
+    sayEl.style.animation = "none"; void sayEl.offsetWidth; sayEl.style.animation = "";     // replay the pop-in for every line
+    sayEl.style.display = "block";
+  }
   function buildSayBox() {
-    sayEl = document.createElement("div"); sayEl.className = "h3d-say"; sayEl.innerHTML = '<div class="s-who"></div><div class="s-text"></div><div class="s-go">[E] continue</div>';
+    sayEl = document.createElement("div"); sayEl.className = "h3d-say"; sayEl.innerHTML = '<div class="s-pic"><img alt=""></div><div class="s-who"></div><div class="s-text"></div><div class="s-go">&#9654; [E] / click to continue</div>';
     sayEl.addEventListener("click", (e) => { e.stopPropagation(); advanceScript(); }); ui.appendChild(sayEl);
     hudEls.evhint = document.createElement("div"); hudEls.evhint.className = "h3d-evhint"; ui.appendChild(hudEls.evhint);
   }
@@ -659,6 +873,79 @@ void main(){
     }
     return { text: n.line || "", btn: (n.actions && n.actions.length) ? "Talk" : (n.action ? n.name : "") };
   }
+
+  /* ---------- minimap: M cycles local (rotating) / whole map / off. Scenes with def.minimap get fog-of-war. ---------- */
+  const MM = { scene: null, mode: 0, cv: null, ctx: null, saved: 0 };
+  try { MM.mode = +localStorage.getItem("h3dMapMode") || 0; } catch (e) {}
+  function mmBuild() {
+    const def = S.def, b = S.bounds, mp = def.minimap;
+    MM.scene = S; MM.fog = !!mp; MM.cell = mp ? mp.cell : 4;
+    MM.ox = b.minX; MM.oz = b.minZ; MM.w = b.maxX - b.minX; MM.h = b.maxZ - b.minZ;
+    MM.bs = Math.min(2, 2048 / Math.max(MM.w, MM.h));
+    const mk = () => { const c = document.createElement("canvas"); c.width = Math.ceil(MM.w * MM.bs); c.height = Math.ceil(MM.h * MM.bs); return c; };
+    const base = mk(), g = base.getContext("2d"), P = (x, z, w, d, col) => { g.fillStyle = col; g.fillRect((x - MM.ox) * MM.bs, (z - MM.oz) * MM.bs, Math.ceil(w * MM.bs) + 0.5, Math.ceil(d * MM.bs) + 0.5); };
+    if (mp) { for (const r of mp.rects) P(r[0], r[1], r[2], r[3], "#7d7388"); for (const r of mp.water || []) P(r[0], r[1], r[2], r[3], "#3a6aa8"); }
+    else {
+      P(b.minX, b.minZ, MM.w, MM.h, "#5d566c");
+      for (const c of S.colliders || []) if (c.maxX !== undefined) P(c.minX, c.minZ, c.maxX - c.minX, c.maxZ - c.minZ, "#2a2535");
+    }
+    MM.base = base;
+    if (MM.fog) {
+      MM.gw = Math.ceil(MM.w / MM.cell); MM.gh = Math.ceil(MM.h / MM.cell); MM.seen = new Uint8Array(MM.gw * MM.gh); MM.shown = mk(); MM.key = "h3dSeen_" + S.name;
+      try { const raw = atob(localStorage.getItem(MM.key) || ""); for (let i = 0; i < MM.seen.length; i++) { const by = raw.charCodeAt(i >> 3) || 0; if (by >> (i & 7) & 1) { MM.seen[i] = 1; mmShow(i % MM.gw, (i / MM.gw) | 0); } } } catch (e) {}
+    }
+  }
+  function mmShow(ci, cj) {
+    const s = MM.cell * MM.bs, x = ci * s, y = cj * s; MM.shown.getContext("2d").drawImage(MM.base, x, y, s, s, x, y, s, s);
+  }
+  function mmReveal() {
+    const p = S.player, R = 22, c = MM.cell; let n = 0;
+    for (let cj = Math.max(0, Math.floor((p.z - R - MM.oz) / c)); cj <= Math.min(MM.gh - 1, Math.floor((p.z + R - MM.oz) / c)); cj++)
+      for (let ci = Math.max(0, Math.floor((p.x - R - MM.ox) / c)); ci <= Math.min(MM.gw - 1, Math.floor((p.x + R - MM.ox) / c)); ci++) {
+        const i = cj * MM.gw + ci; if (MM.seen[i]) continue;
+        if (Math.hypot(MM.ox + (ci + .5) * c - p.x, MM.oz + (cj + .5) * c - p.z) > R) continue;
+        MM.seen[i] = 1; mmShow(ci, cj); n++;
+      }
+    if (n) MM.dirty = true;
+    if (MM.dirty && performance.now() - MM.saved > 2000) {
+      MM.saved = performance.now(); MM.dirty = false;
+      try { const by = new Uint8Array(Math.ceil(MM.seen.length / 8)); for (let i = 0; i < MM.seen.length; i++) if (MM.seen[i]) by[i >> 3] |= 1 << (i & 7); let st = ""; for (let i = 0; i < by.length; i++) st += String.fromCharCode(by[i]); localStorage.setItem(MM.key, btoa(st)); } catch (e) {}
+    }
+  }
+  function mmToggle() { MM.mode = (MM.mode + 1) % 3; try { localStorage.setItem("h3dMapMode", MM.mode); } catch (e) {} }
+  function mmDraw() {
+    if (!ui) return;
+    if (!MM.cv || !ui.contains(MM.cv)) { MM.cv = document.createElement("canvas"); MM.cv.className = "h3d-map"; ui.appendChild(MM.cv); MM.ctx = MM.cv.getContext("2d"); }
+    const cv = MM.cv;
+    if (MM.mode === 2 || !S) { cv.style.display = "none"; return; }
+    if (MM.scene !== S) mmBuild();
+    if (MM.fog) mmReveal();
+    const big = MM.mode === 1, dpr = Math.min(2, window.devicePixelRatio || 1), size = big ? Math.max(200, Math.min(480, innerHeight - 170, innerWidth - 40)) : 176;
+    if (cv.width !== Math.round(size * dpr)) { cv.width = cv.height = Math.round(size * dpr); cv.style.width = cv.style.height = size + "px"; }
+    cv.style.display = "block"; cv.style.borderRadius = big ? "14px" : "50%";
+    const g = MM.ctx, p = S.player, src = MM.fog ? MM.shown : MM.base, yaw = cam.yaw * Math.PI / 180;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, size, size); g.fillStyle = "rgba(10,8,18,.82)"; g.fillRect(0, 0, size, size);
+    g.save();
+    let z, cx, cz;
+    if (big) { z = Math.min(size / MM.w, size / MM.h) * 0.94; cx = MM.ox + MM.w / 2; cz = MM.oz + MM.h / 2; g.translate(size / 2, size / 2); }
+    else { z = 2; cx = p.x; cz = p.z; g.translate(size / 2, size / 2); g.rotate(yaw); }
+    g.scale(z, z); g.translate(-cx, -cz);
+    g.imageSmoothingEnabled = true; g.drawImage(src, MM.ox, MM.oz, MM.w, MM.h);
+    const vis = (x, zz) => !MM.fog || (MM.seen[Math.min(MM.gh - 1, Math.max(0, Math.floor((zz - MM.oz) / MM.cell))) * MM.gw + Math.min(MM.gw - 1, Math.max(0, Math.floor((x - MM.ox) / MM.cell)))] === 1);
+    const r = 3.2 / z * (big ? 1.2 : 1) * (z > 1 ? 1 : 1.2);
+    for (const e of S.events || []) {
+      const warp = (e.actions || []).some((a) => a.type === "warp"), chest = e.name === "Treasure chest";
+      if (!(warp || chest) || !vis(e.x, e.z)) continue;
+      g.fillStyle = chest ? "#f0c24a" : "#5fe08a"; g.fillRect(e.x - r * .7, e.z - r * .7, r * 1.4, r * 1.4);
+    }
+    g.fillStyle = "#ffe27a";
+    for (const n of S.npcs || []) { if (!vis(n.x, n.z)) continue; g.beginPath(); g.arc(n.x, n.z, r * .8, 0, 7); g.fill(); }
+    g.save(); g.translate(p.x, p.z); g.rotate(big ? yaw : -yaw); g.fillStyle = "#ff5a6e"; g.strokeStyle = "#fff"; g.lineWidth = 0.35 / z * 2;
+    g.beginPath(); g.moveTo(0, -r * 1.7); g.lineTo(r * 1.1, r * 1.1); g.lineTo(0, r * .5); g.lineTo(-r * 1.1, r * 1.1); g.closePath(); g.fill(); g.stroke(); g.restore();
+    g.restore();
+    g.lineWidth = 3; g.strokeStyle = "rgba(232,199,102,.75)";
+    if (big) { g.strokeRect(1.5, 1.5, size - 3, size - 3); } else { g.beginPath(); g.arc(size / 2, size / 2, size / 2 - 1.5, 0, 7); g.stroke(); }
+  }
   function buildDom() {
     ui = document.createElement("div"); ui.id = "h3d-ui"; sceneEl.appendChild(ui);
     const mk = (cls, parent) => { const e = document.createElement("div"); e.className = cls; (parent || ui).appendChild(e); return e; };
@@ -669,7 +956,8 @@ void main(){
       n.hit.addEventListener("click", (e) => { e.stopPropagation(); clickNpc(n); });
       n.hit.addEventListener("mouseenter", () => { n.hover = true; }); n.hit.addEventListener("mouseleave", () => { n.hover = false; });
     });
-    hudEls.hint = mk("h3d-hint"); hudEls.hint.textContent = "WASD / arrows move  ·  Shift run  ·  E talk  ·  click the ground or an NPC  ·  drag to turn  ·  wheel zoom";
+    S.labels = (S.def.labels || []).map((l) => { const e = mk("h3d-label"); e.textContent = l.text; return Object.assign({ el: e, h: 6 }, l); });
+    hudEls.hint = mk("h3d-hint"); hudEls.hint.textContent = "WASD / arrows move  ·  Shift run  ·  E talk  ·  click the ground or an NPC  ·  M map  ·  drag to tilt  ·  wheel zoom";
     hudEls.load = mk("h3d-loading"); hudEls.load.textContent = "Loading the plaza…";
     hudEls.quest = mk("h3d-quest");
     hudEls.rank = mk("h3d-rank"); hudEls.rank.innerHTML = '<b></b><span></span><i><u></u></i>';
@@ -684,8 +972,13 @@ void main(){
   function syncDom() {
     const showN = S.active;
     if (hudEls.evhint) { const ev = S.activeEv; hudEls.evhint.style.display = ev && !script ? "block" : "none"; if (ev) hudEls.evhint.textContent = "[E] " + (ev.prompt || ev.name || "Interact"); }
+    for (const l of S.labels || []) {
+      const p = project([l.x, l.h + gh(l.x, l.z), l.z]), dx = l.x - S.player.x, dz = l.z - S.player.z, far = dx * dx + dz * dz > (l.range || 70) * (l.range || 70);
+      const show = p.w > 0 && !far && p.x > -80 && p.x < cam.w + 80 && p.y > -30 && p.y < cam.h + 30 && (!l.showIf || has(getCleared(), l.showIf));
+      l.el.style.display = show ? "block" : "none"; if (show) { l.el.style.left = p.x + "px"; l.el.style.top = p.y + "px"; }
+    }
     for (const n of S.npcs) {
-      const foot = project([n.x, n.base || 0, n.z]), head = project([n.x, (n.base || 0) + n.h, n.z]);
+      const gy = gh(n.x, n.z), foot = project([n.x, gy + (n.base || 0), n.z]), head = project([n.x, gy + (n.base || 0) + n.h, n.z]);
       const hh = Math.max(20, foot.y - head.y), hw = hh * (n.bossTex ? n.bossTex.aspect : (n.sheet ? Math.min(n.sheet.cw / n.sheet.refH, 1) : 0.5)) * 0.9;
       n.el.style.left = foot.x + "px"; n.el.style.top = foot.y + "px"; n.el.style.zIndex = String(10 + Math.round(foot.y));
       n.hit.style.width = hw + "px"; n.hit.style.height = hh + "px"; n.hit.style.cursor = "pointer";
@@ -750,6 +1043,7 @@ void main(){
       #h3d-bar button:hover { color:#fff; border-color:var(--gold); }
       .h3d-npc { position:absolute; width:0; height:0; }
       .h3d-hit { position:absolute; transform:translate(-50%,-100%); pointer-events:auto; }
+      .h3d-label { display:none; position:absolute; transform:translate(-50%,-50%); white-space:nowrap; font-size:13px; font-weight:700; letter-spacing:.03em; color:#f6efd8; padding:3px 11px; background:rgba(40,28,18,.72); border:1px solid rgba(232,199,102,.35); text-shadow:0 1px 2px #000; pointer-events:none; z-index:2; }
       .h3d-tag { position:absolute; transform:translate(-50%,-100%); white-space:nowrap; font-size:12px; font-weight:700; letter-spacing:.04em; color:#f1ecdd; padding:2px 9px;
         background:rgba(18,16,28,.62); border:1px solid rgba(232,199,102,.25); border-radius:999px; text-shadow:0 1px 3px #000; opacity:.8; pointer-events:none; transition:opacity .15s, border-color .15s; }
       .h3d-tag.on { opacity:1; border-color:var(--gold); color:var(--gold); }
@@ -762,18 +1056,40 @@ void main(){
       .b-name { font-size:12px; font-weight:800; letter-spacing:.06em; color:var(--gold); text-transform:uppercase; }
       .b-text { font-size:13px; line-height:1.4; margin:4px 0 8px; color:var(--text); }
       .b-btn { display:inline-block; font-size:12px; font-weight:800; padding:5px 12px; border-radius:9px; color:#241a05; background:linear-gradient(180deg,#e8c766,#b8892c); }
+      .h3d-map { position:absolute; right:20px; bottom:70px; pointer-events:none; box-shadow:0 4px 18px rgba(0,0,0,.6); display:none; }
       .h3d-hint { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); font-size:11px; color:var(--dim); background:rgba(18,16,28,.55); padding:4px 12px; border-radius:999px; white-space:nowrap; }
       .h3d-loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:18px; letter-spacing:.1em; color:var(--gold); background:rgba(10,9,16,.85); transition:opacity .5s; pointer-events:none; }
       .h3d-loading.done { opacity:0; }
+      body.h3d-nocolo .h3d-rank, body.h3d-nocolo #title-block { display:none !important; }
       .h3d-rank { position:absolute; left:22px; top:92px; width:210px; padding:7px 12px 9px; border-radius:12px; background:var(--panel-bg); border:1px solid var(--panel-border); pointer-events:none; }
       .h3d-quest { position:absolute; left:22px; top:166px; width:210px; padding:7px 12px 9px; border-radius:12px; background:var(--panel-bg); border:1px solid var(--panel-border); pointer-events:none; display:none; }
       .h3d-quest b { display:block; font-size:11px; letter-spacing:.12em; color:var(--gold); } .h3d-quest span { font-size:12px; color:#f0ead0; line-height:1.35; }
       .h3d-rank b { display:block; font-size:11px; letter-spacing:.12em; color:var(--gold); } .h3d-rank span { font-size:11px; color:var(--dim); }
       .h3d-rank i { display:block; height:6px; border-radius:3px; background:rgba(255,255,255,.12); margin-top:5px; overflow:hidden; } .h3d-rank u { display:block; height:100%; width:0; background:linear-gradient(90deg,#8a6a1a,#e8c766); transition:width .5s; }
-      .h3d-say { display:none; position:absolute; left:50%; bottom:64px; transform:translateX(-50%); width:min(620px,86vw); padding:12px 18px 14px; border-radius:14px; pointer-events:auto; cursor:pointer; z-index:8;
-        background:rgba(18,16,28,.94); border:1px solid var(--gold); box-shadow:0 8px 30px rgba(0,0,0,.6); }
-      .s-who { font-size:12px; font-weight:800; letter-spacing:.07em; color:var(--gold); text-transform:uppercase; } .s-who:empty { display:none; }
-      .s-text { font-size:15px; line-height:1.5; margin:5px 0 8px; color:var(--text); white-space:pre-wrap; } .s-go { font-size:11px; color:var(--dim); text-align:right; }
+      #h3d-bars i { position:absolute; left:0; right:0; height:0; background:#000; transition:height 1.1s ease; display:block; } #h3d-bars .cb-top { top:0; } #h3d-bars .cb-bot { bottom:0; }
+      body.h3d-cine #h3d-bars i { height:11vh; }
+      body.h3d-cine .h3d-tag, body.h3d-cine .h3d-alert, body.h3d-cine .h3d-bubble, body.h3d-cine .h3d-hint, body.h3d-cine .h3d-quest, body.h3d-cine .h3d-map, body.h3d-cine .h3d-rank,
+      body.h3d-cine .h3d-label, body.h3d-cine .h3d-hit, body.h3d-cine .h3d-evhint, body.h3d-cine #h3d-bar { display:none !important; }
+      body.h3d-cine .h3d-say { bottom:calc(11vh + 22px); }
+      #h3d-ctitle { align-items:center; justify-content:center; flex-direction:column; text-align:center; transition:opacity .9s ease; }
+      #h3d-ctitle b { font-size:clamp(34px,7vw,84px); letter-spacing:.22em; font-weight:900; color:#f2d67e; text-shadow:0 0 28px rgba(232,199,102,.55), 0 4px 0 #6b4a10, 0 8px 22px rgba(0,0,0,.8); padding-left:.22em; }
+      #h3d-ctitle span { margin-top:14px; font-size:clamp(13px,2vw,20px); letter-spacing:.38em; text-transform:uppercase; color:#e9dcc0; text-shadow:0 2px 8px #000; }
+      #h3d-cskip { padding:6px 16px; border-radius:999px; font-size:12px; font-weight:800; letter-spacing:.08em; color:#e9dcc0; background:rgba(0,0,0,.55); border:1px solid rgba(232,199,102,.6); cursor:pointer; user-select:none; }
+      #h3d-cskip:hover { background:rgba(232,199,102,.25); }
+      .h3d-say { display:none; box-sizing:border-box; position:absolute; left:50%; bottom:46px; transform:translateX(-50%); width:min(780px,94vw); min-height:112px; padding:30px 28px 30px; border-radius:16px; pointer-events:auto; cursor:pointer; z-index:8;
+        background:linear-gradient(180deg,rgba(34,28,52,.98),rgba(12,10,22,.98)); border:2px solid var(--gold);
+        box-shadow:0 0 0 3px rgba(0,0,0,.65), 0 0 0 5px rgba(232,199,102,.35), 0 14px 44px rgba(0,0,0,.75), 0 0 36px rgba(232,199,102,.18); animation:h3d-say-in .18s ease-out; }
+      @keyframes h3d-say-in { from { opacity:0; transform:translateX(-50%) translateY(14px); } to { opacity:1; transform:translateX(-50%); } }
+      .h3d-say.has-pic { padding-left:176px; }
+      .s-pic { display:none; position:absolute; left:20px; bottom:14px; width:140px; height:176px; border-radius:12px; overflow:hidden; border:2px solid var(--gold);
+        background:#120f1c; box-shadow:0 0 0 3px rgba(0,0,0,.7), 0 8px 24px rgba(0,0,0,.7); }
+      .h3d-say.has-pic .s-pic { display:block; } .s-pic img { width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
+      .s-who { position:absolute; left:26px; top:-15px; padding:4px 18px 5px; border-radius:9px; font-size:14px; font-weight:800; letter-spacing:.09em; color:#241a05; text-transform:uppercase;
+        background:linear-gradient(180deg,#f2d67e,#b8892c); box-shadow:0 3px 12px rgba(0,0,0,.6); } .s-who:empty { display:none; }
+      .h3d-say.has-pic .s-who { left:176px; }
+      .s-text { font-size:18px; line-height:1.55; margin:0; color:#fff; white-space:pre-wrap; text-shadow:0 1px 2px rgba(0,0,0,.6); }
+      .s-go { position:absolute; right:20px; bottom:8px; font-size:12px; color:var(--gold); animation:h3d-blink 1.2s ease-in-out infinite; }
+      @keyframes h3d-blink { 50% { opacity:.35; } }
       .h3d-evhint { display:none; position:absolute; left:50%; bottom:46px; transform:translateX(-50%); font-size:13px; font-weight:700; color:#241a05; background:linear-gradient(180deg,#e8c766,#b8892c); padding:6px 16px; border-radius:999px; box-shadow:0 4px 16px rgba(0,0,0,.5); pointer-events:none; }
       #h3d-vignette { position:absolute; inset:0; pointer-events:none; z-index:1; background:radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0) 55%, rgba(6,3,14,.5) 100%); display:none; }
       body.h3d #h3d-vignette { display:block; }`;
@@ -803,16 +1119,18 @@ void main(){
     requestAnimationFrame(frame);
     if (!H3.on || !S) return;
     const dt = Math.min(0.05, Math.max(0.001, (now - (lastT || now - 16)) / 1000)); lastT = now; clock += dt;
-    if (!modalOpen() && !scriptActive()) stepPlayer(dt); else S.player.moving = false;
+    stepCine(dt);
+    if (!modalOpen() && !scriptActive()) stepPlayer(dt); else if (!(script && script.cineRun && S.player.moving)) S.player.moving = false;
     updateCamera(dt, false);
-    render(now); syncDom();
+    render(now); syncDom(); try { mmDraw(); } catch (e) { if (!MM.err) { MM.err = 1; console.warn('[Hub3D] minimap:', e); } }
   }
   function bindInput() {
     window.addEventListener("keydown", (e) => {
       if (!H3.on || modalOpen()) return;
-      if (script) { if (e.key === "e" || e.key === "E" || e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!e.repeat) advanceScript(); } return; }
+      if (script) { if (e.key === "Escape") { e.preventDefault(); skipCine(); return; } if (e.key === "e" || e.key === "E" || e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!e.repeat) advanceScript(); } return; }
       if (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       const k = e.key.toLowerCase();
+      if (k === "m" && !e.repeat) { mmToggle(); return; }
       if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", "shift"].includes(k)) { keys[k] = true; if (k.startsWith("arrow")) e.preventDefault(); }
       if ((k === "e" || k === "enter" || k === " ") && S && S.active && !e.repeat) { e.preventDefault(); interact(S.active); }
       else if ((k === "e" || k === "enter" || k === " ") && S && S.activeEv && !e.repeat) { e.preventDefault(); runActions(S.activeEv); }
@@ -823,9 +1141,9 @@ void main(){
     const host = ui;
     sceneEl.addEventListener("pointerdown", (e) => { if (!H3.on || e.target.closest(".h3d-hit, .h3d-say, button, .currency-pill, #tut-overlay, #dbg-modal, .debug")) return; drag = { x: e.clientX, y: e.clientY, yaw: cam.goalYaw, pitch: cam.goalPitch, moved: false, id: e.pointerId }; });
     window.addEventListener("pointermove", (e) => {
-      if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag || script) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
-      if (drag.moved) { cam.goalYaw = clamp(drag.yaw - dx * 0.25, -80, 80); cam.goalPitch = clamp(drag.pitch + dy * 0.15, 14, 62); }
+      if (drag.moved) { cam.goalPitch = clamp(drag.pitch + dy * 0.15, 14, 62); }
     });
     window.addEventListener("pointerup", (e) => {
       if (!drag) return; const d = drag; drag = null;
@@ -833,7 +1151,7 @@ void main(){
       const r = sceneEl.getBoundingClientRect(), g = groundAt(e.clientX - r.left, e.clientY - r.top);
       if (g) { const b = S.bounds; S.player.target = { x: clamp(g.x, b.minX + 1, b.maxX - 1), z: clamp(g.z, b.minZ + 1, b.maxZ - 1) }; S.player.wantNpc = null; }
     });
-    sceneEl.addEventListener("wheel", (e) => { if (!H3.on || modalOpen()) return; e.preventDefault(); cam.goalDist = clamp(cam.goalDist * (1 + Math.sign(e.deltaY) * 0.08), 12, 48); }, { passive: false });
+    sceneEl.addEventListener("wheel", (e) => { if (!H3.on || modalOpen() || script) return; e.preventDefault(); cam.goalDist = clamp(cam.goalDist * (1 + Math.sign(e.deltaY) * 0.08), 12, 48); }, { passive: false });
     window.addEventListener("resize", resize);
   }
 
@@ -841,6 +1159,9 @@ void main(){
   H3.init = async function (opts) {
     O = opts; sceneEl = document.getElementById("scene");
     const q = new URLSearchParams(location.search);
+    { const c = getCleared();       // the opening cutscene: ?intro=1 replays it; saves that already progressed never see it
+      if (q.get("intro")) { c.delete("st_intro"); setCleared(c); }
+      else if (!c.has("st_intro") && [...c].some((k) => /^(fq_|dg_|st_|vt_)/.test(k))) { c.add("st_intro"); setCleared(c); } }
     if (q.get("cleared")) { const c = getCleared(); c.add(q.get("cleared")); setCleared(c); try { const u = new URL(location.href); u.searchParams.delete("cleared"); history.replaceState(null, "", u); } catch (e) {} }
     css();
     try {
@@ -871,9 +1192,9 @@ void main(){
       const sceneName = q.get("scene") || (back && back.scene) || (((cl) => cl.has("st_space") ? "asteroid" : cl.has("st_free") ? "olympus" : cl.has("st_done") ? "prison" : "island")(getCleared()));
       S = null;
       const loaded = await loadScene(sceneName, null);
-      S = loaded; buildDom(); buildSayBox(); bindInput(); applySceneMusic();
+      S = loaded; sceneCam(); buildDom(); buildSayBox(); bindInput(); applySceneMusic();
       if (q.get("cam")) { const c = q.get("cam").split(",").map(Number); cam.free = true; cam.tx = c[0]; cam.tz = c[1]; cam.goalYaw = c[2] || 0; cam.goalPitch = c[3] || 30; cam.goalDist = c[4] || 25; }
-      if (back && back.scene === sceneName && !q.get("at") && isFinite(back.x) && isFinite(back.z)) { S.player.x = back.x; S.player.z = back.z; if (back.face) S.player.face = back.face; }
+      if (back && back.scene === sceneName && !q.get("at") && isFinite(back.x) && isFinite(back.z)) { S.player.x = back.x; S.player.z = back.z; if (back.face) S.player.face = back.face; if (!cam.free && isFinite(back.yaw)) { cam.goalYaw = back.yaw; if (isFinite(back.pitch)) cam.goalPitch = back.pitch; if (isFinite(back.dist)) cam.goalDist = back.dist; } }
       if (q.get("at")) { const c = q.get("at").split(",").map(Number); S.player.x = c[0]; S.player.z = c[1]; }
       primeEvents();
       if (!cam.free) { cam.tx = S.player.x; cam.tz = S.player.z + 1.5; }
@@ -886,5 +1207,5 @@ void main(){
     const want = q.get("view") === "2d" || q.get("view") === "3d" ? q.get("view") : (saved || "3d");
     H3.setOn(want !== "2d");
   };
-  H3.debug = { cam, project, groundAt, scene: () => S };
+  H3.debug = { cam, project, groundAt, scene: () => S, say, interact: (id) => { const n = S.npcs.find((q) => q.id === id); if (n) interact(n); }, cineStep: (sec) => { for (let t = 0; t < sec; t += 0.05) stepCine(0.05); } };
 })();

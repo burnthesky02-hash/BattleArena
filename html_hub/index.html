@@ -297,8 +297,28 @@
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
+<style>
+  /* While the 3D hub is still loading, hide the 2D Colosseum layout underneath so it never flashes (js below, ?view=2d / hubView=2d skip it). */
+  html.h3d-boot body > :not(#boot-cover) { visibility: hidden !important; }
+  #boot-cover { display: none; }
+  html.h3d-boot #boot-cover { display: flex; position: fixed; inset: 0; z-index: 99999; align-items: center; justify-content: center; background: #0a0910;
+    color: #e8c766; font: 18px "Segoe UI", Verdana, sans-serif; letter-spacing: .1em; }
+</style>
+<script>
+(function () {
+  try { var q = new URLSearchParams(location.search), v = q.get("view") || localStorage.getItem("hubView") || "3d"; if (v === "2d") return; } catch (e) {}
+  var h = document.documentElement, t = null;
+  h.classList.add("h3d-boot");
+  function done() { h.classList.remove("h3d-boot"); if (t) clearInterval(t); }
+  t = setInterval(function () {
+    if ((document.body && document.body.classList.contains("h3d")) || (window.Hub3D && Hub3D.failed)) done();
+  }, 50);
+  setTimeout(done, 12000);   // never leave the page hidden if the 3D hub stalls
+})();
+</script>
 </head>
 <body>
+<div id="boot-cover">Loading...</div>
 <div id="scene">
   <div id="topbar">
     <div id="title-block">

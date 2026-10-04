@@ -46,6 +46,8 @@ class PlayerState:
     # Ids of bosses (data/bosses.py) the player has beaten at least once -- the first
     # clear pays a bigger bonus than rematches. Missing from old saves -> empty.
     cleared_bosses: List[str] = field(default_factory=list)
+    # Bestiary: enemy/boss name -> {"seen": fights it appeared in, "defeated": fights won against it}. Missing from old saves -> empty.
+    bestiary: Dict[str, Dict[str, int]] = field(default_factory=dict)
     # The Colosseum ladder (game/renown.py): your rank, and the renown meter within it.
     rank: int = 1
     renown: int = 0

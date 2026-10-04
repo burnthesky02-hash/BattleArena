@@ -91,13 +91,21 @@ EV += [dict(id="vault_hatch", name="Vault hatch", x=HATCH[0] + 3.0, z=HATCH[1], 
             actions=[dict(type="say", who="", text="A heavy hatch, scorched and sealed. Something below it hums.", unless="st_lyra"),
                      dict(type="say", who="", text="The hatch grinds open on a staircase that spirals down into violet light. The air tastes of metal and old storms.", **{"if": "st_lyra"}),
                      dict(type="warp", scene="vault", x=0, z=10, **{"if": "st_lyra"})])]
+# ---- the rift gate (chapter 4): opens once the Vault Warden is down; leads to reach.json (the Shattered Reach)
+GATE = (14, 23)
+DEC.append(dict(type="glow", x=GATE[0], z=GATE[1], r=7, color=[1, .35, .5, .9], showIf="vt_boss"))
+EV += [dict(id="rift_gate", name="Rift gate", x=GATE[0], z=GATE[1], w=5.0, d=4.0, trigger="talk", prompt="Step into the rift",
+            actions=[dict(type="say", who="", text="The air above the pad is quiet. Nothing answers the console yet.", unless="vt_boss"),
+                     dict(type="say", who="Captain Rhea", text="The new coordinate resolved overnight. The rift has torn open past the pad: a chain of broken ruins hanging in nothing. Whatever is calling, it is on the far side. Come back alive.", **{"if": "vt_boss", "unless": "rc_arrive"}),
+                     dict(type="say", who="", text="A wound in the sky hangs open, bleeding violet light. You step through.", **{"if": "vt_boss"}),
+                     dict(type="warp", scene="reach", x=0, z=8, **{"if": "vt_boss"})])]
 AUTO = [dict(unless="st_landed", actions=[
     dict(type="say", who="", text="Cold, thin air and the hum of machinery. You stand on a landing pad, stars wheeling overhead. A huge ringed planet hangs in the sky."),
     dict(type="say", who="", text="You are not on the island. You are not in the Colosseum. You are not, by the look of it, even in the same world."),
     dict(type="say", who="", text="A woman in a flight jacket is walking toward you across the pad. Speak to Captain Rhea."),
     dict(type="flag", key="st_landed")])]
 LYR = "/assets/Backgrounds/layers/"
-d = dict(name="Outpost Kestrel", kit="", tile=4, pieces=P, colliders=COL, npcs=NP, events=EV, decals=DEC, story=True, autorun=AUTO,
+d = dict(name="Outpost Kestrel", kit="", tile=4, pieces=P, colliders=COL, npcs=NP, events=EV, decals=DEC, story=True, autorun=AUTO, music=dict(url="/assets/Music/mp3/02. Lively City.mp3"),
          bounds=dict(minX=-56, maxX=56, minZ=-34, maxZ=36), spawn=dict(x=PAD[0], z=PAD[1] - 2), playerHeight=2.4,
          sky=dict(type="layers", base=dict(type="gradient", stops=[[0, "#010208"], [.5, "#060b1f"], [1, "#171335"]]),
                   layers=[dict(url=LYR + "stars.webp", y=.30, height=.66, parallax=.04, alpha=1, tint=[1, 1, 1.1]),

@@ -556,9 +556,8 @@ BOSSES: Dict[str, BossDef] = {COLOSSEUM_CHAMPION.id: COLOSSEUM_CHAMPION, UNBROKE
 ANCIENT_GUARDIAN = BossDef(
     id="ancient_guardian_boss",
     name="Ancient Guardian",
-    # No dedicated boss art yet -- reuses Yulia's existing battle sheet as placeholder, same "reuse
-    # battle sprites" call the rest of the overworld pass made (see data/world_data.py's docstring).
-    sprite={"file": "Battlers/Yulia/Yulia-Idle.png", "scale": 1.4, "native_left": False, "idle_only": True},
+    # Static (single-image) art: "static": True makes the battle view fit the image to its alpha bounds.
+    sprite={"file": "Bosses/AncientGuardian/Ancient-Guardian.png", "scale": 1.5, "native_left": False, "idle_only": True, "static": True},
     # Deliberately lighter than the rank bosses above (Champion: 250 HP base x4.5; Pair: similar) --
     # this is an EARLY dungeon encounter a fresh party can stumble into, not a renown-gated wall.
     base_stats=Stats(max_hp=150, max_mp=100, atk=22, def_=20, mag=8, res=14, spd=9, luk=8),
@@ -615,10 +614,10 @@ ANCIENT_GUARDIAN = BossDef(
 DROWNED_SOVEREIGN = BossDef(
     id="drowned_sovereign_boss",
     name="Drowned Sovereign",
-    sprite={"file": "Bosses/ColliseumChamp/ColliseumChamp-Idle.png", "scale": 2.0, "native_left": False, "idle_only": True},
-    base_stats=Stats(max_hp=190, max_mp=120, atk=27, def_=22, mag=14, res=18, spd=10, luk=10),
+    sprite={"file": "Bosses/DrownedSovereign/Drowned_Sovereign.png", "scale": 1.6, "native_left": False, "idle_only": True, "static": True},
+    base_stats=Stats(max_hp=190, max_mp=120, atk=25, def_=22, mag=12, res=18, spd=10, luk=10),   # balance pass 2026-10-03: was atk 27 / mag 14 / hp_mult 3.0 (unwinnable solo)
     growth=Stats(max_hp=18, max_mp=0, atk=2, def_=2, mag=1, res=2, spd=1, luk=0),
-    hp_mult=3.0,
+    hp_mult=2.5,
     level_offset=2,
     skill_ids=["power_strike", "sunder", "tremor_slam", "arena_slam"],
     persona=(
@@ -672,10 +671,10 @@ DROWNED_SOVEREIGN = BossDef(
 VAULT_WARDEN = BossDef(
     id="vault_warden_boss",
     name="Vault Warden",
-    sprite={"file": "Bosses/ColliseumChamp/ColliseumChamp-Idle.png", "scale": 2.1, "native_left": False, "idle_only": True},
-    base_stats=Stats(max_hp=210, max_mp=140, atk=29, def_=24, mag=18, res=20, spd=12, luk=10),
+    sprite={"file": "Bosses/VaultWarden/Vault-Warden.png", "scale": 1.6, "native_left": False, "idle_only": True, "static": True},
+    base_stats=Stats(max_hp=210, max_mp=140, atk=24, def_=24, mag=14, res=20, spd=12, luk=10),   # balance pass: was atk 29 / mag 18 / hp_mult 3.2
     growth=Stats(max_hp=20, max_mp=0, atk=2, def_=2, mag=2, res=2, spd=1, luk=0),
-    hp_mult=3.2,
+    hp_mult=2.0,
     level_offset=2,
     skill_ids=["power_strike", "sunder", "shield_bash", "arena_slam", "tremor_slam"],
     persona=(
@@ -725,14 +724,14 @@ VAULT_WARDEN = BossDef(
 
 
 def _guardian(id_, name, sprite_file, scale, stats, growth, hp_mult, lvoff, skills, persona, intro, triggers, victory, defeat, rf, rr, color):
-    return BossDef(id=id_, name=name, sprite={"file": sprite_file, "scale": scale, "native_left": False, "idle_only": True},
+    return BossDef(id=id_, name=name, sprite={"file": sprite_file, "scale": scale, "native_left": False, "idle_only": True, "static": True},
                    base_stats=stats, growth=growth, hp_mult=hp_mult, level_offset=lvoff, skill_ids=skills, persona=persona,
                    script={"intro": intro, "triggers": triggers, "victory": victory, "defeat": defeat},
                    rewards_first=rf, rewards_repeat=rr, sprite_color=color)
 
 
 VAULT_SENTINEL = _guardian(
-    "vault_sentinel_boss", "Vault Sentinel", "Battlers/Draven/Draven-Idle.png", 1.7,
+    "vault_sentinel_boss", "Vault Sentinel", "Bosses/VaultSentinel/Vault-Sentinel.png", 1.5,
     Stats(max_hp=170, max_mp=100, atk=24, def_=26, mag=12, res=16, spd=9, luk=8),
     Stats(max_hp=16, max_mp=0, atk=2, def_=2, mag=1, res=1, spd=1, luk=0), 2.5, 0,
     ["shield_bash", "power_strike", "iron_stance", "ground_slam", "self_repair"],
@@ -752,7 +751,7 @@ VAULT_SENTINEL = _guardian(
     {"money": 520, "gems": 14, "xp": 170}, {"money": 150, "gems": 3, "xp": 50}, (90, 150, 210))
 
 PHASE_STALKER = _guardian(
-    "phase_stalker_boss", "Phase Stalker", "Battlers/Kael/Kael-Idle.png", 1.6,
+    "phase_stalker_boss", "Phase Stalker", "Bosses/PhaseStalker/Phase-Stalker.png", 1.4,
     Stats(max_hp=140, max_mp=110, atk=27, def_=15, mag=16, res=18, spd=17, luk=14),
     Stats(max_hp=14, max_mp=0, atk=3, def_=1, mag=1, res=1, spd=2, luk=1), 2.4, 0,
     ["rending_strike", "piercing_shot", "poison_dart", "reckless_swing", "quick_shot"],
@@ -773,9 +772,9 @@ PHASE_STALKER = _guardian(
     {"money": 600, "gems": 16, "xp": 200}, {"money": 170, "gems": 4, "xp": 60}, (170, 110, 230))
 
 RIFT_COLOSSUS = _guardian(
-    "rift_colossus_boss", "Rift Colossus", "Battlers/Yulia/Yulia-Idle.png", 2.0,
-    Stats(max_hp=230, max_mp=120, atk=28, def_=22, mag=22, res=14, spd=8, luk=8),
-    Stats(max_hp=22, max_mp=0, atk=2, def_=2, mag=2, res=1, spd=1, luk=0), 2.8, 0,
+    "rift_colossus_boss", "Rift Colossus", "Bosses/RiftColossus/Rift-Colossus.png", 1.7,
+    Stats(max_hp=230, max_mp=120, atk=22, def_=22, mag=17, res=14, spd=8, luk=8),   # balance pass: was atk 28 / mag 22 / hp_mult 2.8
+    Stats(max_hp=22, max_mp=0, atk=2, def_=2, mag=2, res=1, spd=1, luk=0), 1.6, 0,
     ["crushing_blow", "ground_slam", "warcry", "firestorm", "power_strike"],
     "A towering core-forged giant. Slow and brutal: Crushing Blow on the strongest hero, Power Strike on the weakest, Ground Slam against healthy parties, and Firestorm when the core overheats.",
     [{"shake": True}, {"say": ("Rift Colossus", "THE CORE IS HEAVY. THE CORE IS HOT. THE CORE IS MINE.")}, {"announce": "THE RIFT COLOSSUS AWAKENS"}],
@@ -794,5 +793,53 @@ RIFT_COLOSSUS = _guardian(
     {"money": 720, "gems": 20, "xp": 260}, {"money": 200, "gems": 5, "xp": 75}, (230, 140, 70))
 
 
-WORLD_BOSSES: Dict[str, BossDef] = {ANCIENT_GUARDIAN.id: ANCIENT_GUARDIAN, DROWNED_SOVEREIGN.id: DROWNED_SOVEREIGN, VAULT_WARDEN.id: VAULT_WARDEN,
-                                VAULT_SENTINEL.id: VAULT_SENTINEL, PHASE_STALKER.id: PHASE_STALKER, RIFT_COLOSSUS.id: RIFT_COLOSSUS}
+
+BRIARMAW = _guardian(
+    "briarmaw_boss", "Briarmaw", "Bosses/Briarmaw/Briarmaw.png", 1.6,
+    Stats(max_hp=150, max_mp=90, atk=21, def_=17, mag=10, res=13, spd=11, luk=8),
+    Stats(max_hp=15, max_mp=0, atk=2, def_=2, mag=1, res=1, spd=1, luk=0), 2.3, 1,
+    ["rending_strike", "poison_dart", "power_strike", "counter_stance", "ground_slam"],
+    "The awakened heart of the Whispering Wood: slow to anger, brutal once roused. Rending Strike on the weakest hero, Poison Dart on the healthiest, Power Strike to finish the wounded, Counter Stance when hurt, and Ground Slam when the thorns rise.",
+    [{"shake": True}, {"say": ("Briarmaw", "...ROOTS... REMEMBER... EVERY FOOTSTEP...")}, {"announce": "BRIARMAW AWAKENS"}],
+    [{"id": "thorns", "when": {"every_n_rounds": 3, "from": 3}, "once": False, "steps": [
+        {"announce": "THE THORNS RISE"}, {"log": "Black brambles burst from the earth and lash across the whole party."},
+        {"force_skill": {"skill": "ground_slam", "target": "all"}}]},
+     {"id": "bark", "when": {"hp_below": 0.5}, "steps": [
+        {"shake": True}, {"say": ("Briarmaw", "BARK... THICKENS. YOU... CANNOT... CUT THE OAK.")},
+        {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}}]},
+     {"id": "regrow", "when": {"hp_below": 0.25}, "steps": [
+        {"say": ("Briarmaw", "THE WOOD... GIVES... ME... STRENGTH.")}, {"heal_boss_pct": 0.08},
+        {"announce": "BRIARMAW REGROWS"}]}],
+    [{"say": ("Briarmaw", "...THE SONG... IS OVER. LEAVE... THE SEEDLINGS... ALONE.")}],
+    [{"say": ("Briarmaw", "...ROOT... AND... LEAF... REMAIN. YOU... DO NOT.")}],
+    {"money": 700, "gems": 18, "xp": 220}, {"money": 180, "gems": 4, "xp": 60}, (80, 170, 90))
+
+# ======================================================================
+# THE RIFT HARBINGER -- chapter 4 boss (the Shattered Reach, html_hub/3d/make_reach.py). The thing that
+# has been dragging fighters through the doors. Uses the Null Reaper's static art until it gets its own.
+# ======================================================================
+RIFT_HARBINGER = _guardian(
+    "rift_harbinger_boss", "Rift Harbinger", "Battlers/Enemies/Null-Reaper.png", 1.8,
+    Stats(max_hp=190, max_mp=140, atk=20, def_=18, mag=22, res=18, spd=13, luk=10),
+    Stats(max_hp=18, max_mp=0, atk=2, def_=1, mag=2, res=2, spd=1, luk=0), 2.0, 1,
+    ["void_lance", "shadow_bolt", "life_drain", "sunder", "weaken", "crushing_blow"],
+    "A patient collector of fighters, cold and exact. Void Lance on the weakest hero, Shadow Bolt on the strongest caster, Sunder on whoever carries the most armour, Weaken before a big hit, Life Drain when its own HP is low, and Crushing Blow to finish.",
+    [{"shake": True}, {"say": ("Rift Harbinger", "Three doors I opened. Three fighters I drew through. You are the first to walk back to the hand that held them.")}, {"announce": "THE RIFT HARBINGER STIRS"}],
+    [{"id": "harvest", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
+        {"announce": "HARVEST"}, {"log": "The Harbinger raises a hand and the air itself tears toward the weakest of you."},
+        {"force_skill": {"skill": "void_lance", "target": "lowest_hp"}}]},
+     {"id": "unmake", "when": {"hp_below": 0.55}, "steps": [
+        {"shake": True}, {"say": ("Rift Harbinger", "Enough. Let me show you how the doors are made.")},
+        {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}}]},
+     {"id": "last_door", "when": {"hp_below": 0.25}, "steps": [
+        {"flash": "#1a0a3a"}, {"say": ("Rift Harbinger", "The last door opens inward. Come. Come and see.")},
+        {"heal_boss_pct": 0.06}, {"announce": "THE LAST DOOR OPENS"},
+        {"force_skill": {"skill": "shadow_bolt", "target": "lowest_hp"}}]}],
+    [{"say": ("Rift Harbinger", "...The hand... was never mine. Find the one who... holds... the doors...")}],
+    [{"say": ("Rift Harbinger", "Another one for the Reach. Sleep.")}],
+    {"money": 1000, "gems": 26, "xp": 340}, {"money": 280, "gems": 7, "xp": 100}, (150, 60, 200))
+
+
+WORLD_BOSSES: Dict[str, BossDef] = {BRIARMAW.id: BRIARMAW, ANCIENT_GUARDIAN.id: ANCIENT_GUARDIAN, DROWNED_SOVEREIGN.id: DROWNED_SOVEREIGN, VAULT_WARDEN.id: VAULT_WARDEN,
+                                VAULT_SENTINEL.id: VAULT_SENTINEL, PHASE_STALKER.id: PHASE_STALKER, RIFT_COLOSSUS.id: RIFT_COLOSSUS,
+                                RIFT_HARBINGER.id: RIFT_HARBINGER}

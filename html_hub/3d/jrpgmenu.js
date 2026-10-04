@@ -6,12 +6,12 @@
   "use strict";
   var M = window.JrpgMenu = {};
   var O = {}, root = null, st = null, isOpen = false, busy = false;
-  var CMDS = ["Items", "Magic", "Equip", "Status", "Save", "Settings", "Close"];
-  var TITLES = { main: "Main menu", items: "Check items", magic: "Cast magic", equip: "Change equipment", status: "Check status", save: "Save game", settings: "Settings" };
+  var CMDS = ["Items", "Magic", "Equip", "Status", "Bestiary", "Save", "Settings", "Close"];
+  var TITLES = { main: "Main menu", items: "Check items", magic: "Cast magic", equip: "Change equipment", status: "Check status", bestiary: "Bestiary", save: "Save game", settings: "Settings" };
   var STATS = [["max_hp", "HP"], ["max_mp", "MP"], ["atk", "ATK"], ["def_", "DEF"], ["mag", "MAG"], ["res", "RES"], ["spd", "SPD"], ["luk", "LUK"]];
   var SLOT_LABEL = { weapon: "Weapon", offhand: "Off-hand", armor: "Armor", helmet: "Helmet", boots: "Boots", accessory: "Accessory" };
   var WEIGHT = { light: 0, medium: 1, heavy: 2 }, ARMOR = { armor: 1, helmet: 1, boots: 1 };
-  var mode = "main", ph = "cmd", cmd = 0, li = 0, ci = 0, cas = 0, si = 0, pi = 0, yes = 0, sr = 0, msg = "", msgBad = false;
+  var mode = "main", ph = "cmd", cmd = 0, li = 0, ci = 0, cas = 0, si = 0, pi = 0, yes = 0, sr = 0, msg = "", msgBad = false, bz = 0, bst = null;
 
   /* ---------- settings ---------- */
   var SET_KEY = "rpgSettings";
@@ -143,6 +143,26 @@
     (h.skills || []).forEach(function (s) { o += '<div class="jm-skill"><b>' + esc(s.name) + "</b> <em>" + s.mp_cost + " MP &middot; rank " + s.rank + "</em><br><small>" + esc(s.description || "") + "</small></div>"; });
     return o + "</div></div></div></div>";
   }
+  function bestiaryHtml() {
+    if (!bst) return '<div class="jm-panel jm-center"><div class="jm-big">Loading&hellip;</div></div>';
+    var es = bst.entries || [], e = es[bz] || {}, list = "";
+    es.forEach(function (x, i) {
+      list += '<div class="jm-row' + (i === bz ? " cur" : "") + (x.seen ? "" : " dim") + '" data-a="bz" data-i="' + i + '"><span>' + (x.seen ? esc(x.name) : "???") + "</span><em>" + (x.defeated ? "&times;" + x.defeated : x.seen ? "seen" : "") + "</em></div>";
+    });
+    var d = '<div class="jm-bhead"><div class="jm-nm">' + (e.seen ? esc(e.name) : "???") + (e.kind === "boss" ? ' <small>BOSS</small>' : "") + '</div><div class="jm-cls">Seen ' + (e.seen || 0) + " &middot; Defeated " + (e.defeated || 0) + "</div></div>";
+    d += '<div class="jm-bbody"><div class="jm-bart">' + (e.art ? '<img src="' + esc(e.art) + '" class="' + (e.seen ? "" : "sil") + '" alt="">' : '<div class="jm-empty">No art yet</div>') + "</div>";
+    if (!e.seen) d += '<div class="jm-binfo"><div class="jm-empty">You have not met this foe yet.</div></div>';
+    else if (!e.defeated) d += '<div class="jm-binfo"><div class="jm-empty">Defeat it in battle to learn its stats, skills and weaknesses.</div></div>';
+    else {
+      d += '<div class="jm-binfo">';
+      var st2 = e.stats || {}; Object.keys(st2).forEach(function (k) { d += '<div class="jm-stat"><b>' + k + "</b><span>" + st2[k] + "</span></div>"; });
+      d += '<div class="jm-skill"><b>Skills</b><br><small>' + esc((e.skills || []).join(", ") || "&mdash;") + "</small></div>";
+      d += '<div class="jm-skill"><b>Weak to</b> <em>' + esc((e.weak || []).join(", ") || "&mdash;") + "</em> &middot; <b>Resists</b> <em>" + esc((e.resists || []).join(", ") || "&mdash;") + "</em></div>";
+      d += '<div class="jm-skill"><b>Habits</b><br><small>' + esc(e.habits || "") + "</small></div></div>";
+    }
+    d += "</div>";
+    return '<div class="jm-panel jm-bestiary"><div class="jm-ptitle">Seen ' + bst.seen + " / " + bst.total + " &middot; Defeated " + bst.defeated + '</div><div class="jm-bgrid"><div class="jm-scroll jm-blist">' + list + '</div><div class="jm-bdetail">' + d + "</div></div></div>";
+  }
   function saveHtml() {
     return '<div class="jm-panel jm-center"><div class="jm-big">Save your progress?</div><div class="jm-yn"><div class="jm-row' + (yes === 0 ? " cur" : "") + '" data-a="yn" data-i="0">Yes</div><div class="jm-row' + (yes === 1 ? " cur" : "") + '" data-a="yn" data-i="1">No</div></div></div>';
   }
@@ -159,6 +179,7 @@
     else left = cmdListHtml();
     if (mode === "equip" && ph !== "hero") right = equipHtml();
     else if (mode === "status" && ph === "view") right = statusHtml();
+    else if (mode === "bestiary") right = bestiaryHtml();
     else if (mode === "save") right = saveHtml();
     else if (mode === "settings") right = settingsHtml();
     else right = cardsHtml();
@@ -184,6 +205,7 @@
       else if (n === "Magic") { ci = 0; go("magic", "caster"); }
       else if (n === "Equip") { ci = 0; si = 0; go("equip", "hero"); }
       else if (n === "Status") { ci = 0; go("status", "hero"); }
+      else if (n === "Bestiary") { bz = 0; bst = null; go("bestiary", "view"); fetch("/api/bestiary").then(function (r) { return r.json(); }).then(function (b) { bst = b; render(); }).catch(function () { say("The server could not be reached.", true); render(); }); }
       else if (n === "Save") { yes = 0; go("save", "confirm"); }
       else if (n === "Settings") { sr = 0; go("settings", "rows"); }
       if (!party().length && (n === "Magic" || n === "Equip" || n === "Status")) { go("main", "cmd"); say("No one is in your party.", true); }
@@ -266,6 +288,7 @@
     else if (ctx === "equip/slot") { if (dy) si = wrap(si + dy, st.slots.length); else if (dx) ci = wrap(ci + dx, n); }
     else if (ctx === "equip/pick") pi = wrap(pi + dy, candidates().length);
     else if (ctx === "status/view") ci = wrap(ci + dx, n);
+    else if (ctx === "bestiary/view") { if (!bst) return; bz = wrap(bz + dy + dx * 6, bst.entries.length); }
     else if (ctx === "save/confirm") yes = wrap(yes + dx + dy, 2);
     else if (ctx === "settings/rows") { if (dy) sr = wrap(sr + dy, 3); else if (dx) return adjust(dx); }
     else return;
@@ -297,6 +320,7 @@
     if (a === "cmd") { if (ph !== "cmd") { go("main", "cmd"); } cmd = i; return confirm(); }
     if (a === "card") { if (!cardsActive()) return; ci = i; return confirm(); }
     if (a === "li") { li = i; return confirm(); }
+    if (a === "bz") { bz = i; sfx("hover"); return render(); }
     if (a === "slot") { if (ph === "pick") ph = "slot"; si = i; ph = "slot"; return confirm(); }
     if (a === "pick") { pi = i; return confirm(); }
     if (a === "yn") { yes = i; return confirm(); }
@@ -357,9 +381,13 @@
       ".jm-stat{display:flex;gap:10px;padding:5px 8px;font-size:clamp(13px,1.8vh,16px);border-bottom:1px solid rgba(232,199,102,.18)}.jm-stat b{width:78px;color:#bfe3ee;font-weight:600}.jm-stat span{font-weight:700}.jm-stat i{font-style:normal;margin-left:auto;font-weight:700}.jm-stat i.up{color:#9df08a}.jm-stat i.dn{color:#ff9a8a}",
       ".jm-eqd{padding:8px;font-size:14px;line-height:1.5}.jm-skill{padding:5px 6px;border-bottom:1px solid rgba(232,199,102,.18);font-size:14px}.jm-skill em{font-style:normal;font-size:12px;opacity:.75}.jm-skill small{opacity:.8}",
       ".jm-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}.jm-center.wide{align-items:stretch;padding:20px 8%}.jm-big{font-size:26px;font-weight:700;color:#ffe9a0}",
+      ".jm-bestiary{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}.jm-bgrid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(150px,.8fr) 2.2fr;gap:12px}",
+      ".jm-blist{border-right:1px solid #e8c76655;padding-right:6px}.jm-bdetail{min-width:0;min-height:0;display:flex;flex-direction:column}.jm-bhead{padding:2px 6px 8px;border-bottom:1px solid #e8c76655}",
+      ".jm-bbody{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:8px}.jm-bart{display:flex;align-items:flex-end;justify-content:center;min-height:0;border-radius:8px;background:radial-gradient(ellipse at 50% 80%,rgba(255,230,140,.16),rgba(0,0,0,.25))}",
+      ".jm-bart img{max-width:100%;max-height:100%;object-fit:contain}.jm-bart img.sil{filter:brightness(0) opacity(.55)}.jm-binfo{min-width:0;min-height:0;overflow:auto}",
       ".jm-yn{display:flex;gap:16px}.jm-yn .jm-row{min-width:120px;justify-content:center;font-size:20px}",
       ".jm-slide{display:flex;align-items:center;gap:4px}.jm-slide u{display:inline-block;width:14px;height:16px;border:1px solid #e8c76688;border-radius:3px;background:#03131c}.jm-slide u.on{background:linear-gradient(180deg,#ffe9a0,#d8a63a)}.jm-slide i{font-style:normal;cursor:pointer;color:#e8c766;padding:0 6px}",
-      "@media(max-width:820px){.jm-wrap{grid-template-columns:1fr;grid-template-rows:auto auto 1fr;inset:1vh 1vw}.jm-head{grid-column:1}.jm-left{flex-direction:row}.jm-cols{grid-template-columns:1fr}.jm-cards{grid-template-columns:repeat(2,1fr)}}"
+      "@media(max-width:820px){.jm-bgrid,.jm-bbody{grid-template-columns:1fr}.jm-wrap{grid-template-columns:1fr;grid-template-rows:auto auto 1fr;inset:1vh 1vw}.jm-head{grid-column:1}.jm-left{flex-direction:row}.jm-cols{grid-template-columns:1fr}.jm-cards{grid-template-columns:repeat(2,1fr)}}"
     ].join("\n");
     document.head.appendChild(css);
     root = document.createElement("div"); root.id = "jm"; document.body.appendChild(root);

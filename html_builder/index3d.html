@@ -257,8 +257,8 @@ function blankScene(kind, id, name) {
 function parseHub(def, id) {
   const s = blankScene("hub", id, def.name || id), kit = def.kit || "", T = def.tile || 4;
   s.kit = kit; s.tile = T;
-  s.pieces = (def.pieces || []).map((p) => ({ uid: nid(), model: (p[0].startsWith("/") && !kit ? p[0] : kit + p[0]) + ".glb", x: p[1], z: p[2], rot: p[3] || 0, y: p[4] || 0, sc: p[5] == null ? T : p[5] }));
-  s.colliders = (def.colliders || []).map((c) => ({ uid: nid(), x: c.x, z: c.z, w: c.w, d: c.d }));
+  s.pieces = (def.pieces || []).map((p) => ({ uid: nid(), model: (p[0].startsWith("/") && !kit ? p[0] : kit + p[0]) + ".glb", x: p[1], z: p[2], rot: p[3] || 0, y: p[4] || 0, sc: p[5] == null ? T : p[5], spec: typeof p[6] === "string" ? p[6] : undefined }));
+  s.colliders = (def.colliders || []).map((c) => ({ uid: nid(), x: c.x, z: c.z, w: c.w, d: c.d, hideIf: c.hideIf, showIf: c.showIf }));
   s.npcs = (def.npcs || []).map((n) => Object.assign({ uid: nid() }, JSON.parse(JSON.stringify(n))));
   s.events = (def.events || []).map((n) => Object.assign({ uid: nid() }, JSON.parse(JSON.stringify(n))));
   s.decals = (def.decals || []).map((d) => Object.assign({ uid: nid() }, JSON.parse(JSON.stringify(d))));
@@ -286,8 +286,8 @@ function serialize(s) {
   const out = Object.assign({}, s.extra);
   if (s.kind === "hub") {
     out.name = s.name; out.kit = s.kit || ""; out.tile = s.tile || 4;
-    out.pieces = s.pieces.map((p) => { let n = p.model; if (s.kit && n.startsWith(s.kit)) n = n.slice(s.kit.length); return [n.replace(/\.glb$/i, ""), r3(p.x), r3(p.z), r3(p.rot || 0), r3(p.y || 0), r3(p.sc)]; });
-    out.colliders = s.colliders.map((c) => ({ x: r3(c.x), z: r3(c.z), w: r3(c.w), d: r3(c.d) }));
+    out.pieces = s.pieces.map((p) => { let n = p.model; if (s.kit && n.startsWith(s.kit)) n = n.slice(s.kit.length); return [n.replace(/\.glb$/i, ""), r3(p.x), r3(p.z), r3(p.rot || 0), r3(p.y || 0), r3(p.sc)].concat(p.spec ? [p.spec] : []); });
+    out.colliders = s.colliders.map((c) => { const o = { x: r3(c.x), z: r3(c.z), w: r3(c.w), d: r3(c.d) }; if (c.hideIf) o.hideIf = c.hideIf; if (c.showIf) o.showIf = c.showIf; return o; });
     out.npcs = s.npcs.map((n) => { const c = clean(n); if (!c.action) delete c.action; if (!c.line) delete c.line; if (!c.actions || !c.actions.length) delete c.actions; if (!c.tint) delete c.tint; return c; });
     if (s.events.length) out.events = s.events.map((e) => { const c = clean(e); if (!c.prompt) delete c.prompt; return c; }); else delete out.events;
     out.decals = s.decals.map((d) => clean(d));

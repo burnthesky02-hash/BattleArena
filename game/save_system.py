@@ -60,6 +60,7 @@ def save_game(state: PlayerState, path: str = SAVE_PATH) -> None:
         ],
         "active_party": list(state.active_party),
         "cleared_bosses": list(state.cleared_bosses),
+        "bestiary": {k: {"seen": int(v.get("seen", 0)), "defeated": int(v.get("defeated", 0))} for k, v in state.bestiary.items()},
         "rank": state.rank,
         "renown": state.renown,
         "tickets": dict(state.tickets),
@@ -191,6 +192,7 @@ def load_game(path: str = SAVE_PATH) -> PlayerState:
         # whenever this is empty, so a first post-update battle just works without extra migration.
         active_party=list(data.get("active_party", [])),
         cleared_bosses=list(data.get("cleared_bosses", [])),
+        bestiary={str(k): {"seen": int(v.get("seen", 0)), "defeated": int(v.get("defeated", 0))} for k, v in (data.get("bestiary") or {}).items() if isinstance(v, dict)},
         # Ranks/renown are new: a save from before them has neither key. Derive the rank from the bosses
         # already cleared (so a player who beat the Champion is already Rank 2) and start renown at 0.
         rank=data.get("rank") or _renown.rank_for_cleared(data.get("cleared_bosses", [])),
