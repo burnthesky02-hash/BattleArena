@@ -105,7 +105,7 @@
     }
     return Math.max(CAM_MIN / L, Math.min(1, best));
   }
-  function camOff() { try { return localStorage.getItem("h3dCamFree") === "1"; } catch (e) { return false; } }   // debug: turn the wall zoom off
+  function camOff() { try { return localStorage.getItem("h3dCamAuto") !== "1"; } catch (e) { return true; } }   // wall auto-zoom is OFF (manual camera); set localStorage h3dCamAuto = "1" to try it again
 
   function updateCamera(dt, instant) {
     const k = instant ? 1 : 1 - Math.pow(0.0008, dt), k2 = instant ? 1 : 1 - Math.pow(0.05, dt);
@@ -519,16 +519,84 @@ void main(){
     for (const n of S.npcs) if (!n.noBlock && Math.hypot(x - n.x, z - n.z) < r + (n.radius || 1) * 0.6) return true;
     return false;
   }
+  /* ---------- click-to-move pathfinding: grid A* around colliders, string-pulled into a few straight legs ---------- */
+  const PF = { cell: 0.75, maxExpand: 60000, rad: 0.7 };
+  function pfClear(x0, z0, x1, z1) {                       // straight walk possible? (sampled with a slightly fat body)
+    const d = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(d / 0.3));
+    for (let i = 1; i <= n; i++) { const t = i / n; if (blocked(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, PF.rad)) return false; }
+    return true;
+  }
+  function findPath(sx, sz, gx, gz) {                      // -> {pts:[{x,z},...], goal:{x,z}}; pts excludes the start and ends at (a reachable stand-in for) the goal
+    const b = S.bounds, c = PF.cell, nx = Math.ceil((b.maxX - b.minX) / c), nz = Math.ceil((b.maxZ - b.minZ) / c);
+    const cx = (i) => b.minX + (i + 0.5) * c, cz = (j) => b.minZ + (j + 0.5) * c;
+    const ci = (x) => Math.max(0, Math.min(nx - 1, Math.floor((x - b.minX) / c))), cj = (z) => Math.max(0, Math.min(nz - 1, Math.floor((z - b.minZ) / c)));
+    const memo = new Map();
+    const walk = (i, j) => { if (i < 0 || j < 0 || i >= nx || j >= nz) return false; const k = j * nx + i; let v = memo.get(k); if (v === undefined) { v = !blocked(cx(i), cz(j), PF.rad); memo.set(k, v); } return v; };
+    const nearest = (x, z, maxR) => {                       // closest walkable cell to a point (spiral)
+      const i0 = ci(x), j0 = cj(z); if (walk(i0, j0)) return [i0, j0];
+      for (let r = 1; r <= maxR; r++) {
+        let best = null, bd = 1e9;
+        for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) { if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue; if (walk(i0 + di, j0 + dj)) { const d = Math.hypot(cx(i0 + di) - x, cz(j0 + dj) - z); if (d < bd) { bd = d; best = [i0 + di, j0 + dj]; } } }
+        if (best) return best;
+      }
+      return null;
+    };
+    const st = nearest(sx, sz, 6), gl = nearest(gx, gz, 14);
+    if (!st || !gl) return null;
+    const goalXZ = { x: gx, z: gz };
+    if (!blocked(gx, gz, PF.rad) && pfClear(sx, sz, gx, gz)) return { pts: [goalXZ], goal: goalXZ };      // open ground: just walk
+    const gI = gl[0], gJ = gl[1], h = (i, j) => Math.hypot(i - gI, j - gJ);
+    const g = new Map(), from = new Map(), closed = new Set(), heap = [];
+    const push = (f, k) => { heap.push([f, k]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { let l = 2 * i + 1, r = l + 1, m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    const sk = st[1] * nx + st[0], gk = gJ * nx + gI;
+    g.set(sk, 0); push(h(st[0], st[1]), sk);
+    let bestK = sk, bestH = h(st[0], st[1]), n = 0, found = false;
+    const DIRS = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.4142], [1, -1, 1.4142], [-1, 1, 1.4142], [-1, -1, 1.4142]];
+    while (heap.length && n++ < PF.maxExpand) {
+      const [, k] = pop(); if (closed.has(k)) continue; closed.add(k);
+      if (k === gk) { found = true; bestK = k; break; }
+      const i = k % nx, j = (k - i) / nx, hh = h(i, j); if (hh < bestH) { bestH = hh; bestK = k; }
+      for (const [di, dj, w] of DIRS) {
+        const ni = i + di, nj = j + dj; if (!walk(ni, nj)) continue;
+        if (di && dj && (!walk(i + di, j) || !walk(i, j + dj))) continue;          // no cutting corners
+        const nk = nj * nx + ni, ng = g.get(k) + w; if (closed.has(nk) || (g.has(nk) && g.get(nk) <= ng)) continue;
+        g.set(nk, ng); from.set(nk, k); push(ng + h(ni, nj), nk);
+      }
+    }
+    const cells = []; for (let k = bestK; k !== undefined; k = from.get(k)) { const i = k % nx; cells.push({ x: cx(i), z: cz((k - i) / nx) }); if (k === sk) break; }
+    cells.reverse();                                        // start .. goal(or closest reachable)
+    const end = found && !blocked(gx, gz, PF.rad) ? goalXZ : cells[cells.length - 1];
+    if (found && end === goalXZ) cells[cells.length - 1] = goalXZ;
+    // string pulling: from each anchor, jump to the farthest later cell that is in a clear straight line
+    const pts = []; let ax = sx, az = sz, idx = 0;
+    while (idx < cells.length) {
+      let far = idx; for (let q = cells.length - 1; q > idx; q--) if (pfClear(ax, az, cells[q].x, cells[q].z)) { far = q; break; }
+      pts.push({ x: cells[far].x, z: cells[far].z }); ax = cells[far].x; az = cells[far].z; idx = far + 1;
+    }
+    return { pts, goal: pts[pts.length - 1], partial: !found };
+  }
+  function setGoal(x, z, npc) {                              // walk to (x, z), routing around walls; falls back to a straight line when nothing is found
+    const p = S.player, b = S.bounds; x = clamp(x, b.minX + 1, b.maxX - 1); z = clamp(z, b.minZ + 1, b.maxZ - 1);
+    p.wantNpc = npc || null; p.replans = 0; p.path = null;
+    if (noclipOn()) { p.target = { x, z }; return; }
+    let r = null; try { r = findPath(p.x, p.z, x, z); } catch (e) { r = null; }
+    if (!r || !r.pts.length) { p.target = { x, z }; return; }
+    p.target = { x: r.pts[r.pts.length - 1].x, z: r.pts[r.pts.length - 1].z, want: { x, z } };
+    p.path = r.pts.slice(0, -1);
+  }
   function stepPlayer(dt) {
     const p = S.player, R = 0.55;
     let mx = 0, mz = 0;
     const f = [-Math.sin(cam.yaw * Math.PI / 180), -Math.cos(cam.yaw * Math.PI / 180)], r = [Math.cos(cam.yaw * Math.PI / 180), -Math.sin(cam.yaw * Math.PI / 180)];
     const k = (n) => keys[n] ? 1 : 0;
     const ix = k("d") + k("arrowright") - k("a") - k("arrowleft"), iy = k("w") + k("arrowup") - k("s") - k("arrowdown");
-    if (ix || iy) { mx = f[0] * iy + r[0] * ix; mz = f[1] * iy + r[1] * ix; p.target = null; p.wantNpc = null; }
+    if (ix || iy) { mx = f[0] * iy + r[0] * ix; mz = f[1] * iy + r[1] * ix; p.target = null; p.path = null; p.wantNpc = null; }
     else if (p.target) {
-      const dx = p.target.x - p.x, dz = p.target.z - p.z, d = Math.hypot(dx, dz);
-      if (d < 0.25) { p.target = null; if (p.wantNpc) { const n = p.wantNpc; p.wantNpc = null; interact(n); } } else { mx = dx / d; mz = dz / d; }
+      while (p.path && p.path.length && Math.hypot(p.path[0].x - p.x, p.path[0].z - p.z) < 0.5) p.path.shift();     // reached a waypoint
+      const wp = p.path && p.path.length ? p.path[0] : p.target;
+      const dx = wp.x - p.x, dz = wp.z - p.z, d = Math.hypot(dx, dz);
+      if (wp === p.target && d < 0.25) { p.target = null; p.path = null; if (p.wantNpc) { const n = p.wantNpc; p.wantNpc = null; interact(n); } } else { mx = dx / d; mz = dz / d; }
     }
     const len = Math.hypot(mx, mz);
     p.moving = len > 0.01;
@@ -545,7 +613,11 @@ void main(){
         const want = Math.atan2(-mx, -mz) * 180 / Math.PI, d = ((want - cam.goalYaw) % 360 + 540) % 360 - 180, lim = 115 * dt;
         cam.goalYaw += Math.max(-lim, Math.min(lim, d * 2.0 * dt));
       }
-      if (!moved) { p.moving = false; if (p.target) { p.target = null; if (p.wantNpc) { const n = p.wantNpc; p.wantNpc = null; if (Math.hypot(n.x - p.x, n.z - p.z) < 6) interact(n); } } }
+      if (!moved && p.target && !keys.shift && (p.replans || 0) < 4) {             // wedged on something: plan again from here
+        p.replans = (p.replans || 0) + 1; const goal = p.target.want || p.target, nw = p.wantNpc, rp = p.replans; setGoal(goal.x, goal.z, nw); p.replans = rp;
+        if (p.target && p.path && p.path.length) moved = true;
+      }
+      if (!moved) { p.moving = false; if (p.target) { p.target = null; p.path = null; if (p.wantNpc) { const n = p.wantNpc; p.wantNpc = null; if (Math.hypot(n.x - p.x, n.z - p.z) < 6) interact(n); } } }
       // facing as seen on screen
       const sx = mx * cam.camX[0] + mz * cam.camX[2];                      // + = screen right
       const sz = mx * cam.fwd[0] + mz * cam.fwd[2];                         // + = away from camera (screen up)
@@ -1109,7 +1181,7 @@ void main(){
     if (Math.hypot(n.x - S.player.x, n.z - S.player.z) < (n.reach || 4.6)) { interact(n); return; }
     // walk to a spot in front of them (towards the camera side), then talk
     const dx = S.player.x - n.x, dz = S.player.z - n.z, d = Math.hypot(dx, dz) || 1, stop = Math.min(d, 3.0);
-    S.player.target = { x: n.x + dx / d * stop, z: n.z + dz / d * stop }; S.player.wantNpc = n;
+    setGoal(n.x + dx / d * stop, n.z + dz / d * stop, n);
   }
   function syncDom() {
     const showN = S.active;
@@ -1296,7 +1368,7 @@ void main(){
       if (!drag) return; const d = drag; drag = null;
       if (d.moved || !H3.on || modalOpen() || script) return;
       const r = sceneEl.getBoundingClientRect(), g = groundAt(e.clientX - r.left, e.clientY - r.top);
-      if (g) { const b = S.bounds; S.player.target = { x: clamp(g.x, b.minX + 1, b.maxX - 1), z: clamp(g.z, b.minZ + 1, b.maxZ - 1) }; S.player.wantNpc = null; }
+      if (g) setGoal(g.x, g.z, null);
     });
     sceneEl.addEventListener("wheel", (e) => { if (!H3.on || modalOpen() || script) return; e.preventDefault(); cam.goalDist = clamp(cam.goalDist * (1 + Math.sign(e.deltaY) * 0.08), 12, 48); }, { passive: false });
     window.addEventListener("resize", resize);
@@ -1354,5 +1426,5 @@ void main(){
     const want = q.get("view") === "2d" || q.get("view") === "3d" ? q.get("view") : (saved || "3d");
     H3.setOn(want !== "2d");
   };
-  H3.debug = { cam, camStep: (n) => { for (let i = 0; i < n; i++) updateCamera(0.05); }, project, groundAt, scene: () => S, say, interact: (id) => { const n = S.npcs.find((q) => q.id === id); if (n) interact(n); }, cineStep: (sec) => { for (let t = 0; t < sec; t += 0.05) stepCine(0.05); } };
+  H3.debug = { cam, setGoal, findPath, walkN: (n) => { for (let i = 0; i < n; i++) stepPlayer(0.05); }, camStep: (n) => { for (let i = 0; i < n; i++) updateCamera(0.05); }, project, groundAt, scene: () => S, say, interact: (id) => { const n = S.npcs.find((q) => q.id === id); if (n) interact(n); }, cineStep: (sec) => { for (let t = 0; t < sec; t += 0.05) stepCine(0.05); } };
 })();
