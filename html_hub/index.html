@@ -731,6 +731,9 @@
       .then(function (res) {
         if (res.ok && msg && msg.action === "reset_game") {      // a fresh game also restarts the island story
           try { localStorage.removeItem("h3dCleared"); sessionStorage.removeItem("h3dPos"); } catch (e) {}
+          playSfx(SFX.confirm); showToast("Game reset. Restarting...");
+          setTimeout(function () { location.reload(); }, 600);      // restart the game from a clean slate
+          return;
         }
         dbg.menu = res.menu; if (res.hub) render(res.hub);
         playSfx(res.ok ? SFX.confirm : SFX.denied);

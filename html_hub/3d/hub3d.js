@@ -53,12 +53,74 @@
     const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j, h = T.h, o = j * T.nx + i;
     return (h[o] * (1 - u) + h[o + 1] * u) * (1 - v) + (h[o + T.nx] * (1 - u) + h[o + T.nx + 1] * u) * v;
   }
+  function affInv(m) {                                   // inverse of a column-major affine 4x4 (rotation/scale + translation)
+    const a = m[0], b = m[4], c = m[8], d = m[1], e = m[5], f = m[9], g = m[2], h = m[6], i = m[10];
+    const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C;
+    if (Math.abs(det) < 1e-12) return null;
+    const k = 1 / det, r = [A * k, (c * h - b * i) * k, (b * f - c * e) * k, B * k, (a * i - c * g) * k, (c * d - a * f) * k, C * k, (b * g - a * h) * k, (a * e - b * d) * k];   // row-major 3x3
+    return { r, t: [-(r[0] * m[12] + r[1] * m[13] + r[2] * m[14]), -(r[3] * m[12] + r[4] * m[13] + r[5] * m[14]), -(r[6] * m[12] + r[7] * m[13] + r[8] * m[14])] };
+  }
+  /* camera collision: scale the camera's offset from the hero's head (angle unchanged) so a wall-sized collider between them is not crossed.
+     Returns the fraction 0..1 of the full offset that is free. */
+  const CAM_MIN = 0.7, CAM_WALL_H = 6, CAM_MARGIN = 0.55;
+  function slab(o, d, lo, hi, mg) {                           // entry parameter (0..1) of a ray into a box grown by mg, or Infinity when it misses; 0 when it starts inside
+    let t0 = 0, t1 = 1;
+    for (let k = 0; k < 3; k++) {
+      const l = lo[k] - mg, h = hi[k] + mg;
+      if (Math.abs(d[k]) < 1e-9) { if (o[k] < l || o[k] > h) return Infinity; continue; }
+      let a = (l - o[k]) / d[k], b = (h - o[k]) / d[k]; if (a > b) { const q = a; a = b; b = q; }
+      t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) return Infinity;
+    }
+    return t0;
+  }
+  function boxHit(o, d, lo, hi, mg) {                         // like slab, but a hero standing within the margin (not inside the solid) gets 0 = zoom all the way in; inside the solid = ignore
+    const t = slab(o, d, lo, hi, mg);
+    if (t === Infinity || t > 0.02) return t;
+    return inBox(o, lo, hi) ? Infinity : 0;
+  }
+  function inBox(o, lo, hi) { return o[0] > lo[0] && o[0] < hi[0] && o[1] > lo[1] && o[1] < hi[1] && o[2] > lo[2] && o[2] < hi[2]; }
+  /* camera collision: scale the camera's offset from the hero's head (angle unchanged) so a wall between them is not crossed.
+     Returns the fraction 0..1 of the full offset that is free. */
+  function camLimit(eye, c0) {
+    if (!S || cam.free || camOff()) return 1;
+    const dv = [c0[0] - eye[0], c0[1] - eye[1], c0[2] - eye[2]], L = Math.hypot(dv[0], dv[1], dv[2]), base = cam.ty || 0;
+    if (L < 1e-3) return 1;
+    let best = 1;
+    for (const c of S.colliders || []) {
+      if (c.maxX === undefined || Math.max(c.maxX - c.minX, c.maxZ - c.minZ) < 3.5) continue;     // crates, barrels, pillars: the camera sees over them
+      const t = boxHit(eye, dv, [c.minX, -1e4, c.minZ], [c.maxX, 1e4, c.maxZ], CAM_MARGIN);
+      if (t === Infinity || eye[1] + dv[1] * t > base + CAM_WALL_H) continue;
+      if (t < best) best = t;
+    }
+    for (const it of S.items) {                                          // solid pieces (wall blocks, houses, rocks): the oriented bounding box of each mesh
+      if (!it.inv || it.mode !== 0 || it.inside) continue;
+      if (it.top - it.bot < 2.2 || it.bot > 2.5 || Math.max(it.hi[0] - it.lo[0], it.hi[2] - it.lo[2]) * it.sc < 2.4) continue;   // floors, props, trunks, railings
+      if (Math.hypot(it.center[0] - eye[0], it.center[2] - eye[2]) - it.rad * 1.5 > L) continue;
+      const r = it.inv.r, t = it.inv.t;
+      const o = [r[0] * eye[0] + r[1] * eye[1] + r[2] * eye[2] + t[0], r[3] * eye[0] + r[4] * eye[1] + r[5] * eye[2] + t[1], r[6] * eye[0] + r[7] * eye[1] + r[8] * eye[2] + t[2]];
+      const d = [r[0] * dv[0] + r[1] * dv[1] + r[2] * dv[2], r[3] * dv[0] + r[4] * dv[1] + r[5] * dv[2], r[6] * dv[0] + r[7] * dv[1] + r[8] * dv[2]];
+      const tt = boxHit(o, d, it.lo, it.hi, CAM_MARGIN / it.sc);
+      if (tt === Infinity || eye[1] + dv[1] * tt > it.top) continue;     // misses, or the line clears the top
+      if (tt < best) best = tt;
+    }
+    return Math.max(CAM_MIN / L, Math.min(1, best));
+  }
+  function camOff() { try { return localStorage.getItem("h3dCamFree") === "1"; } catch (e) { return false; } }   // debug: turn the wall zoom off
+
   function updateCamera(dt, instant) {
     const k = instant ? 1 : 1 - Math.pow(0.0008, dt), k2 = instant ? 1 : 1 - Math.pow(0.05, dt);
     cam.yaw = lerp(cam.yaw, cam.goalYaw, k); cam.pitch = lerp(cam.pitch, cam.goalPitch, k); cam.dist = lerp(cam.dist, cam.goalDist * Math.max(1, 1.5 / cam.aspect), k2);
     if (!cam.free && S) { cam.tx = lerp(cam.tx, S.player.x, k2); cam.tz = lerp(cam.tz, S.player.z + 1.5, k2); cam.ty = instant || cam.ty === undefined ? gh(S.player.x, S.player.z) : lerp(cam.ty, gh(S.player.x, S.player.z), k2); }
-    const ya = cam.yaw * Math.PI / 180, pi = cam.pitch * Math.PI / 180, target = [cam.tx, 1.6 + (cam.ty || 0), cam.tz];
-    const pos = V.add(target, [Math.sin(ya) * Math.cos(pi) * cam.dist, Math.sin(pi) * cam.dist, Math.cos(ya) * Math.cos(pi) * cam.dist]);
+    const ya = cam.yaw * Math.PI / 180, target = [cam.tx, 1.6 + (cam.ty || 0), cam.tz];
+    let pi = cam.pitch * Math.PI / 180;
+    if (cam.eff !== undefined && cam.eff < 6) { const kk = Math.max(0, Math.min(1, (6 - cam.eff) / 4.5)); pi += (8 * Math.PI / 180 - pi) * kk * kk * (3 - 2 * kk); }   // close in: level the view out, like first person
+    const full = V.add(target, [Math.sin(ya) * Math.cos(pi) * cam.dist, Math.sin(pi) * cam.dist, Math.cos(ya) * Math.cos(pi) * cam.dist]);
+    /* auto zoom: keep the angle, pull the whole offset in toward the hero's head when a wall is in the way (down to first person) */
+    const eye = S && !cam.free ? [S.player.x, 1.6 + (cam.ty || 0), S.player.z] : target, fw = camLimit(eye, full);
+    cam.lim = instant || cam.lim === undefined ? fw : (fw < cam.lim ? lerp(cam.lim, fw, 1 - Math.pow(0.0001, dt)) : lerp(cam.lim, fw, 1 - Math.pow(0.12, dt)));
+    const pos = cam.lim >= 0.999 ? full : V.add(eye, V.mul(V.sub(full, eye), cam.lim));
+    cam.eff = V.len ? V.len(V.sub(pos, eye)) : cam.dist * cam.lim;
+    if (cam.lim < 0.999) { target[0] = eye[0] + (target[0] - eye[0]) * cam.lim; target[2] = eye[2] + (target[2] - eye[2]) * cam.lim; }
     const L = lookAt(pos, target, [0, 1, 0]);
     cam.pos = pos; cam.camX = L.x; cam.camY = L.y; cam.camZ = L.z; cam.fwd = V.mul(L.z, -1);
     cam.vp = mul4(perspective(cam.fov * Math.PI / 180, cam.aspect, 0.5, 220), L.m);
@@ -270,7 +332,7 @@ void main(){
         const lo = o.min, hi = o.max, cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2;
         const c = [mm[0] * cx + mm[8] * cz + mm[12], (lo[1] + hi[1]) / 2 * s + (y || 0), mm[2] * cx + mm[10] * cz + mm[14]];
         const m = o.material;
-        items.push({ g, mat: m, inside: ins, model: new Float32Array(mm), center: c, top: hi[1] * s + (y || 0), rad: Math.max(hi[0] - lo[0], hi[2] - lo[2]) * s / 2,
+        items.push({ g, mat: m, inside: ins, model: new Float32Array(mm), lo, hi, sc: s, inv: affInv(mm), bot: lo[1] * s + (y || 0), center: c, top: hi[1] * s + (y || 0), rad: Math.max(hi[0] - lo[0], hi[2] - lo[2]) * s / 2,
           tex: m.image >= 0 ? mdl.texs[m.image] : null, mode: m.alphaMode === "BLEND" ? 2 : m.alphaMode === "MASK" ? 1 : 0 });
       }
     }
@@ -430,7 +492,8 @@ void main(){
     for (const o of list) {
       if (o.k === "player") {
         const dirKey = pl.face, sh = S.sheets.walk[dirKey], frame = pl.moving ? Math.floor(pl.t * 11) % sh.count : 0;
-        drawSpriteFrame(sh.file, sh, frame, pl.x, pl.z, pl.h, false);
+        const fade = cam.eff !== undefined && cam.eff < 4.5 ? Math.max(0, Math.min(1, (cam.eff - 1.6) / 2.6)) : 1;   // close-up: the hero fades out, first person at the end
+        if (fade > 0.02) drawSpriteFrame(sh.file, sh, frame, pl.x, pl.z, pl.h, false, fade < 1 ? [1, 1, 1, fade] : null);
       } else {
         const n = o.n;
         if (n.bossTex) {
@@ -715,30 +778,109 @@ void main(){
     if (!c.has("st_attack")) return "Leave the crypt.";
     return "Defend the village!";
   }
-  /* side quests: html_hub/3d/sidequests.json = [{if, unless, text, count:[flag,...]}]. Every entry whose flags match is listed under the main
-     objective ("count" appends how many of those flags are set, e.g. glyph pages 1/3). Made by make_sidequests.py. */
-  let sideQuests = null;
-  function sideLines() {
-    if (sideQuests === null) {
-      sideQuests = [];
-      fetch(BASE + "sidequests.json", { cache: "no-store" }).then((r) => r.json()).then((j) => { sideQuests = Array.isArray(j) ? j : []; renderQuest(); }).catch(() => {});
+  /* ---------- quest registry: html_hub/3d/quests.json (made by make_quests.py) ----------
+     { quests: [{id, kind:"main"|"side", title, giver, where, summary, accept, ready, done, steps:[{if, unless, text, count}]}],
+       marks:  { "scene/npcId": "main!" | "main?" | "side!" | "side?" | "later" | [{if, unless, mark}] } }
+     A quest is in the log once its `accept` flag is set and stays (as Completed) once `done` is set. The step list gives the
+     current objective (first match). Tracking: every quest is tracked unless its id is in localStorage "h3dUntracked"; the HUD lists
+     only tracked quests. The Esc-menu "Quests" screen reads/changes this through Hub3D.quests() / Hub3D.setTracked(). */
+  let questDb = null;
+  const UNT_KEY = "h3dUntracked";
+  function getUntracked() { try { return new Set(JSON.parse(localStorage.getItem(UNT_KEY) || "[]")); } catch (e) { return new Set(); } }
+  function loadQuests() {
+    if (questDb === null) {
+      questDb = { quests: [], marks: {} };
+      fetch(BASE + "quests.json", { cache: "no-store" }).then((r) => r.json()).then((j) => {
+        questDb = { quests: (j && j.quests) || [], marks: (j && j.marks) || {} };
+        updateMarks(); renderQuest();
+      }).catch(() => {});
     }
-    const c = getCleared(), out = [];
-    for (const q of sideQuests) {
-      if (!condOk(q, c)) continue;
-      let t = q.text || ""; if (q.count && q.count.length) t += " (" + q.count.filter((k) => c.has(k)).length + "/" + q.count.length + ")";
-      out.push(t);
+    return questDb;
+  }
+  /* the log: one view per quest the player has taken -> {id, kind, title, giver, where, summary, status:"active"|"ready"|"done", text, count:[n,m]|null, tracked} */
+  function questViews() {
+    const db = loadQuests(), c = getCleared(), unt = getUntracked(), out = [];
+    for (const q of db.quests) {
+      const done = !!q.done && c.has(q.done);
+      if (!done && !(q.accept && c.has(q.accept))) continue;
+      const step = (q.steps || []).find((st) => condOk(st, c));
+      let count = null; if (step && step.count && step.count.length) count = [step.count.filter((k) => c.has(k)).length, step.count.length];
+      out.push({ id: q.id, kind: q.kind, title: q.title, giver: q.giver || "", where: q.where || "", summary: q.summary || "",
+        status: done ? "done" : (q.ready && has(c, q.ready) ? "ready" : "active"), text: done ? "" : (step ? step.text : q.summary || ""), count, tracked: !unt.has(q.id) });
+    }
+    return out;
+  }
+  function setTracked(id, on) {
+    const u = getUntracked(); if (on) u.delete(id); else u.add(id);
+    try { localStorage.setItem(UNT_KEY, JSON.stringify([...u])); } catch (e) {}
+    renderQuest();
+  }
+  function sideLines() {
+    const out = [];
+    for (const v of questViews()) {
+      if (v.kind !== "side" || v.status === "done" || !v.tracked) continue;
+      out.push(v.text + (v.count ? " (" + v.count[0] + "/" + v.count[1] + ")" : ""));
     }
     return out;
   }
   function renderQuest() {
     if (!hudEls.quest) return;
-    const t = (S && S.def && S.def.story) ? storyObjective() : "", side = sideLines();
+    const views = questViews();
+    let t = (S && S.def && S.def.story) ? storyObjective() : "";
+    const mains = views.filter((v) => v.kind === "main" && v.status !== "done");
+    if (mains.length && mains.every((v) => !v.tracked)) t = "";                  // the player untracked the main quest
+    const side = sideLines();
     hudEls.quest.style.display = (t || side.length) ? "block" : "none";
     hudEls.quest.innerHTML = t ? "<b>QUEST</b><span></span>" : ""; if (t) hudEls.quest.lastChild.textContent = t;
     if (side.length) {
       const h = document.createElement("b"); h.textContent = "SIDE"; h.style.display = "block"; h.style.marginTop = t ? "8px" : "0"; hudEls.quest.appendChild(h);
-      for (const line of side.slice(0, 5).concat(side.length > 5 ? ["+" + (side.length - 5) + " more (see the bounty board)"] : [])) { const d = document.createElement("span"); d.style.display = "block"; d.textContent = "\u2022 " + line; hudEls.quest.appendChild(d); }
+      for (const line of side.slice(0, 5).concat(side.length > 5 ? ["+" + (side.length - 5) + " more (see the quest log)"] : [])) { const d = document.createElement("span"); d.style.display = "block"; d.textContent = "\u2022 " + line; hudEls.quest.appendChild(d); }
+    }
+    updateMarks();
+  }
+  /* ---------- NPC marks: a symbol next to the name (and a bobbing ! / ? over quest givers) ----------
+     [glyph, background, text colour]. Quest marks: gold = main story, blue = side quest, grey = a quest that is not open yet;
+     "!" = a quest to take, "?" = come back / talk to move it on. Everything else is picked from what the NPC does. */
+  const MARKS = {
+    "main!": ["!", "#ffd23f", "#2a1d00", "Main quest"], "main?": ["?", "#ffd23f", "#2a1d00", "Main quest: talk to continue"],
+    "side!": ["!", "#4fb3ff", "#04223a", "Side quest"], "side?": ["?", "#4fb3ff", "#04223a", "Side quest: turn in"],
+    later: ["!", "#8b909c", "#1d1f26", "A quest that is not open yet"],
+    shop: ["$", "#43c06a", "#06210f", "Shop"], heroes: ["\u2692", "#ff9d42", "#2a1200", "Gear and skills"], summon: ["\u2726", "#b98bff", "#1b0a33", "Summoning"],
+    battle: ["\u2694", "#e0455a", "#ffffff", "Practice battles"], ladder: ["\u265B", "#e8c766", "#2a1d00", "Ladder"], travel: ["\u27A4", "#58d6c9", "#04201d", "Travel"],
+    save: ["\u270E", "#d8d2c0", "#2a2418", "Save"], rest: ["\u263E", "#7fd3ff", "#06202e", "Rest"], dice: ["\u2684", "#f4f1e8", "#222222", "Dice"],
+    foe: ["\u2694", "#e0455a", "#ffffff", "Enemy"], elite: ["\u2605", "#b04bd8", "#ffffff", "Elite enemy"], boss: ["\u2620", "#c0182d", "#ffffff", "Boss"],
+  };
+  const QUEST_MARKS = { "main!": 1, "main?": 1, "side!": 1, "side?": 1, later: 1 };
+  H3.markLegend = () => Object.keys(MARKS).map((k) => ({ key: k, glyph: MARKS[k][0], bg: MARKS[k][1], fg: MARKS[k][2], label: MARKS[k][3] }));
+  function autoMark(n) {
+    const acts = n.actions || [], types = acts.map((a) => a.type);
+    switch (n.action) {
+      case "shop": return "shop"; case "heroes": return "heroes"; case "summon": return "summon"; case "battle": return "battle";
+      case "ladder": return "ladder"; case "world": return "travel"; case "save_and_quit": case "save": return "save"; case "challenge": return "boss";
+    }
+    const b = acts.find((a) => a.type === "battle");
+    if (b) return b.boss ? "boss" : b.elite ? "elite" : "foe";
+    if (acts.some((a) => a.type === "game")) return "dice";
+    if (types.includes("rest")) return "rest";
+    return "";
+  }
+  function markOf(n) {
+    const spec = loadQuests().marks[(S && S.name) + "/" + n.id];
+    if (typeof spec === "string") return spec;
+    if (Array.isArray(spec)) { const c = getCleared(), m = spec.find((e) => condOk(e, c)); if (m) return m.mark; }
+    return autoMark(n);
+  }
+  function updateMarks() {
+    if (!S || !S.npcs) return;
+    for (const n of S.npcs) {
+      if (!n.mk) continue;
+      const key = markOf(n), m = MARKS[key];
+      n.markKey = key; n.markColor = m ? m[1] : "";
+      n.mk.style.display = m ? "inline-block" : "none";
+      if (m) { n.mk.textContent = m[0]; n.mk.style.background = m[1]; n.mk.style.color = m[2]; n.mk.title = m[3]; }
+      const q = QUEST_MARKS[key] ? m : null;
+      n.qm.style.display = "none"; n.qmOn = !!q;
+      if (q) { n.qm.textContent = q[0]; n.qm.style.background = q[1]; n.qm.style.color = q[2]; n.qm.style.boxShadow = "0 0 12px " + q[1]; }
     }
   }
   function flashOn() {
@@ -938,8 +1080,7 @@ void main(){
       if (!(warp || chest) || !vis(e.x, e.z)) continue;
       g.fillStyle = chest ? "#f0c24a" : "#5fe08a"; g.fillRect(e.x - r * .7, e.z - r * .7, r * 1.4, r * 1.4);
     }
-    g.fillStyle = "#ffe27a";
-    for (const n of S.npcs || []) { if (!vis(n.x, n.z)) continue; g.beginPath(); g.arc(n.x, n.z, r * .8, 0, 7); g.fill(); }
+    for (const n of S.npcs || []) { if (!vis(n.x, n.z)) continue; g.fillStyle = (QUEST_MARKS[n.markKey] && n.markColor) || "#ffe27a"; g.beginPath(); g.arc(n.x, n.z, r * .8, 0, 7); g.fill(); }
     g.save(); g.translate(p.x, p.z); g.rotate(big ? yaw : -yaw); g.fillStyle = "#ff5a6e"; g.strokeStyle = "#fff"; g.lineWidth = 0.35 / z * 2;
     g.beginPath(); g.moveTo(0, -r * 1.7); g.lineTo(r * 1.1, r * 1.1); g.lineTo(0, r * .5); g.lineTo(-r * 1.1, r * 1.1); g.closePath(); g.fill(); g.stroke(); g.restore();
     g.restore();
@@ -950,7 +1091,7 @@ void main(){
     ui = document.createElement("div"); ui.id = "h3d-ui"; sceneEl.appendChild(ui);
     const mk = (cls, parent) => { const e = document.createElement("div"); e.className = cls; (parent || ui).appendChild(e); return e; };
     S.npcs.forEach((n) => {
-      n.el = mk("h3d-npc"); n.hit = mk("h3d-hit", n.el); n.tag = mk("h3d-tag", n.el); n.tag.textContent = n.name; n.alert = mk("h3d-alert", n.el); n.alert.textContent = "!";
+      n.el = mk("h3d-npc"); n.hit = mk("h3d-hit", n.el); n.tag = mk("h3d-tag", n.el); n.mk = document.createElement("i"); n.mk.className = "h3d-mk"; n.tag.appendChild(n.mk); n.tagName = document.createElement("span"); n.tagName.textContent = n.name; n.tag.appendChild(n.tagName); n.alert = mk("h3d-alert", n.el); n.alert.textContent = "!"; n.qm = mk("h3d-qm", n.el);
       n.bub = mk("h3d-bubble", n.el);
       n.bub.innerHTML = '<div class="b-name"></div><div class="b-text"></div><div class="b-btn"></div>';
       n.hit.addEventListener("click", (e) => { e.stopPropagation(); clickNpc(n); });
@@ -961,6 +1102,7 @@ void main(){
     hudEls.load = mk("h3d-loading"); hudEls.load.textContent = "Loading the plaza…";
     hudEls.quest = mk("h3d-quest");
     hudEls.rank = mk("h3d-rank"); hudEls.rank.innerHTML = '<b></b><span></span><i><u></u></i>';
+    updateMarks();
   }
   function clickNpc(n) {
     if (modalOpen()) return;
@@ -982,10 +1124,11 @@ void main(){
       const hh = Math.max(20, foot.y - head.y), hw = hh * (n.bossTex ? n.bossTex.aspect : (n.sheet ? Math.min(n.sheet.cw / n.sheet.refH, 1) : 0.5)) * 0.9;
       n.el.style.left = foot.x + "px"; n.el.style.top = foot.y + "px"; n.el.style.zIndex = String(10 + Math.round(foot.y));
       n.hit.style.width = hw + "px"; n.hit.style.height = hh + "px"; n.hit.style.cursor = "pointer";
-      n.tag.style.top = (-hh - 4) + "px"; n.alert.style.top = (-hh - 40) + "px";
+      n.tag.style.top = (-hh - 4) + "px"; n.alert.style.top = (-hh - 40) + "px"; n.qm.style.top = (-hh - 40) + "px";
       n.tag.classList.toggle("on", n === showN || n.hover);
       const line = npcLine(n);
       n.alert.style.display = n.alertOn ? "block" : "none";
+      n.qm.style.display = n.qmOn && !n.alertOn ? "block" : "none";
       const open = n === showN && !modalOpen();
       n.bub.style.display = open ? "block" : "none";
       if (open) {
@@ -998,6 +1141,7 @@ void main(){
   }
 
   /* ---------- state from the hub ---------- */
+  H3.quests = questViews; H3.setTracked = setTracked;
   H3.isStory = () => !!(S && S.def && S.def.story);   // story scene: the hub shows the story party, not the Colosseum one
   H3.onState = function (s) {
     state = s;
@@ -1049,6 +1193,9 @@ void main(){
       .h3d-tag.on { opacity:1; border-color:var(--gold); color:var(--gold); }
       .h3d-alert { display:none; position:absolute; transform:translate(-50%,-100%); width:24px; height:24px; line-height:24px; text-align:center; border-radius:50%; background:#e0455a; color:#fff;
         font-weight:800; box-shadow:0 0 12px rgba(224,69,90,.8); pointer-events:none; animation:h3d-bob 1s ease-in-out infinite alternate; }
+      .h3d-mk { display:none; min-width:15px; height:15px; line-height:15px; margin-right:6px; padding:0 2px; text-align:center; border-radius:50%; font-style:normal; font-size:11px; font-weight:900; vertical-align:1px; text-shadow:none; box-sizing:border-box; }
+      .h3d-qm { display:none; position:absolute; transform:translate(-50%,-100%); width:26px; height:26px; line-height:26px; text-align:center; border-radius:50%; font-weight:900; font-size:17px; border:2px solid rgba(0,0,0,.55);
+        pointer-events:none; animation:h3d-bob 1s ease-in-out infinite alternate; }
       @keyframes h3d-bob { from { margin-top:0; } to { margin-top:-6px; } }
       .h3d-bubble { display:none; position:absolute; transform:translate(-50%,-100%); width:250px; padding:10px 14px 11px; border-radius:14px; pointer-events:none;
         background:rgba(18,16,28,.9); border:1px solid var(--gold); box-shadow:0 6px 24px rgba(0,0,0,.55); }
@@ -1068,7 +1215,7 @@ void main(){
       .h3d-rank i { display:block; height:6px; border-radius:3px; background:rgba(255,255,255,.12); margin-top:5px; overflow:hidden; } .h3d-rank u { display:block; height:100%; width:0; background:linear-gradient(90deg,#8a6a1a,#e8c766); transition:width .5s; }
       #h3d-bars i { position:absolute; left:0; right:0; height:0; background:#000; transition:height 1.1s ease; display:block; } #h3d-bars .cb-top { top:0; } #h3d-bars .cb-bot { bottom:0; }
       body.h3d-cine #h3d-bars i { height:11vh; }
-      body.h3d-cine .h3d-tag, body.h3d-cine .h3d-alert, body.h3d-cine .h3d-bubble, body.h3d-cine .h3d-hint, body.h3d-cine .h3d-quest, body.h3d-cine .h3d-map, body.h3d-cine .h3d-rank,
+      body.h3d-cine .h3d-tag, body.h3d-cine .h3d-alert, body.h3d-cine .h3d-qm, body.h3d-cine .h3d-bubble, body.h3d-cine .h3d-hint, body.h3d-cine .h3d-quest, body.h3d-cine .h3d-map, body.h3d-cine .h3d-rank,
       body.h3d-cine .h3d-label, body.h3d-cine .h3d-hit, body.h3d-cine .h3d-evhint, body.h3d-cine #h3d-bar { display:none !important; }
       body.h3d-cine .h3d-say { bottom:calc(11vh + 22px); }
       #h3d-ctitle { align-items:center; justify-content:center; flex-direction:column; text-align:center; transition:opacity .9s ease; }
@@ -1207,5 +1354,5 @@ void main(){
     const want = q.get("view") === "2d" || q.get("view") === "3d" ? q.get("view") : (saved || "3d");
     H3.setOn(want !== "2d");
   };
-  H3.debug = { cam, project, groundAt, scene: () => S, say, interact: (id) => { const n = S.npcs.find((q) => q.id === id); if (n) interact(n); }, cineStep: (sec) => { for (let t = 0; t < sec; t += 0.05) stepCine(0.05); } };
+  H3.debug = { cam, camStep: (n) => { for (let i = 0; i < n; i++) updateCamera(0.05); }, project, groundAt, scene: () => S, say, interact: (id) => { const n = S.npcs.find((q) => q.id === id); if (n) interact(n); }, cineStep: (sec) => { for (let t = 0; t < sec; t += 0.05) stepCine(0.05); } };
 })();

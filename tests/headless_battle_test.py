@@ -1,12 +1,9 @@
 """Headless correctness test for the battle engine.
 
-Runs many full battles with NO pygame and NO real Ollama server (none is
-reachable from this sandbox), using:
+Runs many full battles with NO pygame and no network at all, using:
   - a scripted stand-in for the human player (exercises attack/skill/item/defend)
-  - the REAL enemy AI pipeline (ai.enemy_ai.make_enemy_ai_fn) pointed at an
-    unreachable Ollama host, which forces every single enemy decision through
-    the scripted fallback path -- so this also proves the "Ollama is down"
-    failure mode never crashes or hangs a battle.
+  - the REAL rule-based enemy AI (ai.enemy_ai.make_enemy_ai_fn), so every
+    enemy decision goes through the same code the game uses.
 
 This is a sanity/integration check, not a formal test suite -- run it with:
     python3 tests/headless_battle_test.py
@@ -24,8 +21,7 @@ from data.skills_db import SKILLS
 from data.items_db import ITEMS, STARTING_INVENTORY
 from data.characters import make_party
 from data.enemies import make_enemy_group
-from ai.ollama_client import OllamaClient
-from ai.enemy_ai import make_enemy_ai_fn, scripted_fallback_action, _parse_llm_action
+from ai.enemy_ai import make_enemy_ai_fn, scripted_fallback_action
 
 
 def scripted_party_action(combatant, state: dict) -> Action:
@@ -79,8 +75,7 @@ def scripted_party_action(combatant, state: dict) -> Action:
 
 def run_one_battle(seed: int) -> BattleEngine:
     random.seed(seed)
-    client = OllamaClient(host="http://localhost:1", model="does-not-matter", timeout=0.5)
-    get_enemy_action = make_enemy_ai_fn(client, use_fallback_on_error=True)
+    get_enemy_action = make_enemy_ai_fn()
 
     engine = BattleEngine(
         party=make_party(),
@@ -108,8 +103,7 @@ def run_one_battle(seed: int) -> BattleEngine:
 
 
 def test_fallback_ai_unit():
-    """Unit-level check of the scripted fallback AI and LLM-response parser
-    without needing a network call at all."""
+    """Unit-level check of a single stateless AI decision."""
     party = make_party()
     enemies = make_enemy_group()
     engine = BattleEngine(
@@ -123,22 +117,9 @@ def test_fallback_ai_unit():
     action = scripted_fallback_action(actor, state)
     assert isinstance(action, Action)
 
-    # A well-formed "LLM" response should parse into a skill action.
-    skill_id = state["available_skills"][0]["id"]
-    target_id = state["party"][0]["id"]
-    parsed = _parse_llm_action(actor, state, {"action": "skill", "skill_id": skill_id, "target_id": target_id})
-    assert parsed.type.value == "skill" and parsed.skill_id == skill_id
-
-    # A malformed skill_id should degrade to a basic attack rather than raising.
-    parsed_bad = _parse_llm_action(actor, state, {"action": "skill", "skill_id": "nonsense", "target_id": target_id})
-    assert parsed_bad.type.value == "attack"
-
-    # Total gibberish should raise ValueError, which enemy_ai's try/except turns into a fallback.
-    try:
-        _parse_llm_action(actor, state, {"action": "moonwalk"})
-        raise AssertionError("expected ValueError for unrecognized action")
-    except ValueError:
-        pass
+    assert action.type.value in ("attack", "skill", "defend")
+    if action.type.value == "attack":
+        assert action.target_ids and action.target_ids[0] in {p["id"] for p in state["party"]}
 
     print("test_fallback_ai_unit: PASS")
 
@@ -161,8 +142,10 @@ def main():
     n_battles = 150
     outcomes = {"victory": 0, "defeat": 0, "fled": 0}
     max_round_seen = 0
+    battles_with_ko = 0
     for seed in range(n_battles):
         engine = run_one_battle(seed)
+        battles_with_ko += any(not c.alive for c in engine.party)
         outcomes[engine.result.value] += 1
         max_round_seen = max(max_round_seen, engine.round_number)
 
@@ -171,14 +154,15 @@ def main():
     print(f"Outcomes: {outcomes} (party win rate: {win_rate:.0%})")
     print(f"Longest battle: {max_round_seen} rounds")
     assert outcomes["victory"] + outcomes["defeat"] + outcomes["fled"] == n_battles
-    # Sanity band, not a precise target: enough losses to prove enemies are a
-    # real threat, but the party (playing a reasonable, if scripted, strategy)
-    # should still win more often than not against the *fallback* AI.
-    assert 0.55 <= win_rate <= 0.95, (
-        f"party win rate {win_rate:.0%} is outside the intended 55-95% band -- "
-        f"enemies are either too weak (party always wins) or too strong "
-        f"(the battle no longer feels winnable); see data/enemies.py."
-    )
+    # Sanity band, not a precise target. This is the level-1 sample trio from data/enemies.py against
+    # a simple scripted party, i.e. the easiest fight in the game; the real difficulty is measured
+    # with the full ladder simulations (see README "Balance"). Here we only insist the party usually
+    # wins, and that the enemies are a real threat: heroes actually go down in a fair share of fights.
+    ko_rate = battles_with_ko / n_battles
+    print(f"Battles where at least one hero was KO'd: {ko_rate:.0%}")
+    assert win_rate >= 0.55, f"party win rate {win_rate:.0%} is too low -- the battle no longer feels winnable"
+    assert ko_rate >= 0.15, f"heroes were KO'd in only {ko_rate:.0%} of battles -- enemies are not a real threat"
+
     print("\nALL HEADLESS BATTLE TESTS PASSED")
 
 

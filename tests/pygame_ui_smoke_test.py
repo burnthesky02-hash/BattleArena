@@ -174,58 +174,6 @@ def test_end_screen_with_xp_and_level_ups_does_not_crash():
     print("end screen with xp/level-ups: OK")
 
 
-def test_debug_panel_lifecycle():
-    """Debug mode's on_ai_event handles start/tick/done without crashing, updates
-    the 'thinking' state and history, and widens the window for the side panel."""
-    engine, ui, party, enemies = make_engine_and_ui(debug=True)
-    assert ui.debug is True
-    assert ui.width == ui.content_width + 320  # debug panel width reserved
-
-    event_queue.clear()  # on_ai_event pumps events too; make sure there's nothing stale queued
-    enemy = enemies[0]
-
-    ui.on_ai_event({"phase": "start", "combatant_id": enemy.id, "combatant_name": enemy.name, "model": "gemma3:27b"})
-    assert ui._thinking is not None and ui._thinking["name"] == enemy.name
-
-    ui.on_ai_event({"phase": "tick", "combatant_id": enemy.id, "combatant_name": enemy.name, "elapsed_seconds": 1.23})
-    assert ui._thinking["elapsed"] == 1.23
-
-    ui.on_ai_event({
-        "phase": "done", "combatant_id": enemy.id, "combatant_name": enemy.name,
-        "elapsed_seconds": 2.5, "used_fallback": False, "action_type": "skill",
-        "skill_id": "poison_dart", "target_id": party[0].id, "reason": "Going for the healer.",
-        "raw_content": {}, "error": None,
-    })
-    assert ui._thinking is None  # cleared once the decision resolves
-    assert ui.debug_history and ui.debug_history[-1]["skill_id"] == "poison_dart"
-    print("debug panel lifecycle (start/tick/done): OK")
-
-
-def test_debug_mode_end_to_end_with_real_ai_pipeline():
-    """Wires ui.on_ai_event into the REAL ai.enemy_ai pipeline (not a stub), pointed
-    at an unreachable host so it's forced through the fallback path, and confirms
-    the debug panel ends up with a populated, non-crashing history entry."""
-    from ai.ollama_client import OllamaClient
-    from ai.enemy_ai import make_enemy_ai_fn
-
-    engine, ui, party, enemies = make_engine_and_ui(debug=True)
-    client = OllamaClient(host="http://localhost:1", model="unreachable-model", timeout=0.5)
-    get_enemy_action = make_enemy_ai_fn(client, use_fallback_on_error=True, on_decision=ui.on_ai_event)
-
-    enemy = enemies[0]
-    state = engine.build_state(for_actor=enemy)
-    action = get_enemy_action(enemy, state)
-
-    assert action.type in (ActionType.ATTACK, ActionType.SKILL, ActionType.DEFEND)
-    assert ui._thinking is None
-    assert ui.debug_history, "expected a history entry after a full decision"
-    last = ui.debug_history[-1]
-    assert last["used_fallback"] is True
-    assert last["elapsed_seconds"] >= 0
-    print(f"debug mode end-to-end via real ai.enemy_ai pipeline: OK (fallback recorded, "
-          f"{last['elapsed_seconds']:.2f}s)")
-
-
 def test_hit_and_heal_flash_feedback():
     """Actions resolve instantly with only bars/log updating otherwise, so
     print_line diffs HP between frames and starts a brief flash + floating
@@ -409,8 +357,6 @@ def main():
     test_defend_and_flee_single_click()
     test_end_screen_closes_on_click()
     test_end_screen_with_xp_and_level_ups_does_not_crash()
-    test_debug_panel_lifecycle()
-    test_debug_mode_end_to_end_with_real_ai_pipeline()
     test_hit_and_heal_flash_feedback()
     test_is_melee_action_classifies_attack_physical_skill_vs_others()
     test_melee_target_for_picks_requested_target_or_first_alive_opponent()

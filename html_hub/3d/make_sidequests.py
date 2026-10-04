@@ -104,8 +104,10 @@ class Scene:
         i = int(fx); j = int(fz); u = fx - i; v = fz - j; h = self.h; o = j * T["nx"] + i; nx = T["nx"]
         return (h[o] * (1 - u) + h[o + 1] * u) * (1 - v) + (h[o + nx] * (1 - u) + h[o + nx + 1] * u) * v
 
-    def blocked(self, x, z, r):
+    def blocked(self, x, z, r, static=False):
         for c in self.d["colliders"]:
+            if static and (c.get("hideIf") or c.get("showIf")):
+                continue                       # gates that open (hideIf) or appear later (showIf) do not decide what is reachable
             if abs(x - c["x"]) < c["w"] / 2 + r and abs(z - c["z"]) < c["d"] / 2 + r:
                 return True
         return False
@@ -123,7 +125,7 @@ class Scene:
             x, z = cx * step, cz * step
             if x < b["minX"] or x > b["maxX"] or z < b["minZ"] or z > b["maxZ"]:
                 continue
-            if self.blocked(x, z, 0.45) and (cx, cz) != (round(sp["x"]), round(sp["z"])):
+            if self.blocked(x, z, 0.45, static=True) and (cx, cz) != (round(sp["x"]), round(sp["z"])):
                 continue
             seen.add((cx, cz))
             stack += [(cx + 1, cz), (cx - 1, cz), (cx, cz + 1), (cx, cz - 1)]
@@ -487,8 +489,90 @@ def record(sc, n0):
     sc.d["sqPieces"] = [[p[0], p[1], p[2]] for p in sc.d["pieces"][n0:]]
 
 
+# ======================================================================================================
+# THE DUNGEONS (Hollow Cave, Shard Vault, Shattered Reach): optional elites, extra chests, lore. Everything is placed near
+# known-good spots (existing chests / zones) and must be reachable from the spawn.
+# ======================================================================================================
+def lore(sc, lid, name, who, text, x, z, model="SM_dg_tablet", prompt="Read the tablet"):
+    x, z = sc.spot(x, z, r=1.2, gap=4.0)
+    sc.add("events", event(lid, name, prompt, x, z, [say(who, t) for t in (text if isinstance(text, list) else [text])], w=3.4, d=2.6))
+    sc.prop(model, x, z)
+
+
+def dungeon_elite(sc, eid, name, title, sprite, ax, az, tint_, intro, pool, rel, strength, after, loot, lead="You find"):
+    key, x, z = elite_npc(sc, eid, name, title, sprite, ax, az, tint_, intro, pool, rel, strength)
+    sc.add_autorun(dict({"if": key, "unless": key + "_r"}, actions=[say("", t) for t in after] + [flag(key + "_r"), chest(loot, lead)]))
+    return x, z
+
+
+def dungeon():
+    sc = Scene("dungeon"); d = sc.d; strip_old_pieces(d); n0 = len(d["pieces"])
+    dungeon_elite(sc, "wraith", "Lantern Wraith", "Drowned guide", "Lyra", -80, -215, tint(0.6, 0.8, 1.2),
+                  ["A pale lantern drifts out of the dark, swaying. The face behind it is a drowned sailor's.", "'The king keeps no guests. Only company.'"],
+                  ["frost_wraith"], (1, 2), 1.0,
+                  ["The lantern gutters and drops into the water. In the silt beneath it, something glints."],
+                  dict(gold=450, gems=4, equipment=["chapel_mace"]))
+    dungeon_elite(sc, "zealot", "Crypt Zealot", "Last of the court", "Draven", 70, -420, tint(0.7, 0.55, 0.85),
+                  ["A robed figure is kneeling in the dust, whispering the king's name over and over. He rises, slowly, as you approach."],
+                  ["dark_cultist"], (1, 2), 1.0,
+                  ["The zealot dissolves into ash. His offering bowl, still full, rolls to a stop at your feet."],
+                  dict(gold=550, shards=8, items=dict(ether=1, hi_potion=1)))
+    for cid, (x, z), loot in [("c1", (40, -100), dict(gold=300, items=dict(potion=2))), ("c2", (-40, -300), dict(gold=380, shards=4)),
+                              ("c3", (55, -520), dict(gold=480, gems=3, items=dict(antidote=2)))]:
+        chest_event(sc, "dg" + cid, x, z, loot, "detail-crate")
+    lore(sc, "lore1", "Weathered tablet", "Tablet", "'WE SANK THE KING BENEATH THE TIDE, AND THE TIDE REMEMBERED. LET NO ONE WAKE HIS COURT.'", -30, -160)
+    lore(sc, "lore2", "Cracked tablet", "Tablet", ["'HE WAS A GOOD KING, ONCE. THE SEA ASKED FOR A PRICE, AND HE PAID IT WITH HIS PEOPLE.'", "'THE BELL IN THE EASTERN HALL RINGS ON ITS OWN. DO NOT ANSWER IT.'"], 30, -350)
+    lore(sc, "lore3", "Salt-eaten tablet", "Tablet", "'WHOEVER FINDS THIS: THE LANTERN-BEARERS WERE HIS KEEPERS. THEY ARE BOUND TO THE LAST LIGHT. PUT THE LIGHT OUT AND THEY REST.'", 0, -560)
+    record(sc, n0); sc.save()
+    return sc
+
+
+def vault():
+    sc = Scene("vault"); d = sc.d; strip_old_pieces(d); n0 = len(d["pieces"])
+    dungeon_elite(sc, "medic", "Rogue Medic Unit", "Maintenance loop", "Lyra", -120, -45, tint(0.6, 1.1, 0.9),
+                  ["A lattice unit unfolds from a wall niche, its repair arms humming. 'PATIENT DETECTED. PREPARING... TREATMENT.'"],
+                  ["lattice_medic"], (1, 2), 0.8,
+                  ["The unit sparks and goes dark. Its supply drawer pops open."],
+                  dict(gold=900, items=dict(hi_potion=2), equipment=["wardens_tower_shield"]))
+    dungeon_elite(sc, "leech", "Leech Mother", "Starved", "Sera", 120, -20, tint(0.8, 0.5, 1.0),
+                  ["The floor ripples. A swollen leech the size of a cart slides up out of a drain, tasting the air."],
+                  ["rift_leech"], (1, 2), 0.7,
+                  ["The leech collapses in on itself. Something hard is lodged in what is left of it."],
+                  dict(gold=800, shards=12, gems=5))
+    for cid, (x, z), loot in [("c1", (-130, 40), dict(gold=700, items=dict(hi_potion=1, ether=1))), ("c2", (160, -10), dict(gold=900, shards=8)),
+                              ("c3", (0, -90), dict(gold=1100, gems=4, items=dict(ether=2)))]:
+        chest_event(sc, "vt" + cid, x, z, loot, "detail-crate")
+    lore(sc, "lore1", "Survey log", "Survey log", ["'DAY 14. THE VAULT PLAYS BACK EVERYTHING WE SAY, IN OUR OWN VOICES, A FEW SECONDS LATE.'", "'DAY 15. NOBODY ANSWERED THE ROLL CALL BUT THE ECHO.'"], -120, 20, prompt="Read the log")
+    lore(sc, "lore2", "Cracked lens", "Cracked lens", "'This was a window onto somewhere else. It shows you where you came from, and who is still looking.'", 100, 5)
+    lore(sc, "lore3", "Bent plate", "Etched Plate", "'THE WARDEN WAS BUILT TO KEEP THINGS IN. IT HAS NEVER BEEN TOLD THAT SOMETHING LET THEM OUT.'", -10, -110)
+    record(sc, n0); sc.save()
+    return sc
+
+
+def reach():
+    sc = Scene("reach"); d = sc.d; strip_old_pieces(d); n0 = len(d["pieces"])
+    dungeon_elite(sc, "mirage", "Mirror of the Reach", "Hollow reflection", "Kael", -25, -80, tint(0.7, 0.9, 1.3),
+                  ["A figure steps out of a seam in the air wearing your own stance. Its face is a smear of light."],
+                  ["frost_mirage"], (1, 3), 0.2,
+                  ["The reflection shatters into drifting glass, and one pane lands upright, humming."],
+                  dict(gold=1500, items=dict(ether=2), equipment=["emberwood_staff"]))
+    dungeon_elite(sc, "acolyte", "Rift Penitent", "Kneeling", "Rook", 20, -175, tint(0.8, 0.5, 1.2),
+                  ["A cloaked figure kneels at the edge, facing the void. 'Do you hear it? It is not angry. It is only hungry.'"],
+                  ["void_acolyte"], (1, 3), 0.2,
+                  ["The penitent folds into a pile of cloth. A pouch of shards is tied to its belt."],
+                  dict(gold=1400, shards=20, gems=8, tickets=dict(premium=1)))
+    for cid, (x, z), loot in [("c1", (30, -75), dict(gold=900, items=dict(hi_potion=2))), ("c2", (30, -170), dict(gold=1200, shards=10)),
+                              ("c3", (-30, -190), dict(gold=1500, gems=5, items=dict(ether=2))), ("c4", (-30, -250), dict(gold=1600, shards=12, items=dict(phoenix_down=1)))]:
+        chest_event(sc, "rc" + cid, x, z, loot, "detail-crate")
+    lore(sc, "lore1", "Drifting plate", "Etched Plate", "'THE SKY BROKE FIRST. THE GROUND ONLY FOLLOWED.'", 20, -15)
+    lore(sc, "lore2", "Fallen plate", "Etched Plate", "'EVERY ISLET HERE WAS A ROOM IN A HOUSE. SOMEONE LEFT THE DOOR OPEN ON PURPOSE.'", -30, -100)
+    lore(sc, "lore3", "Warm plate", "Etched Plate", "'THE LAST WARDEN IS NOT A MONSTER. IT IS A LOCK, AND LOCKS DO NOT HATE. THEY ONLY HOLD.'", 15, -285)
+    record(sc, n0); sc.save()
+    return sc
+
+
 if __name__ == "__main__":
-    which = sys.argv[1:] or ["island", "forest", "outside", "asteroid"]
+    which = sys.argv[1:] or ["island", "forest", "outside", "asteroid", "dungeon", "vault", "reach"]
     for w in which:
         sc = globals()[w]()
         write_side()

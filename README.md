@@ -1,11 +1,11 @@
 # Battle Colosseum -- Prototype
 
-A classic-JRPG game where every enemy is piloted by a local LLM (via
-[Ollama](https://ollama.com)) instead of scripted AI. Most of the UI is
-still placeholder (colored rectangles + bars); battle and the Heroes/Summon
-screens have real art (see "Playing a battle" below), everything else
-doesn't yet. The focus so far has been the battle engine, the LLM opponent
-integration, and the surrounding
+A classic-JRPG game where every enemy is driven by a hand-written, rule-based AI: each
+monster has its own behavior profile (who it hunts, what it opens with, when it heals or
+braces), the tougher ones telegraph big attacks you can answer, and rival enemies adapt to
+how you play. Most of the UI is still placeholder (colored rectangles + bars); battle and
+the Heroes/Summon screens have real art (see "Playing a battle" below), everything else
+doesn't yet. The focus so far has been the battle engine, the enemy AI, and the surrounding
 meta-game loop: a title screen, character creation, a persistent save file,
 the Colosseum hub, a money/gems economy, a Shop (spend money on consumables
 and common/rare gear), Summon (spend gems on a new recruit -- now with a
@@ -13,9 +13,8 @@ common/rare/epic/legendary/mythic **hero rarity** system, see "Summon"
 below -- or a chance at premium epic/legendary gear), a **Heroes** page
 (view/equip your roster and spend duplicate-summon shards on star
 upgrades), and a **4-hero party cap** with a pick-your-party screen before
-every battle. That was the full original request -- see "Known
-limitations" below for what's still rough around the edges (difficulty
-scaling, animations, and so on).
+every battle. See "Known limitations" below for what's still rough around the
+edges (difficulty scaling, animations, and so on).
 
 ## What's here
 
@@ -43,13 +42,10 @@ against multiple opponents is meant to be a real underdog fight at first,
 which is the point of the "recruit more characters via Summon" design (see
 "Summon" below); losing still pays out, so it's never a dead end. Only the
 party you selected fights and earns XP that battle -- everyone else on your
-roster sits it out untouched. Each enemy's turn is decided by sending the
-battle state to a local Ollama model
-prompted as the *commander* of the whole enemy squad, issuing an order for
-that one unit with full visibility into its squadmates' standing -- not
-each monster roleplaying independently. If Ollama isn't running, times out,
-or replies with something unparsable, that one enemy's turn silently falls
-back to a scripted heuristic AI instead of crashing or hanging the battle.
+roster sits it out untouched. Each enemy's turn is decided by the rule-based AI in
+`ai/enemy_ai.py` (see "How the enemy AI works" below): a per-archetype behavior
+profile plus a utility score for every legal option, so every monster fights
+differently and nothing about it needs a model or a network connection.
 
 **Leveling:** every character (and every enemy) has a level and grows
 stronger past level 1 along a class/archetype-specific growth curve.
@@ -68,44 +64,19 @@ Summon spends gems on a new recruit or a chance at premium gear -- see
 ## Setup
 
 1. **Python 3.10+**
-2. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-   > **If this fails trying to build pygame from source** (an error mentioning
-   > `Failed to build 'pygame'`, `msvccompiler`, or asking you to install
-   > Visual Studio Build Tools): this happens when your Python version is
-   > newer than the last one plain `pygame` shipped a prebuilt Windows wheel
-   > for (a common gap right after a new Python release). `requirements.txt`
-   > already uses `pygame-ce` instead of `pygame` for this reason -- it's a
-   > drop-in community fork (your code still just does `import pygame`) that
-   > keeps up with new Python releases much faster. If you still hit this,
-   > either update pip/setuptools first (`pip install --upgrade pip
-   > setuptools`) or install an older Python (3.12/3.13) alongside your
-   > current one and run `py -3.13 -m pip install -r requirements.txt`.
-3. **Install Ollama** (if you haven't): https://ollama.com/download
-4. **Pull a model** to use for enemy AI -- something reasonably fast is
-   nice since it's called once per enemy turn. A good default:
-   ```
-   ollama pull llama3.1
-   ```
-   Any chat-capable model works, including smaller/faster ones (e.g.
-   `llama3.2`, `mistral`, `qwen2.5`). Start Ollama serving (it usually runs
-   automatically after install; if not: `ollama serve`).
+2. Install the dependencies: `pip install -r requirements.txt` (just `pygame-ce`; the
+   browser hub additionally uses `websockets`, which `Play.bat` installs on first run).
+3. Run it -- no other services are needed.
 
 ## Running it
 
-Graphical placeholder window (default), now a bigger 1280x800 (was
-1000x650 -- bumped up after the window felt cramped once Heroes/Party
-Select got busier):
+Graphical placeholder window (default), 1280x800:
 ```
 python main.py
 ```
 
-Fullscreen (scales that same 1280x800 layout up to fill your monitor,
-rather than trying to redesign every screen around an arbitrary
-resolution) -- off by default, opt in with `--fullscreen` or
-`FULLSCREEN_ON_START=1`:
+Fullscreen (scales that same layout up to fill your monitor) -- off by default, opt in with
+`--fullscreen` or `FULLSCREEN_ON_START=1`:
 ```
 python main.py --fullscreen
 ```
@@ -115,43 +86,8 @@ Plain terminal, no pygame required:
 python main.py --mode text
 ```
 
-Point at a specific Ollama host/model:
-```
-python main.py --model llama3.2 --host http://localhost:11434
-```
-
-If Ollama isn't reachable at startup, you'll see a warning and the game
-still runs (title screen, character creation, the Colosseum hub, battles --
-all of it) -- enemies just use the scripted fallback AI instead of the LLM
-until it's reachable.
-
-**"It's not reaching the model" / enemies never seem to use the LLM:** by
-far the most common cause is that `--model` doesn't exactly match what
-Ollama has pulled. Run `ollama list` to see the exact tags (they usually
-look like `gemma3:27b`, `llama3.1:latest`, etc. -- not just "gemma" or a
-rounded-off parameter count), then pass that exact string:
-```
-python main.py --model gemma3:27b
-```
-On startup, if Ollama is reachable but the model name doesn't match
-anything pulled, you'll now get a `[warn]` line listing what's actually
-available and the exact `--model` value to use. If it *does* match but
-turns still silently fall back, the model may just be slow to respond --
-large models (13B+, especially 27B-class ones) can take well over the old
-20s default on first load or on CPU-only hardware. The default timeout is
-now 60s; raise it further if needed:
-```
-set OLLAMA_TIMEOUT_SECONDS=120
-python main.py --model gemma3:27b
-```
-(use `$env:OLLAMA_TIMEOUT_SECONDS=120` instead in PowerShell). Any fallback
-also prints a one-line reason to the console (e.g. `[ai] Iron Golem: falling
-back to scripted AI (...)`) -- that message says exactly why that turn
-didn't use the LLM.
-
-**For the full picture, use `--debug`** (see below) -- it shows exactly
-what each enemy's decision looked like and how long it took, live, instead
-of just a pass/fail warning.
+The browser version (the one with the 3D hub, story and Colosseum) is started with `Play.bat`
+(or `python launcher.py`); `Debug.bat` / `--debug` adds the Battle Debug menu and damage graphs.
 
 ## Debug mode
 
@@ -160,127 +96,10 @@ python main.py --debug
 python main.py --mode text --debug
 ```
 
-Shows exactly what's happening on each enemy's turn, **live, as the model
-writes it** -- not just a summary once it's done deciding:
-- **pygame mode:** the window gains a side panel. While an enemy is
-  deciding, it shows "`<Name>` is thinking..." with a live-updating timer
-  (e.g. `2.4s`) and the model name, and directly underneath, the model's
-  in-character reasoning sentence **types itself out on screen token by
-  token** as Ollama streams it back -- you're watching it "think" in real
-  time, not waiting for a finished block of text to pop in. Once the
-  decision lands, it drops into a scrolling history of the last several
-  decisions -- green for a real LLM decision (action, skill, target, and
-  the reasoning sentence it typed out), orange for a scripted fallback
-  (with why it fell back).
-- **text mode:** the same reasoning sentence prints to the console
-  character-by-character as it streams in (right after "`<Name>` (`model`):
-  "), then one summary line with the elapsed time and chosen action once
-  it's done.
+Adds the debug-only hub tools (for example the **Add Gems** button, `DEBUG_GEM_GRANT` gems
+per click) and extra console lines. In the browser hub it enables the Battle Debug menu and
+the damage calculation log.
 
-Under the hood, this uses Ollama's streaming API (`stream: true`) instead
-of waiting for one full response. The model is asked to reply in two
-parts -- `THINKING: <sentence>` then `ACTION_JSON: {...}` -- specifically
-so there's free-text prose to show typing out live; forcing the whole
-reply into strict JSON mode (as the old non-streaming version did) would
-rule that out. Only the `THINKING:` sentence is shown streaming -- the
-JSON tail is held back and parsed once the stream finishes, so you never
-see raw JSON flash on screen.
-
-**"It's stuck at `(waiting for first token...)`":** if the timer next to it
-is still climbing (not frozen) and it eventually times out and falls back,
-this almost always means Ollama is still *loading the model into memory*,
-not actually stuck -- loading a large model's weights (especially 20B+
-ones like `gemma3:27b`) can itself take anywhere from several seconds to a
-couple of minutes depending on your disk speed, RAM, and whether it's
-running on GPU or CPU, and none of that time produces any streamed text
-since the model isn't even loaded yet to start generating. As of this
-version, `main.py` now forces the model to load at startup before the
-battle begins (you'll see `[info] Warming up '<model>'...` then
-`[ok] Model loaded in Ns`), specifically so that cost lands there instead
-of mid-battle. If you still see it happen *during* a battle, `keep_alive`
-(30 minutes by default) probably expired from being idle too long -- either
-keep playing at a normal pace, or raise `OLLAMA_KEEP_ALIVE` further. You
-can skip the startup warm-up with `set WARM_UP_ON_START=0` if you'd rather
-not wait for it (e.g. you know the model's already warm from a previous
-run). If warm-up itself is consistently slow, that's a good sign the
-model's raw load/generation speed is the real bottleneck on your hardware
--- check whether Ollama is actually using your GPU (`ollama ps` shows
-`100% GPU` vs `100% CPU` per loaded model) or consider a smaller/more
-quantized model.
-
-**Decision history shows "fallback" with `Ollama returned an empty
-streamed response"`:** this is a *different* symptom from the "stuck"
-one above -- the request actually completed (you'll see a real elapsed
-time, e.g. 16s) but the model produced no usable text at all. The most
-common cause: some Ollama-served models (reasoning/"thinking" models such
-as `deepseek-r1`, `qwq`, `magistral`, `gpt-oss`, and a few others
-depending on how they were pulled) do an internal chain-of-thought pass by
-default, streamed into a separate `message.thinking` field rather than
-`message.content` -- and that reasoning pass can burn through the entire
-`OLLAMA_NUM_PREDICT` token budget before any real answer text is produced,
-leaving `content` completely empty even though the model was genuinely
-working the whole time. As of this version, every request explicitly asks
-Ollama to skip that (`think: False`), which fixes this for most models;
-if a particular model ignores that setting, the fallback reason will now
-say so directly (`"...looks like a reasoning model that isn't honoring
-think=False..."`) instead of the old generic empty-response message, so
-you'll know that's what's happening. Two ways to fix it for a model like
-that: switch to a non-reasoning model (most of the smaller chat-tuned ones
-like `llama3.1`/`llama3.2`/`qwen2.5` aren't reasoning models), or raise
-`OLLAMA_NUM_PREDICT` well past whatever that model's reasoning typically
-takes (this can mean several hundred to a few thousand tokens for some
-models, which will also make turns noticeably slower).
-
-This also happens to fix the pygame window "freezing" while an enemy is
-deciding (previously a known limitation): the Ollama call now runs on a
-background thread while the main thread keeps redrawing and handling
-clicks/close, whether or not `--debug` is on -- `--debug` just decides
-whether that redraw includes the side panel.
-
-You can also default this on without the flag: `set DEBUG=1` (or
-`$env:DEBUG=1` in PowerShell) before running `python main.py`.
-
-**Testing cheat: manually adding gems.** With `--debug`/`DEBUG=1` on, the
-Colosseum hub gets a fifth button, **`[DEBUG] Add 100 Gems`** (pygame:
-below "Save & Quit to Title"; text mode: the same extra numbered option),
-that grants `config.DEBUG_GEM_GRANT` gems immediately and saves -- no
-battle needed. It's there so you can test/spam Summon pulls (both the
-character and equipment gacha) without grinding out real battle rewards
-first. It's never offered outside debug mode. Change the amount per click
-with `set DEBUG_GEM_GRANT=500` (or edit the default in `config.py`).
-
-## Speeding up responses
-
-Two env vars tune every Ollama request for latency, on top of the
-perceived-speed win from streaming above (seeing the model "think" as it
-goes feels faster even when the total generation time is unchanged):
-
-```
-set OLLAMA_NUM_PREDICT=120
-set OLLAMA_KEEP_ALIVE=10m
-```
-
-(use `$env:OLLAMA_NUM_PREDICT=120` etc. in PowerShell)
-
-- **`OLLAMA_NUM_PREDICT`** (default `200`) caps how many tokens a reply is
-  allowed to generate. The prompt only needs one short sentence plus a
-  small JSON object, so this mostly guards against a model that rambles --
-  lowering it (e.g. to `100`-`120`) trims worst-case turn time at some risk
-  of a reply getting cut off before the JSON closes (which falls back to
-  scripted AI for that turn, same as any other parse failure).
-- **`OLLAMA_KEEP_ALIVE`** (default `10m`) keeps the model loaded in memory
-  between requests. Ollama's own default is only a few minutes, so without
-  this, a big model can get unloaded while you're taking your own turn and
-  then eat a full reload on the next enemy turn. Raise it (e.g. `30m`) if
-  you're playing long sessions and want to avoid ever paying that reload
-  cost mid-battle.
-
-Beyond these, the biggest lever is the model itself: a smaller or more
-quantized model (e.g. `llama3.2`, `qwen2.5:7b`, or a `q4` quant of
-whatever you're running) will respond meaningfully faster than a 27B-class
-model on the same hardware, especially CPU-only. `OLLAMA_NUM_PREDICT` and
-`OLLAMA_KEEP_ALIVE` help, but can't make a large model's raw generation
-speed faster than your hardware allows.
 
 ## Character creation, the Colosseum hub, and saving
 
@@ -571,7 +390,7 @@ Your Party screen right before Battle Setup (see "Party selection" above)
 -- one character at the start, more to choose from once Summon has
 recruited additional teammates -- against a random selection of opponents
 drawn from the 13-entry enemy archetype pool (`data/enemy_pool.py`), each
-with a distinct persona that shapes how the LLM plays them, at a level and
+with a distinct behavior profile that shapes how the AI plays them, at a level and
 count you chose on the Battle Setup screen right before the fight (see
 "Level curves & battle difficulty" below). Each of your turns, pick Attack / Skill / Item / Defend
 / Flee, then a target if needed. Turn order each round is speed-based with
@@ -724,7 +543,7 @@ each party member's HP bar; run dry on a caster and their skills stop
 being choosable (the pygame UI re-prompts you rather than letting you pick
 one you can't pay for) until they fall back to a plain Attack, which is
 free. The same rule applies to enemies -- see the note on unaffordable
-skill requests under "How the LLM enemy AI works" below.
+skill requests under "How the enemy AI works" below.
 
 ## Level curves & battle difficulty
 
@@ -868,10 +687,9 @@ choosing uniformly at random among everything it could afford.
 
 Net result, measured over 150 seeded headless battles (see
 `tests/headless_battle_test.py`): **~79% party win rate**, avg. battle
-length ~15 rounds (previously ~8, cap is 100). That's against the
-deliberately-simpler-than-real scripted fallback AI, which only plays when
-Ollama is unreachable -- the actual local-LLM enemy AI in real play should
-be smarter than this heuristic on top of these numbers, not weaker. If it
+length ~15 rounds (previously ~8, cap is 100). That figure was measured against the older, simpler heuristic AI; the current rule-based AI
+(behavior profiles, telegraphed charges, rival adaptation) is sharper, so real win rates run lower.
+If it
 still feels too easy or too hard once you've played it for real, the
 numbers to tune are in `data/enemies.py` (stats/skills) and the elemental
 multipliers there (`resistances={...}`).
@@ -879,7 +697,7 @@ multipliers there (`resistances={...}`).
 ## Project layout
 
 ```
-engine/     Pure game logic -- no pygame, no console I/O, no Ollama.
+engine/     Pure game logic -- no pygame, no console I/O.
   stats.py            Stat block (HP/MP/ATK/DEF/MAG/RES/SPD/LUK)
   types.py            Element / TargetType / ActionType / BattleResult enums
   status_effects.py   Status effect templates + registry (poison, stun, buffs...)
@@ -893,19 +711,13 @@ engine/     Pure game logic -- no pygame, no console I/O, no Ollama.
   formulas.py         Damage/heal/crit/flee math
   battle.py           BattleEngine: turn order, round loop, action resolution
 
-ai/         Local-LLM integration. Depends on engine/, not the other way around.
-  ollama_client.py    Thin HTTP client for a local Ollama server -- both a
-                       one-shot JSON-mode chat call and a streaming chat call
-                       (chat_stream) that yields text chunks as Ollama sends them
-  enemy_ai.py         Builds the per-unit "commander" prompt (squad-wide
-                       visibility, orders for one unit at a time -- see "How
-                       the LLM enemy AI works" below), streams the reply back
-                       chunk-by-chunk, splits it into the live "thinking" prose
-                       and the trailing action JSON, parses that into an Action,
-                       provides the scripted fallback AI, and runs the whole
-                       Ollama call on a background thread (_run_streaming_with_relay)
-                       so a UI can stay responsive and show the model's reasoning
-                       typing out live via the optional on_decision callback
+ai/         Rule-based enemy AI. Depends on engine/, not the other way around.
+  enemy_ai.py         Behavior profiles per enemy archetype, utility scoring of every
+                       legal option, telegraphed "Charging" attacks, and rival
+                       adaptation memory -- see "How the enemy AI works" below.
+                       make_enemy_ai_fn() returns the (combatant, state) -> Action
+                       callable the engine uses; scripted_fallback_action() is a
+                       stateless one-shot decision (kept for tests and tools)
 
 data/       Sample/placeholder game content (swap for real content later).
   skills_db.py, items_db.py, characters.py, enemies.py
@@ -1064,7 +876,7 @@ ui/         Two interchangeable front ends; BattleEngine doesn't know which is u
                        the same _draw_hero_card helper show_heroes' own
                        grid now uses -- see "Party selection" above
 
-tests/      Headless correctness checks (no pygame, no real Ollama needed).
+tests/      Headless correctness checks (no pygame, no network needed).
   headless_battle_test.py    Runs many full battles end-to-end, reports/checks
                               the party's win rate (see "Balance" above)
   engine_balance_test.py     Unit-level checks for mechanics a random full
@@ -1111,12 +923,8 @@ tests/      Headless correctness checks (no pygame, no real Ollama needed).
                               once the party's full, backing out without
                               side effects, and empty "+" slots/an empty
                               roster not crashing the screen
-  streaming_ai_test.py       Live-streaming "thinking" display + the
-                              reasoning-model empty-response diagnosis
-  warmup_test.py             OllamaClient.warm_up()'s request shape/errors
-  commander_ai_test.py       The squad-commander prompt framing, the
-                              human_party_targets/rest_of_your_squad payload
-                              shape, and the unaffordable-skill attack fallback
+  enemy_ai_test.py           Rule-based enemy AI: legal targeting, profiles, openers,
+                              healing, charge/telegraph + stun break, rival adaptation
   roster_test.py             Class archetypes' skill kits are all real skill
                               ids and all distinct; PlayerCharacter equip/
                               effective_stats/build_combatant math; new
@@ -1250,105 +1058,52 @@ main.py     Entry point / CLI -- title screen, character creation, and the
             "Debug mode" above). run_one_battle() takes an optional `party`
             (the fielded PlayerCharacters) -- only they're built into the
             battle and earn XP; omitted, it falls back to the whole roster
-config.py   Ollama host/model/timeout defaults (overridable via env vars or
-            CLI flags), plus DEBUG_GEM_GRANT (the debug-only "Add Gems"
+config.py   Runtime settings (overridable via env vars or CLI flags): DEBUG_GEM_GRANT (the debug-only "Add Gems"
             cheat button's amount per click) and FULLSCREEN_ON_START
             (off by default; `--fullscreen` on the CLI overrides it)
 ```
 
-## How the LLM enemy AI works
+## How the enemy AI works
 
-The model is prompted as a single **commander directing the whole enemy
-squad**, not as each monster roleplaying itself in isolation. It still
-makes one Ollama call per enemy turn (same cadence/speed as before -- an
-earlier version of this file described "each individual enemy's turn"
-that way, back when the prompt really did say "you are this monster, stay
-in character"), but each call now frames it as "you command this entire
-squad; here is the order for ONE specific unit right now." The payload
-includes that unit's own `acting_unit_tendencies` (its persona, but framed
-as a note on how it fights rather than a character to become) *and* a
-`rest_of_your_squad` list showing the other living enemies' current HP/
-status, plus `recent_log` -- so if a squadmate already committed to
-something this round, the model can see that and avoid piling on or
-duplicating it. It does not get to see what a not-yet-acted squadmate
-*will* do later this same round (that hasn't been decided yet), so this is
-"aware of the board and of orders already given," not a fully pre-planned
-squad-wide strategy decided in one shot -- see `ai/enemy_ai.py`'s module
-docstring for why that (bigger, riskier) alternative wasn't the one built.
+`ai/enemy_ai.py` is a pure rule-based AI -- there is no model, no network and no external
+service. `make_enemy_ai_fn(memory=None, on_decision=None)` returns the
+`(combatant, state) -> Action` function the engine calls on each enemy turn.
 
-Two things fell out of playing against the commander framing above for
-real: first, the model would sometimes lose track of which characters were
-its own squad and which it was fighting, especially in the first turn or
-two of a battle (before there's any `recent_log` to lean on). The likely
-cause was calling the opposing side `party_side_targets` in the JSON
-payload -- in JRPG parlance "the party" almost always means the *player's
-own* team, exactly backwards from what it meant here, and that's a strong
-enough pretrained association that key-naming alone wasn't reliably
-overriding it. That field is now called `human_party_targets`, and every
-prompt also opens with a plain-English sentence *outside* the JSON --
-naming the squad and the opposing party explicitly by name -- so "who's
-mine vs. who am I fighting" doesn't depend on the model correctly parsing
-JSON key semantics or on any battle history existing yet.
+**Utility scoring.** Every legal option (basic attack, each affordable skill against each
+reachable target, defend) gets a score in rough "HP points": the damage it should do (capped
+by what the target has left, with a bonus for a kill), the value of a debuff, poison or buff
+that is not already in place, healing that is actually needed, and so on. Melee units can only
+reach an occupied front row (battle formations); ranged and magic units reach anyone. A little
+random noise (per profile) keeps enemies from being perfectly predictable.
 
-Second: MP was never actually unlimited (`engine/battle.py`'s `_do_skill`
-has always checked and spent it), but if the model misjudged its own MP
-and asked for a skill it couldn't afford, the old behavior let that
-request reach the engine unchanged -- which just makes the unit "hesitate"
-and wastes the entire turn. `_parse_llm_action` now catches that the same
-way it already caught an invalid `skill_id`: it degrades to a basic attack
-instead, and the system prompt explicitly tells the model to check
-`acting_unit_mp` against a skill's `mp_cost` before requesting it.
+**Behavior profiles.** The `PROFILES` table is keyed by enemy archetype id (`data/enemy_pool.py`).
+A profile can set who the unit prefers to hit (`weakest`, `tank`, `caster`, `strongest`,
+`balanced`), skills it opens with, how many living heroes make it prefer an area attack, when it
+heals allies or braces, a finisher it saves for wounded targets, how much it favours debuffs, how
+random it is, and whether it is `adaptive`. Hero rivals use a balanced adaptive profile.
 
-Each enemy's turn, `ai/enemy_ai.py` sends Ollama:
-- a system prompt explaining the commander framing, the two-line reply
-  format, and the rules (including "your squad" vs. "human_party_targets"
-  and the MP-affordability requirement),
-- a user message opening with a plain-language sentence naming the squad
-  and the opposing party, then a JSON block with the acting unit's
-  tendencies, its own HP/MP, its `available_skills`, the rest of its
-  squad's current standing, and the current HP/status of the party it's
-  up against,
+**Telegraphed attacks.** Profiles with a `charge` skill sometimes spend a turn gathering power
+instead of attacking: the unit braces (halving damage), gains the visible **Charging** status
+(+60% attack and magic) and the log announces "gathers power for <skill>!". On its next turn it
+releases that skill. Stun the unit (a missed turn breaks the charge), defend through the hit, or
+spread the party out. Scripted bosses (`data/bosses.py`, `game/boss_script.py`) keep their own
+hand-written phases and telegraphs on top of this.
 
-and streams the reply back (`stream: true`, plus `num_predict`/
-`keep_alive` from `config.py`). The reply is expected to look like:
+**Rival adaptation.** Adaptive profiles (hero rivals, the Colosseum Champion, the Temple Oracle, the
+Abyssal Horror, the Null Reaper) watch what the player does: they start hunting a healer who keeps
+healing, focus the party's main damage dealer, and punish turtling (lots of defending) with debuffs
+and area attacks. The memory dict is kept for the whole session and halved at the start of each new
+fight (`decay_memory`), so a rival remembers recent habits without being locked into them forever.
 
-```
-THINKING: The mage looks vulnerable, striking now.
-ACTION_JSON: {"action": "skill", "skill_id": "poison_dart", "target_id": "c3"}
-```
-
-As chunks arrive, `enemy_ai.py` incrementally figures out which part of
-the streamed text is safe to show as "thinking" (stripping the `THINKING:`
-label and holding back anything that might be the start of the
-`ACTION_JSON:` marker until it's sure) and fires an `on_decision` callback
-per chunk so a UI can display it typing out live. Once the stream ends,
-`_split_thinking_and_json` splits the full text into the reasoning
-sentence and the JSON blob, and `_parse_llm_action` validates the JSON
-against what's actually legal (the skill has to be one the enemy knows,
-etc.), degrading gracefully -- an unaffordable/unknown skill becomes a
-basic attack rather than failing the turn outright. Any network error,
-timeout, or unparsable response instead routes to
-`scripted_fallback_action`, a simple heuristic (mix of attacking the
-lowest-HP target and using an affordable skill) so a battle never stalls
-waiting on a model that isn't there.
-
-We deliberately don't use Ollama's `format: "json"` mode here (unlike the
-very first version of this project) -- that constrains the *entire* reply
-to be a JSON document, which would rule out the free-text `THINKING:`
-prefix that makes the live streaming display possible.
+`tests/enemy_ai_test.py` covers legal targeting, profiles, openers, healing, charging and breaking a
+charge with a stun, rival adaptation and full battles.
 
 ## Verifying it works (what's already been tested)
 
-Since this was built in a sandbox with no access to a real Ollama server
-or to install pygame, verification so far is:
+Since this was built in a sandbox with no access to install pygame, verification so far is:
 - `tests/headless_battle_test.py`: runs 25+ full battles with a scripted
-  player stand-in and the *real* enemy-AI pipeline pointed at an
-  unreachable host (forcing every enemy decision through the fallback
-  path), asserting no crashes, no invalid HP/MP, and that both win and
+  player stand-in and the *real* rule-based enemy AI, asserting no crashes, no invalid HP/MP, and that both win and
   loss are reachable.
-- A round-trip test against a fake local HTTP server that mimics Ollama's
-  actual `/api/chat` response shape, confirming the prompt/parsing code
-  works against a real model reply (not just the fallback).
 - `tests/pygame_ui_smoke_test.py`: runs every menu path in `pygame_ui.py`
   (attack/skill/item/defend/flee, self-target and all-enemies skills), plus
   the hit/heal flash feedback (an HP drop/rise starts the right flash with
@@ -1450,40 +1205,6 @@ or to install pygame, verification so far is:
   above for the bug this catches), lifesteal actually heals the caster,
   plus targeted checks of stun skipping a turn, elemental
   weakness/resistance multipliers, item revival, and both flee outcomes.
-- A test against a deliberately slow fake Ollama server confirming the
-  background-thread heartbeat actually fires several "tick" events during
-  a blocking call (proving the UI thread isn't frozen waiting on it), and
-  `pygame_ui_smoke_test.py` covers the debug panel's start/tick/done
-  lifecycle plus a full run through the real AI pipeline in debug mode.
-- `tests/streaming_ai_test.py`: a fake Ollama server that streams its
-  reply in small, deliberately misaligned chunks (so the `THINKING:` label
-  and `ACTION_JSON:` marker straddle chunk boundaries on purpose), verifying
-  the request actually asks for streaming with the configured
-  `num_predict`/`keep_alive`, that several live `thinking_chunk` events
-  fire as content streams in, that the displayed text grows monotonically
-  and never flashes a partial label/marker or leaks JSON, and that the
-  final parsed action and reasoning sentence are correct. Also confirms a
-  connection error still falls back cleanly with no chunks emitted, and
-  that a simulated reasoning model (one that burns its whole reply on
-  `message.thinking` and never produces `content`) gets the specific
-  diagnostic error described under "Decision history shows fallback..."
-  above, not the old generic "empty streamed response" message.
-- `tests/warmup_test.py`: confirms `OllamaClient.warm_up()` (the fix for
-  the "stuck at waiting for first token" issue described under Debug mode
-  above) hits `/api/generate` with no `prompt` field -- so it loads the
-  model without generating anything -- and that a connection failure
-  during warm-up raises the same `OllamaError` every other client call
-  does rather than a raw exception.
-- `tests/commander_ai_test.py`: confirms the system prompt actually reads
-  as commander-directs-a-squad rather than the old roleplay-as-the-monster
-  framing, that the per-turn payload uses `acting_unit_*` keys for the unit
-  the order is for plus a `rest_of_your_squad` list of the *other* living
-  enemies (correctly excluding the acting unit itself), that the old
-  ambiguous `party_side_targets` key is gone in favor of
-  `human_party_targets`, that every prompt's plain-text preamble names both
-  the squad and the opposing party by name (even on an empty-log first
-  turn), and that a skill request the acting unit can't currently afford
-  degrades to a basic attack instead of wasting the turn.
 - `tests/roster_test.py`: every class archetype's starting skill kit only
   references real skill ids and no two classes end up with an identical
   kit; an unknown `class_id` is rejected rather than silently accepted;
@@ -1624,49 +1345,11 @@ or to install pygame, verification so far is:
   hero already owned) still deducts gems and grants shards without adding
   a new roster slot or crashing; and the Back button (from the select
   view) returns with no side effects.
-- `tests/game_loop_test.py`: integration-level coverage of `main.py`'s new
-  game loop -- a real battle (real `BattleEngine`, real
-  `game/battle_setup.py`-driven random encounter, real scripted-fallback
-  enemy AI) correctly awards money/gems/xp and persists consumed
-  inventory, and only the party passed to `run_one_battle` earns XP (a
-  bystander left off it comes back with no XP/level-ups at all); New Game
-  creates exactly one character and saves; Continue loads an existing
-  save without re-running character creation; backing out of party select
-  skips Battle Setup and the battle entirely, and backing out of Battle
-  Setup itself skips just the battle, showing no end screen either way;
-  the debug-only "Add Gems" hub choice grants exactly
-  `config.DEBUG_GEM_GRANT` gems and saves, with no battle run; the Shop,
-  Summon, and Heroes hub choices each call their real `show_*` method (not
-  a placeholder) and save afterward, and nothing on the hub is still a
-  placeholder. See that file's docstring for why it's split into a
-  real-battle level and a scripted-fake-UI level (driving a full battle's
-  worth of log lines through the fake pygame module's event queue while
-  also scripting the *next* screen's clicks doesn't work --
-  `PygameUI._pump()` drains that queue on every single log line).
-
-**What hasn't been verified**: the pygame window's actual visual
-appearance (layout, readability, whether the click regions line up
-correctly on your screen, whether the character-creation text field/cursor
-reads well), and real LLM output quality/latency from an actual Ollama
-model. Please run it and let me know what needs fixing -- especially
-anything in the pygame window that looks off, since I couldn't see it
-myself.
-
 ## Known limitations / next steps
 
-- ~~Balance is a first pass.~~ -- tuned: see the "Balance" section above
-  for what was wrong (a real poison bug, plus turn-economy and elemental
-  weaknesses tilting things hard toward the party) and where it landed
-  (~79% party win rate over 150 headless battles). Still worth adjusting
-  `data/enemies.py` further once you've played it for real -- the scripted
-  fallback AI these numbers were tuned against is intentionally simpler
-  than the real local-LLM one.
-- ~~The pygame window can look "stuck" while an enemy is deciding~~ --
-  fixed: the Ollama call now runs on a background thread (see
-  `ai/enemy_ai.py`'s `_run_streaming_with_relay`) while the main thread
-  keeps redrawing and handling input. Run with `--debug` to see it
-  visibly ticking (and the model's reasoning typing out live) during a
-  slow response instead of just trusting it's not frozen.
+- ~~Balance is a first pass.~~ -- tuned: see the "Balance" section above. Win rates were
+  re-measured after the rule-based AI replaced the old heuristic; keep tuning `data/enemies.py`,
+  `data/enemy_pool.py` and the `PROFILES` table in `ai/enemy_ai.py` as you play.
 - ~~No character creation, save/load, or Colosseum meta-layer~~ -- built:
   see "Character creation, the Colosseum hub, and saving" above.
 - ~~No Shop~~ -- built: see "The Shop" above (buy consumables and
@@ -1895,5 +1578,6 @@ myself.
   the real pygame window -- this sandbox still has no real art to render
   against, only logic verified against a fake pygame module and hand-
   checked geometry.
-#   B A  
+#   B A 
+ 
  

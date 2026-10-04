@@ -51,8 +51,8 @@ Screen by screen, what this process does for real:
 
   Battle (/battle, plus a WebSocket at ws://.../  on WS_PORT):
   - Real BattleEngine, real game/battle_setup.py.build_battle, real
-    ai/enemy_ai.py Ollama-driven enemy AI with scripted fallback -- all
-    exactly as battle_server.py ran them, unmodified.
+    ai/enemy_ai.py rule-based enemy AI (behavior profiles, telegraphed charges,
+    rival adaptation) -- no model involved.
   - The party fighting is now `game/party.py`'s active_party_characters
     read off the SAME player_state the hub/Heroes show -- not a fixed
     four-person demo party. Difficulty and opponent count are still
@@ -104,8 +104,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import config
 import builder3d_api
-from ai.enemy_ai import make_enemy_ai_fn
-from ai.ollama_client import OllamaClient
+from ai.enemy_ai import decay_memory, make_enemy_ai_fn, new_rival_memory
 from data.equipment_db import EQUIPMENT
 from data.hero_rarity import HERO_SUMMON_WEIGHTS, STORY_RARITY, rarity_multiplier, HERO_RARITY_COLOR, MAX_STARS, shard_cost_for_next_star, star_display
 from data.items_db import ITEMS, STARTING_INVENTORY
@@ -1445,7 +1444,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_bytes(404, b"not found", "text/plain")
 
     def _handle_debug_act(self) -> None:
-        global pending_challenge, debug_battle
+        global pending_ladder, pending_hub3d, last_hub_battle, pending_challenge, debug_battle, story_slave, pending_world_level, pending_world_boss, pending_world_encounter
         msg = self._read_json_body()
         with _state_lock:
             ok, message = debug_tools.apply(player_state, msg, (DEFAULT_STARTER_NAME, DEFAULT_STARTER_CLASS))
@@ -1454,6 +1453,14 @@ class Handler(BaseHTTPRequestHandler):
                     pending_challenge = None
                     pending_ladder = False
                     debug_battle = None
+                    story_slave = False                  # a fresh game: no leftover session state from the old run
+                    pending_world_level = None
+                    pending_world_boss = None
+                    pending_world_encounter = False
+                    pending_hub3d = False
+                    last_hub_battle = None
+                    RIVAL_MEMORY.clear()
+                    RIVAL_MEMORY.update(new_rival_memory())
                 save_system.save_game(player_state)
             self._send_json(200, {"ok": ok, "message": message, "hub": _serialize_hub_state(),
                                   "menu": _serialize_debug_menu()})
@@ -2277,7 +2284,10 @@ def run_http_server():
 # to it under _state_lock when the fight ends, instead of a fixed demo
 # party that never touched the save.
 # ----------------------------------------------------------------------
-def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", ollama_client: OllamaClient) -> None:
+RIVAL_MEMORY = new_rival_memory()    # shared across fights this session (see ai/enemy_ai.py)
+
+
+def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> None:
     """Runs exactly one full battle on this thread, pushing every event onto
     `outbound` for the WebSocket side to relay, and blocking on `inbound`
     whenever a human party member needs to act -- same shape
@@ -2479,6 +2489,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
             outbound.put({"type": "state", "state": _serialize_battle_state(engine_ref[0])})
 
     auto_ids = set()
+    observe_ref = [None]     # set to the enemy AI's .observe once it is built (below)
 
     def get_party_action(combatant, state: dict) -> Action:
         debug_refresh()
@@ -2491,13 +2502,20 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
         while True:
             msg = inbound.get()
             if msg.get("actor_id") == combatant.id:
-                return _action_from_message(combatant.id, msg)
+                act = _action_from_message(combatant.id, msg)
+                observer = observe_ref[0]
+                if observer is not None:
+                    observer(combatant, act)       # adaptive rivals learn from how you play
+                return act
             # A stale reply from a previous prompt (e.g. a slow double-click) -- ignore and keep waiting.
 
+    decay_memory(RIVAL_MEMORY)       # adaptive rivals remember your habits across fights, fading by half each time
     base_enemy_action = make_enemy_ai_fn(
-        ollama_client, use_fallback_on_error=config.AI_FALLBACK_ON_ERROR,
-        on_decision=lambda record: outbound.put({"type": "ai_event", **record}),
+        memory=RIVAL_MEMORY,
+        on_decision=lambda record: outbound.put({"type": "log", "message": record["message"], "tell": record["phase"]})
+        if record.get("message") else None,
     )
+    observe_ref[0] = base_enemy_action.observe
     runner_ref = [None]  # the BossRunner for this fight, once the engine exists
 
     def get_enemy_action(combatant, state):
@@ -2833,12 +2851,12 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]", olla
 # ----------------------------------------------------------------------
 # WebSocket: one connection = one battle, bridged onto its own thread
 # ----------------------------------------------------------------------
-async def handle_connection(websocket, ollama_client: OllamaClient):
+async def handle_connection(websocket):
     print("[hub_server:ws] client connected -- starting a new battle")
     outbound: "queue.Queue[dict]" = queue.Queue()
     inbound: "queue.Queue[dict]" = queue.Queue()
 
-    battle_thread = threading.Thread(target=run_battle, args=(outbound, inbound, ollama_client), daemon=True)
+    battle_thread = threading.Thread(target=run_battle, args=(outbound, inbound), daemon=True)
     battle_thread.start()
 
     loop = asyncio.get_event_loop()
@@ -2870,32 +2888,22 @@ async def handle_connection(websocket, ollama_client: OllamaClient):
         print("[hub_server:ws] client disconnected")
 
 
-async def run_ws_server(ollama_client: OllamaClient):
-    async with websockets.serve(lambda ws: handle_connection(ws, ollama_client), WS_HOST, WS_PORT):
+async def run_ws_server():
+    async with websockets.serve(handle_connection, WS_HOST, WS_PORT):
         print(f"[hub_server] Live battle WebSocket on ws://{WS_HOST}:{WS_PORT}")
         await asyncio.Future()  # run forever
 
 
 def main():
     parser = argparse.ArgumentParser(description="Battle Arena -- Colosseum hub / Heroes / Summon / Battle (one real backend)")
-    parser.add_argument("--host", default=config.OLLAMA_HOST)
-    parser.add_argument("--model", default=config.OLLAMA_MODEL)
     parser.add_argument("--debug", action="store_true", help="enable debug tools (same as DEBUG=1)")
     args = parser.parse_args()
     if args.debug:
         config.DEBUG = True
 
-    ollama_client = OllamaClient(
-        host=args.host, model=args.model, timeout=config.OLLAMA_TIMEOUT_SECONDS,
-        num_predict=config.OLLAMA_NUM_PREDICT, keep_alive=config.OLLAMA_KEEP_ALIVE,
-    )
-    if not ollama_client.is_available():
-        print(f"[warn] Could not reach Ollama at {args.host}. Enemies will use the scripted "
-              f"fallback AI until Ollama is running there.")
-
     threading.Thread(target=run_http_server, daemon=True).start()
     try:
-        asyncio.run(run_ws_server(ollama_client))
+        asyncio.run(run_ws_server())
     except KeyboardInterrupt:
         pass
 

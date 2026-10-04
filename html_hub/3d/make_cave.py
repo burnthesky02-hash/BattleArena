@@ -272,6 +272,14 @@ for (x, z) in ((-8, -74), (8, -74), (-24, -45), (24, -45)): brazier(x, z, 8)
 note("dg_log", "Smugglers' log", 14, -48, "'...the Captain had us light the Gallery lamps with the four embers, in the old order, or the roof comes down on the lot of us. Tide first, always. Then the hearth. Then the sun. Moss last. One ember to a lamp, and the lamps bite if you get it wrong. We hid the embers in the stashes round the cave so no one could do it by accident. Hope nobody does.' The rest is smeared with grease.", "Smuggler's log")
 npc(id="dg_shop1", name="Pell", title="Cave fence", sprite="Kael", x=-9.5, z=-60, tint=[.7, .7, .95, 1], line="Psst. Everything here was found, not stolen. Browse?", action="shop")
 npc(id="dg_hero1", name="Captain Merrow", title="Sellsword", sprite="Sera", x=9.5, z=-60.5, tint=[1.1, .95, .9, 1], line="Coin buys steel, steel buys time. Looking to hire?", action="heroes")
+npc(id="dg_sera", name="Sera", title="Chapel healer", sprite="Sera", x=5.4, z=-56, tint=[1, 1.05, 1.15, 1], hideIf="st_sera", line="", actions=[
+    {'type': 'say', 'who': 'Sera', 'text': 'Easy. I am not a smuggler, and I am not one of the drowned either. My name is Sera. I am a healer from the Tide Chapel on the mainland.'},
+    {'type': 'say', 'who': 'Sera', 'text': "The chapel's records say a king was laid to rest in this cave with his whole court sealed in beside him, still waiting on a tide that never came. Someone ought to see them to rest. I came to do that. I did not expect the cave to be full of bandits."},
+    {'type': 'say', 'who': 'Sera', 'text': 'I have been camped here three days, waiting for someone who can actually swing a sword. A village girl came through before that, with a sack and a lantern, asking the way to the moonglow moss. I told her to turn back. I do not think she did.'},
+    {'type': 'say', 'who': 'Sera', 'text': "If she went deeper, she is behind the same sealed doors as the court. Please, let me walk with you. I am no fighter, but I can keep you standing, and I know how the Chapel's seals are meant to be undone."},
+    {'type': 'say', 'who': '', 'text': 'Sera takes up her staff and falls in beside you. She joins your party! Equip her before you head on.'},
+    {'type': 'recruit', 'name': 'Sera'},
+    {'type': 'flag', 'key': 'st_sera'}])
 npc(id="dg_smug1", name="Old Dov", title="Smuggler", sprite="Rook", x=-3.6, z=-52, tint=[.75, .75, .7, 1], line="", actions=[
     dict(type="say", who="Old Dov", text="Gallery's north of here, past the long hall. The lamps in there want four embers, and the embers are hid in the side rooms. Don't light 'em wrong; the lamps bite."),
     dict(type="say", who="Old Dov", text="Captain kept a log on the table by the crates. Read it before you touch a thing.")])
@@ -466,10 +474,12 @@ NP.append(dict(id="dg_boss", name="Drowned Sovereign", title="King of the Hollow
                         dict(type="battle", key="dg_boss", boss="drowned_sovereign_boss", level=8)]))
 NP.append(dict(id="dg_spirit", name="Spirit of the King", title="At rest", sprite="Lyra", x=0.0, z=BZ, h=2.6, tint=[0.7, 0.9, 1.4, 1], showIf="dg_boss", reach=5.0,
                actions=[dict(type="say", who="Spirit of the King", text="The tide is turned at last. Take what is left of my crown, and the thanks of the court."),
+                        dict(type="say", who="Sera", text="Rest now, Your Majesty, you and all your court. The tide has turned.", **{"if": "st_sera"}),
                         dict(type="say", who="Spirit of the King", text="A mortal girl took shelter in the alcove by my throne when the doors sealed. Speak with her.", unless="st_found"),
                         dict(type="say", who="", text="The doors stand open and the cave is quiet. Touch the waking stone by the entrance to wake it again, or take the stairs home.")]))
 NP.append(dict(id="dg_lani", name="Lani", title="Missing villager", sprite="Sera", x=-8.0, z=BZ + 7, h=2.2, tint=[1.25, 0.95, 1.1, 1], showIf="dg_boss", hideIf="st_found", reach=5.0,
                actions=[dict(type="say", who="Lani", text="You... beat the king? I was sure nobody would ever come."),
+                        dict(type="say", who="Sera", text="Lani! Thank the tides. Sit, you are shaking. Here, drink this.", **{"if": "st_sera"}),
                         dict(type="say", who="Lani", text="I only wanted moonglow moss for Elder Mahina's cough. Then the doors sealed behind me and the dead king's court would not let me out."),
                         dict(type="say", who="Lani", text="There is a side tunnel up to the beach. Go ahead and I will meet you in the village!"), dict(type="flag", key="st_found")]))
 EV.append(dict(id="dg_portal", name="Stairs to the surface", x=0.0, z=-722, w=5, d=2.4, trigger="talk", prompt="Climb back to the island", showIf="dg_boss", actions=[dict(type="warp", scene="island", x=0, z=-39.5)]))
@@ -559,7 +569,8 @@ ZONES = [zbox(-4, -5, 4, 0, safe=True), zbox(-8, -19, 8, -10, safe=True), zbox(-
          zbox(-60, -106, 60, -76, pool=["frost_wraith", "stone_gargoyle", "venom_spider"], level=[4, 5], rate=RATE),
          zbox(-60, -136, 60, -107, pool=["frost_wraith", "stone_gargoyle", "dark_cultist"], level=[4, 5], rate=RATE),
          zbox(-60, -171, 60, -137, pool=["dark_cultist", "frost_wraith", "stone_gargoyle"], level=[5, 6], rate=RATE)]
-OBJ = [dict(unless="dg_pa_4", text="Find the four embers hidden in the side rooms, then set them in the Gallery lamps in order"),
+OBJ = [dict(unless="st_sera", text="Speak with the healer by the Smugglers' campfire"),
+       dict(unless="dg_pa_4", text="Find the four embers hidden in the side rooms, then set them in the Gallery lamps in order"),
        dict(unless=BR_SPEC, text="Find the three winch gems at the far ends of the long halls to raise the Grotto causeway"),
        dict(unless="dg_pc_done", text="Find the miners' sheets and set the Sigil Hall stones"),
        dict(unless="dg_g1,dg_g2,dg_g3", text="Defeat the three Seal Keepers"),

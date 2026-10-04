@@ -6,9 +6,6 @@ Run the full game (graphical placeholder window):
 Run in a plain terminal (no pygame needed):
     python main.py --mode text
 
-Point at a different Ollama host/model:
-    python main.py --host http://localhost:11434 --model llama3.1
-
 The flow is: title screen -> (New Game: create a character) or (Continue:
 load the last save) -> the Colosseum hub -> Enter Battle (repeatable) ->
 back to the hub, until you choose "Save & Quit to Title". See
@@ -17,8 +14,7 @@ game/player_state.py and game/save_system.py for what persists.
 import argparse
 
 import config
-from ai.enemy_ai import make_enemy_ai_fn
-from ai.ollama_client import OllamaClient, OllamaError
+from ai.enemy_ai import decay_memory, make_enemy_ai_fn, new_rival_memory
 from data.classes import CLASS_ARCHETYPES, CLASS_IDS
 from data.equipment_db import EQUIPMENT
 from data.items_db import ITEMS
@@ -32,58 +28,12 @@ from game.roster import PlayerCharacter
 from game.rewards import compute_battle_rewards, roll_hero_enemy_shard_drops
 
 
-def _normalize(name: str) -> str:
-    # "gemma3:27b" vs "gemma3:27b" is an exact match, but Ollama often adds an
-    # implicit ":latest" that people leave off when typing --model, so ignore
-    # that specific tag when comparing.
-    return name[:-len(":latest")] if name.endswith(":latest") else name
+# One rival memory for the whole session: adaptive enemies (hero rivals, champions...) remember
+# how you play from fight to fight (halved at the start of each new fight -- see ai/enemy_ai.py).
+RIVAL_MEMORY = new_rival_memory()
 
 
-def setup_ollama_client(ollama_host: str, ollama_model: str) -> OllamaClient:
-    """Connects, sanity-checks the model name, and warms it up once up front
-    -- all of this used to happen inside build_engine() (i.e. once per
-    battle); now that a session can run many battles in the Colosseum hub
-    loop, it happens exactly once at startup instead, and every battle
-    reuses the same already-warm client."""
-    client = OllamaClient(
-        host=ollama_host, model=ollama_model, timeout=config.OLLAMA_TIMEOUT_SECONDS,
-        num_predict=config.OLLAMA_NUM_PREDICT, keep_alive=config.OLLAMA_KEEP_ALIVE,
-    )
-    if not client.is_available():
-        print(f"[warn] Could not reach Ollama at {ollama_host}. Enemies will use the scripted "
-              f"fallback AI until Ollama is running there (try: ollama serve).")
-        return client
-
-    available = client.list_models()
-    wanted = _normalize(ollama_model)
-    if available and not any(_normalize(m) == wanted for m in available):
-        print(f"[warn] Ollama is reachable at {ollama_host}, but no pulled model matches "
-              f"'{ollama_model}'.")
-        print(f"       Models actually available: {', '.join(available)}")
-        print(f"       Re-run with the exact name, e.g.: python main.py --model \"{available[0]}\"")
-        print(f"       Enemies will use the scripted fallback AI until this is fixed.")
-        return client
-
-    print(f"[ok] Connected to Ollama at {ollama_host}, using model '{ollama_model}'.")
-    if config.WARM_UP_ON_START:
-        # Loading a large model's weights can itself take a long time (well past
-        # a normal in-battle timeout) and produces no streamed output while it
-        # happens -- paying that cost here once, with its own generous timeout,
-        # means every battle this session only ever hits the fast already-warm
-        # path (see OllamaClient.warm_up).
-        print(f"[info] Warming up '{ollama_model}' (loading it into memory -- this can take a "
-              f"while for a large model, especially the first time). Set WARM_UP_ON_START=0 to skip.")
-        try:
-            load_seconds = client.warm_up()
-            print(f"[ok] Model loaded in {load_seconds:.1f}s -- will stay warm for "
-                  f"{config.OLLAMA_KEEP_ALIVE} of inactivity.")
-        except OllamaError as exc:
-            print(f"[warn] Warm-up failed ({exc}). Enemies will still try the LLM on their turn, "
-                  f"but the first one may be slow or fall back.")
-    return client
-
-
-def run_one_battle(ui, player_state: PlayerState, client: OllamaClient, difficulty: str, num_enemies: int,
+def run_one_battle(ui, player_state: PlayerState, difficulty: str, num_enemies: int,
                     party=None):
     """Builds a fresh BattleEngine from `party` (a list of PlayerCharacter --
     see game/party.py's show_party_select flow) and a random
@@ -100,13 +50,20 @@ def run_one_battle(ui, player_state: PlayerState, client: OllamaClient, difficul
     this battle earn no XP from it."""
     party = player_state.characters if party is None else party
     setup = build_battle(party, EQUIPMENT, difficulty, num_enemies)
+    decay_memory(RIVAL_MEMORY)
     get_enemy_action = make_enemy_ai_fn(
-        client, use_fallback_on_error=config.AI_FALLBACK_ON_ERROR, on_decision=ui.on_ai_event,
+        memory=RIVAL_MEMORY,
+        on_decision=lambda record: ui.print_line(record["message"]) if record.get("message") else None,
     )
+
+    def get_party_action(combatant, state):
+        action = ui.get_party_action(combatant, state)
+        get_enemy_action.observe(combatant, action)     # rivals learn from how you play
+        return action
     engine = BattleEngine(
         party=setup.party, enemies=setup.enemies, skills_db=SKILLS, items_db=ITEMS,
         inventory=dict(player_state.inventory),
-        get_party_action=ui.get_party_action, get_enemy_action=get_enemy_action,
+        get_party_action=get_party_action, get_enemy_action=get_enemy_action,
         on_event=ui.print_line,
     )
     ui.reset_battle_view()
@@ -147,7 +104,7 @@ def _announce_end(ui, result, money: int, gems: int, xp: int = 0, level_ups: dic
         ui.announce_result(result.value, money=money, gems=gems, xp=xp, level_ups=level_ups)
 
 
-def run_game_loop(ui, client: OllamaClient) -> None:
+def run_game_loop(ui) -> None:
     """New Game / Continue / Quit at the title screen, then the Colosseum
     hub loop (Enter Battle / Shop / Summon / Heroes / Save & Quit to Title)
     for as long as the player keeps playing. Returns once the player quits
@@ -189,7 +146,7 @@ def run_game_loop(ui, client: OllamaClient) -> None:
                     continue  # player backed out to the hub without fighting
                 difficulty, num_enemies = setup_choice
                 result, money, gems, xp, level_ups = run_one_battle(
-                    ui, player_state, client, difficulty, num_enemies, party,
+                    ui, player_state, difficulty, num_enemies, party,
                 )
                 _announce_end(ui, result, money, gems, xp, level_ups)
                 save_system.save_game(player_state)
@@ -215,9 +172,8 @@ def run_game_loop(ui, client: OllamaClient) -> None:
 def run_pygame_mode(args) -> None:
     from ui.pygame_ui import PygameUI  # raises ImportError here if pygame isn't installed
     ui = PygameUI(SKILLS, ITEMS, debug=args.debug, fullscreen=args.fullscreen)
-    client = setup_ollama_client(args.host, args.model)
     try:
-        run_game_loop(ui, client)
+        run_game_loop(ui)
     finally:
         ui.pygame.quit()
 
@@ -225,19 +181,15 @@ def run_pygame_mode(args) -> None:
 def run_text_mode(args) -> None:
     from ui.text_ui import TextUI
     ui = TextUI(SKILLS, ITEMS, debug=args.debug)
-    client = setup_ollama_client(args.host, args.model)
-    run_game_loop(ui, client)
+    run_game_loop(ui)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Battle Colosseum -- battle engine prototype")
     parser.add_argument("--mode", choices=["pygame", "text"], default="pygame",
                          help="pygame = graphical placeholder window, text = plain terminal")
-    parser.add_argument("--host", default=config.OLLAMA_HOST, help="Ollama server URL")
-    parser.add_argument("--model", default=config.OLLAMA_MODEL, help="Ollama model name for enemy AI")
     parser.add_argument("--debug", action="store_true", default=config.DEBUG,
-                         help="Show a live panel (pygame) or extra console lines (text) with what "
-                              "the model is 'thinking' and how long each enemy decision takes")
+                         help="Enable debug tools (Add Gems button, extra console lines)")
     parser.add_argument("--fullscreen", action="store_true", default=config.FULLSCREEN_ON_START,
                          help="Launch the pygame window fullscreen (scaled to fill your monitor) "
                               "instead of windowed. Ignored in --mode text.")

@@ -11,10 +11,9 @@ Real battles, as of the level-curve/difficulty pass, draw from here.
 Each EnemyArchetype mirrors data/classes.py's ClassArchetype shape on
 purpose: `base_stats` is the level-1 block, `growth` is the flat per-level
 increment data/leveling.py's `apply_growth` applies, so an enemy scales
-exactly the same way a player character does. `persona` still feeds
-straight into the Ollama prompt (see ai/enemy_ai.py) -- it's the main
-lever for making each opponent feel distinct to the model, not just
-numerically different. Skill kits reuse data/skills_db.py's existing
+exactly the same way a player character does. `persona` is flavor
+text describing each opponent's tactics; ai/enemy_ai.py's PROFILES table (keyed by
+the archetype ids below) is what actually makes each one behave differently. Skill kits reuse data/skills_db.py's existing
 skills rather than inventing a parallel set, the same call data/classes.py
 made for player kits.
 

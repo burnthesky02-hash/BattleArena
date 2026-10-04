@@ -39,7 +39,7 @@ class Combatant:
     # PlayerCharacter.skill_ranks) -- enemies never rank up, so this stays empty for them.
     skill_ranks: Dict[str, int] = field(default_factory=dict)
     resistances: Dict[Element, float] = field(default_factory=dict)  # multiplier; <1 resist, >1 weak, 0 immune
-    persona: str = ""            # flavor text fed to the LLM so enemies "roleplay" (e.g. "cowardly goblin, flees when low HP")
+    persona: str = ""            # flavor text describing how this enemy fights (the tactics themselves live in ai/enemy_ai.py)
     sprite_color: tuple = (180, 60, 60)   # placeholder-UI fill color
     id: str = field(default_factory=lambda: f"c{next(_id_counter)}")
 
@@ -158,7 +158,7 @@ class Combatant:
         return events
 
     def to_public_dict(self) -> dict:
-        """A trimmed-down view of this combatant, safe to hand to the LLM or UI."""
+        """A trimmed-down view of this combatant, safe to hand to the UI or the enemy AI."""
         return {
             "id": self.id,
             "name": self.name,

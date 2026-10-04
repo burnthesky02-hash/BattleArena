@@ -1,7 +1,0 @@
-requests>=2.28
-# Using pygame-ce (community edition) instead of plain "pygame": it's a drop-in
-# replacement -- code still does `import pygame` unchanged -- but ships current
-# prebuilt Windows wheels much faster, including for brand-new Python releases
-# where plain pygame often doesn't have a wheel yet and pip tries to compile
-# from source (which needs Visual Studio Build Tools and fails without them).
-pygame-ce>=2.5

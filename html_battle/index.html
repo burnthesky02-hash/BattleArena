@@ -70,15 +70,6 @@
   }
   #log-toggle.on { left: 782px; }
 
-  /* --- AI thinking indicator, top-right --- */
-  #ai-panel {
-    position: absolute; top: 36px; right: 16px; width: 340px;
-    background: var(--panel-bg); border: 1px solid var(--panel-border);
-    border-radius: 10px; padding: 8px 12px; font-size: 12px;
-    color: var(--text-dim); display: none;
-  }
-  #ai-panel b { color: var(--text-main); }
-
   /* --- sprites --- */
   .sprite-anchor {
     position: absolute;
@@ -363,7 +354,6 @@
     <div id="connect-banner">Connecting to battle_server.py...</div>
     <div id="log-panel"></div>
     <button id="log-toggle" onclick="toggleLog()">Expand log</button>
-    <div id="ai-panel"></div>
 
     <div id="sprite-layer"></div>
 
@@ -1063,6 +1053,7 @@ const STATUS_VISUALS = {
   def_up:     { cell: [12, 5], name: "Defense Up",     color: "#8fc4ff" },
   def_down:   { cell: [12, 4], name: "Defense Down",   color: "#d9a679" },
   regen:      { cell: [7, 4],  name: "Regen",          color: "#66ff99" },
+  charging:   { cell: [12, 3], name: "Charging",       color: "#ffaa28" },
   defending:  { cell: [11, 2], name: "Defending",      color: "#8fc4ff" },
   counter:    { cell: [9, 6],  name: "Counter",        color: "#ffd166" },
   bloodlust:  { cell: [9, 9],  name: "Bloodlust",      color: "#ff5a3c" },
@@ -1959,21 +1950,6 @@ async function handleActionEvent(msg) {
   }
 }
 
-let aiPanelTimer = null;
-function handleAiEvent(rec) {
-  const panel = document.getElementById("ai-panel");
-  if (rec.phase === "start") {
-    panel.style.display = "block";
-    panel.innerHTML = `<b>${rec.combatant_name}</b> is deciding...`;
-  } else if (rec.phase === "thinking_chunk") {
-    panel.innerHTML = `<b>${rec.combatant_name}</b> is deciding: ${rec.text_so_far}`;
-  } else if (rec.phase === "done") {
-    panel.innerHTML = `<b>${rec.combatant_name}</b>: ${rec.reason || (rec.used_fallback ? "(scripted fallback)" : "")}`;
-    clearTimeout(aiPanelTimer);
-    aiPanelTimer = setTimeout(() => { panel.style.display = "none"; }, 2500);
-  }
-}
-
 function fmtReward(r) { return `${r.money} gold, ${r.gems} gems, ${r.xp} XP`; }
 
 const LV_STATS = [["max_hp", "HP"], ["max_mp", "MP"], ["atk", "ATK"], ["def_", "DEF"], ["mag", "MAG"], ["res", "RES"], ["spd", "SPD"], ["luk", "LUK"]];
@@ -2230,7 +2206,6 @@ async function dispatchMessage(msg) {
     case "dialogue": await returnDone; showDialogue(msg.lines || []); break;
     case "fx": handleFx(msg); if (msg.kind === "pause") await wait(msg.ms || 0); break;
     case "need_action": await returnDone; handleNeedAction(msg.actor_id, msg.state); break;
-    case "ai_event": handleAiEvent(msg); break;
     case "battle_end": await returnDone; handleBattleEnd(msg); break;
     case "ladder_status": renderLadderHud(msg); break;
     case "perk_applied": handlePerkApplied(msg); break;

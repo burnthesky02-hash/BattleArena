@@ -1,6 +1,6 @@
-"""Sample colosseum opponents. Each carries a `persona` string that gets fed
-straight into its Ollama prompt, so this is the main lever for making
-LLM-controlled enemies feel distinct from one another.
+"""Sample colosseum opponents. Each carries a `persona` string that is flavor
+text describing how it fights; the actual tactics live in ai/enemy_ai.py's behavior
+profiles, which are keyed by archetype.
 """
 from engine.combatant import Combatant
 from engine.stats import Stats

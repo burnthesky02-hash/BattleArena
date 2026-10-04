@@ -1,484 +1,429 @@
-"""Turns battle state into an enemy Action, using a local Ollama model as a
-single tactical commander directing the whole enemy squad -- one order at a
-time, as each squad member's turn comes up.
+"""Rule-based enemy AI -- no model, no network. Every enemy decision is a pure
+function of the battle state plus a small per-enemy *behavior profile*.
 
-Public entry point: make_enemy_ai_fn(client, skills_db) -> a function with
-the exact signature BattleEngine.get_enemy_action expects:
-    (combatant, state_dict) -> Action
+Public entry points
+-------------------
+make_enemy_ai_fn(memory=None, on_decision=None, rng=None) -> get_enemy_action
+    get_enemy_action(combatant, state_dict) -> Action is the exact signature
+    BattleEngine.get_enemy_action expects. The returned function also carries:
+      .observe(party_combatant, action)  feed it the player's moves so rivals can adapt
+      .memory                            the (optionally persistent) rival memory dict
+scripted_fallback_action(combatant, state) -> Action
+    stateless one-shot decision with the default profile (kept for tests/tools).
+new_rival_memory() / decay_memory(memory)
+    rival learning that can survive between fights (the host owns the dict).
 
-That factory is what main.py wires into the BattleEngine, which keeps this
-module decoupled from the engine (it only imports engine.actions/types for
-the Action/enum it needs to construct).
+How a decision is made (utility scoring)
+----------------------------------------
+Every legal option (basic attack, each affordable skill, defend) gets a score in
+rough "HP points": damage it should do (capped by what the target has left, plus
+a bonus for a kill), the value of a debuff/poison/buff that is not already in
+place, healing that is actually needed, and so on. The profile then bends the
+numbers: whom the unit likes to hit (weakest / tank / caster / strongest), skills
+it opens with, when it heals or turtles, a finisher it saves for wounded targets,
+and how much random noise keeps it from being perfectly predictable.
 
-Note on "commander" vs. "one call per round": this still makes one Ollama
-call per enemy turn (same cadence/speed as before) rather than one call per
-round that plans the whole squad's actions at once. What changed is the
-*framing*: the model is prompted to reason as a commander issuing this one
-order with full visibility into the whole squad's state (not as the monster
-itself, roleplaying in isolation), and it can see what the rest of the
-squad has already done this round via recent_log. It does NOT get to see
-what a not-yet-acted teammate will do later this same round -- that hasn't
-been decided yet -- so coordination is "aware of the board and of orders
-already given," not "planned out for the whole team in advance."
+Telegraphed attacks
+-------------------
+Profiles with a `charge` skill sometimes spend a turn *gathering power* instead of
+attacking: they brace (halving damage), gain the visible "Charging" status
+(+60% atk/mag) and the host is told to log a warning. On their very next turn they
+release the named skill. The player's answers: stun it (a missed turn cancels the
+charge), defend through it, or spread the party out. See _Brain._maybe_charge.
 
-Follow-up fix: after playing with the commander framing above, the model
-would sometimes lose track of which characters it controls vs. which it's
-fighting, especially on the very first turn or two of a battle (before
-recent_log has anything in it to lean on). The likely cause was the old
-"party_side_targets" payload key -- in JRPG parlance "the party" almost
-always means the *player's own* team, which is exactly backwards here (the
-humans are the commander's target, not its team), and that word carries a
-lot of pretrained bias for a model to override from key-naming alone.
-_build_user_prompt now (a) calls that field "human_party_targets" instead,
-and (b) opens every prompt with a plain-English sentence -- outside the
-JSON entirely -- naming the squad and the opposing party by name, so the
-"who's mine vs. who's the enemy" fact doesn't depend on the model parsing
-JSON key semantics correctly or on any battle history existing yet.
-
-Related fix, same conversation: MP cost/deduction was never actually
-missing (engine.battle._do_skill has always checked and spent it), but a
-model that misjudges its own MP and asks for a skill it can't afford used
-to waste the whole turn once the engine's MP check rejected it silently
-(the unit "hesitates" and nothing happens). _parse_llm_action now catches
-that case the same way it already caught an invalid skill_id: it degrades
-to a basic attack instead of burning the turn on an unaffordable request.
+Rival adaptation
+----------------
+Profiles flagged `adaptive` (hero rivals, the champion, the oracle, the reaper,
+the horror) watch the player's moves via .observe(): they start hunting a healer
+who keeps healing, focus the party's main damage dealer, and punish turtling with
+debuffs and area attacks. The memory dict can be kept by the host across fights
+(halved by decay_memory at the start of each new fight) so a rival remembers you.
 """
-import json
-import queue
 import random
 import re
-import threading
-import time
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 from engine.actions import Action
 from engine.types import ActionType
-from ai.ollama_client import OllamaClient, OllamaError
 
-# Streamed in two parts so debug mode has actual prose to show "typing" live:
-# a short THINKING line (plain text, in character) followed by an ACTION_JSON
-# line. We deliberately do NOT use Ollama's format="json" mode here -- that
-# constrains the *whole* reply to be a JSON document, which would rule out
-# the free-text THINKING prefix. See _split_thinking_and_json for how the
-# two get pulled back apart once the stream finishes, and
-# ai/ollama_client.py's chat_stream docstring for the streaming mechanics.
-SYSTEM_PROMPT = """You are the tactical commander directing an entire squad of monsters in a classic \
-turn-based JRPG battle, staged in a gladiatorial colosseum. You do not play as any single monster -- \
-you are the one mind coordinating the whole squad, issuing one order at a time as each squad member's \
-turn comes up. Right now you are issuing the order for ONE specific squad member (the "acting unit" \
-below); its squadmates will get their own orders on their own turns.
+CHARGE_STATUS = "charging"
+CHARGE_COOLDOWN_ROUNDS = 4
+CHARGE_CHANCE = 0.55
 
-Think about the squad's overall position, not just what this one unit would do sitting in isolation: \
-which enemy is most exposed and worth finishing off, whether this unit should protect or set up a \
-wounded squadmate instead of just attacking, and whether your squad has already committed to a plan \
-this round (check recent_log for what your squad has already done). Don't have every unit pile onto \
-the same target for no reason, and don't waste an order on flavor when a squadmate already needs \
-covering. Always choose a *legal, sensible* order for this unit given the situation.
-
-The acting unit's own combat tendencies (temperament, preferred tactics) are given below as a note on \
-how that unit fights and what it's inclined to do -- use it to inform this order (it should still feel \
-like giving orders to a golem vs. a rogue vs. a cultist), but you are the one deciding, not the unit \
-deciding for itself.
-
-Respond with EXACTLY two lines, nothing before, between, or after them:
-
-THINKING: <one short sentence of the commander's tactical reasoning for this order>
-ACTION_JSON: {"action": "attack" | "skill" | "defend" | "flee", "skill_id": "<id from available_skills, or null>", "target_id": "<id of the combatant being targeted, or null>"}
-
-Rules:
-- The THINKING line must come first, must be plain text (not JSON), and must be brief -- one sentence, \
-  written from the commander's perspective (e.g. "Send the golem after the wounded mage before she can \
-  heal again" rather than "I want to attack the mage").
-- The ACTION_JSON line must contain ONLY the JSON object after the "ACTION_JSON:" label -- no markdown, \
-  no code fences, no extra commentary.
-- "attack": a basic physical attack. Requires a target_id from human_party_targets below (an opposing \
-  human hero) -- NEVER a target from rest_of_your_squad or the acting unit itself; those are your own side.
-- "skill": use one of the acting unit's available_skills by id, but ONLY if acting_unit_mp is greater \
-  than or equal to that skill's mp_cost -- your squad's MP does not refill during the fight, so treat it \
-  as a limited resource and don't call for an expensive skill the unit can't currently pay for (fall back \
-  to "attack", "defend", or a cheaper skill instead). Also requires a legal target_id for that skill's \
-  target type: an opposing hero from human_party_targets for offensive/single-enemy-style skills, a \
-  squadmate from rest_of_your_squad for an ally-support skill, or the acting unit itself for a self-only \
-  skill -- never send an offensive skill at your own squad, and never send a support/self skill at a \
-  human_party_targets id.
-- "defend": brace defensively this turn, reducing incoming damage. No target needed.
-- "flee": order this one unit to retreat from the fight entirely (ends the battle if it succeeds). Only \
-  choose this if the unit's tendencies suggest it's notably self-preserving AND its HP is low -- it \
-  should be rare, and it's about this unit breaking formation, not the whole squad routing.
-- Only target combatants where "alive" is true.
-- Never invent a skill_id that isn't listed in available_skills.
-- Formations: each human_party_targets entry has a "formation" of "front", "middle", or "rear". If \
-  acting_unit_is_melee is true and ANY human_party_targets entry has formation "front" and is alive, an \
-  "attack" or single-target-enemy "skill" from this unit may ONLY target one of those front-row humans \
-  -- the front row is physically blocking your reach to anyone behind it. Only once no human_party_targets \
-  entry is alive with formation "front" can this unit's single-target orders reach a middle/rear human. \
-  If acting_unit_is_melee is false, ignore this rule entirely -- this unit fights at range and can target \
-  any living human regardless of row. This restriction never applies to an "all_enemies" skill (it still \
-  hits everyone) or to a target from rest_of_your_squad.
-
-Reminder: "rest_of_your_squad" and the acting unit are the monsters you command. "human_party_targets" \
-are the human adventurers you are fighting -- they are never yours to command and never a target for a \
-support/self skill. This distinction matters most on an early turn, before recent_log has much in it to \
-lean on, so decide it from the roster below, not from the log.
-"""
+# ----------------------------------------------------------------------------
+# Behavior profiles. Keys are enemy archetype ids (data/enemy_pool.py); a combatant
+# matches the first key found in its normalised name ("Elite Iron Golem" -> iron_golem).
+#   target     weakest | tank | caster | strongest | balanced   (who it prefers to hit)
+#   open       skill ids it wants to use first, once each
+#   aoe_at     living heroes needed before it prefers an area attack (default 3)
+#   heal_at    ally HP fraction under which healing is worth a turn (default .45)
+#   guard_at   own HP fraction under which it braces / buffs (default .25)
+#   finisher   (skill_id, hp_fraction): bonus when the target is under that fraction
+#   charge     skill id it telegraphs and releases a turn later
+#   debuff     multiplier on debuff/poison value (default 1)
+#   chaos      random noise on scores (default .12)
+#   adaptive   learns from the player's moves
+# ----------------------------------------------------------------------------
+PROFILES: Dict[str, dict] = {
+    "iron_golem":         {"target": "balanced", "guard_at": 0.40, "charge": "crushing_blow", "chaos": 0.08},
+    "bandit_rogue":       {"target": "weakest", "open": ["sunder"], "chaos": 0.15},
+    "dark_cultist":       {"target": "caster", "open": ["weaken"], "debuff": 1.3},
+    "goblin_skirmisher":  {"target": "weakest", "chaos": 0.28},
+    "stone_gargoyle":     {"target": "strongest", "guard_at": 0.50, "charge": "crushing_blow"},
+    "frost_wraith":       {"target": "caster", "open": ["weaken"]},
+    "flame_imp":          {"target": "weakest", "aoe_at": 3},
+    "storm_harpy":        {"target": "caster", "open": ["sunder"], "chaos": 0.2},
+    "venom_spider":       {"target": "balanced", "debuff": 1.6},
+    "cursed_knight":      {"target": "strongest", "charge": "crushing_blow", "guard_at": 0.3},
+    "colosseum_champion": {"target": "strongest", "open": ["warcry"], "charge": "crushing_blow",
+                           "adaptive": True, "chaos": 0.06},
+    "temple_oracle":      {"target": "caster", "heal_at": 0.6, "open": ["weaken"], "adaptive": True},
+    "abyssal_horror":     {"target": "strongest", "open": ["weaken"], "charge": "thunderbolt",
+                           "adaptive": True, "chaos": 0.07},
+    "shard_sentry":       {"target": "strongest", "open": ["shield_bash"], "guard_at": 0.45,
+                           "charge": "ground_slam"},
+    "arc_drone":          {"target": "tank", "open": ["weaken"], "aoe_at": 2},
+    "rift_leech":         {"target": "weakest", "debuff": 1.8},
+    "lattice_medic":      {"target": "caster", "heal_at": 0.70},
+    "phase_hound":        {"target": "weakest", "chaos": 0.04},
+    "void_acolyte":       {"target": "strongest", "finisher": ("life_drain", 0.4)},
+    "frost_mirage":       {"target": "tank", "open": ["frost_nova"], "aoe_at": 2},
+    "forge_juggernaut":   {"target": "strongest", "open": ["warcry"], "charge": "crushing_blow"},
+    "null_reaper":        {"target": "strongest", "finisher": ("executioners_edge", 0.5),
+                           "adaptive": True, "chaos": 0.05},
+}
+DEFAULT_PROFILE: dict = {"target": "balanced"}
+HERO_RIVAL_PROFILE: dict = {"target": "balanced", "adaptive": True, "chaos": 0.07}
 
 
-def _build_user_prompt(combatant, state: dict) -> str:
-    party_view = [
-        {"id": p["id"], "name": p["name"], "hp": p["hp"], "max_hp": p["max_hp"],
-         "alive": p["alive"], "statuses": p["statuses"], "formation": p.get("formation", "middle")}
-        for p in state["party"]
-    ]
-    # The rest of the squad (excluding the unit this order is for) -- what the
-    # commander can see of its other units' current standing, so an order for
-    # this unit can be made with the squad's overall position in mind rather
-    # than in isolation. Not what they'll do later this round (undecided yet).
-    squadmates_view = [
-        {"id": e["id"], "name": e["name"], "hp": e["hp"], "max_hp": e["max_hp"],
-         "alive": e["alive"], "statuses": e["statuses"]}
-        for e in state["enemies"] if e["id"] != combatant.id
-    ]
-    payload = {
-        "acting_unit_id": combatant.id,
-        "acting_unit_name": combatant.name,
-        "acting_unit_tendencies": combatant.persona or "A generic colosseum monster.",
-        "acting_unit_hp": combatant.hp,
-        "acting_unit_max_hp": combatant.max_hp,
-        "acting_unit_mp": combatant.mp,
-        "acting_unit_max_mp": combatant.max_mp,
-        # Battle formations (engine/formation.py): whether THIS unit is a melee fighter for targeting
-        # purposes. When true, a "front" human_party_target blocks this unit from reaching anyone
-        # behind it -- see the preamble sentence below and the formation note in the system prompt.
-        "acting_unit_is_melee": combatant.is_melee,
-        "available_skills": state.get("available_skills", []),
-        # Deliberately NOT called "party_*" -- in JRPG parlance "the party" almost
-        # always means the *player's own* team, which is exactly backwards here
-        # (the humans are the commander's target, not its team). That naming
-        # collision was the likely cause of the model losing track of who it
-        # controls vs. who it's fighting, especially on an early turn with little
-        # recent_log to lean on. "your squad" / "human_party_targets" is meant to
-        # read unambiguously even in isolation.
-        "human_party_targets": party_view,        # the opposing humans -- never your own squad
-        "rest_of_your_squad": squadmates_view,     # the other monsters you also command
-        "recent_log": state.get("log_tail", []),   # includes what your squad already did this round
-    }
-    squad_names = ", ".join([combatant.name] + [m["name"] for m in squadmates_view]) or combatant.name
-    party_names = ", ".join(p["name"] for p in party_view) or "(no living targets)"
-    preamble = (
-        f"You command a monster squad: {squad_names}. You are giving this turn's order to {combatant.name} "
-        f"specifically. You are fighting AGAINST a party of human adventurers: {party_names} -- they are "
-        f"human_party_targets below, not your own units.\n\n"
-    )
-    return (
-        preamble + "Battle state (JSON):\n" + json.dumps(payload, indent=2) +
-        "\n\nChoose this unit's order now. Respond with only the JSON object described in the system prompt."
-    )
+def _norm(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")
 
 
-def _split_thinking_and_json(full_text: str):
-    """Splits the model's streamed reply into (thinking_text, action_dict).
-
-    Primary path: look for the "ACTION_JSON:" marker the prompt asks for and
-    split on it. Falls back to just grabbing the last {...} blob in the text
-    if the model didn't follow the format exactly (still fairly common with
-    smaller/less-obedient local models) -- this keeps minor formatting
-    deviations from wasting the whole turn on a parse failure.
-
-    Raises ValueError if no JSON object can be found at all.
-    """
-    marker_match = re.search(r"ACTION_JSON\s*:", full_text, re.IGNORECASE)
-    if marker_match:
-        before = full_text[:marker_match.start()]
-        after = full_text[marker_match.end():]
-    else:
-        before, after = "", full_text
-
-    thinking = re.sub(r"^\s*THINKING\s*:\s*", "", before.strip(), flags=re.IGNORECASE).strip()
-
-    json_start = after.find("{")
-    json_end = after.rfind("}")
-    if json_start == -1 or json_end == -1 or json_end < json_start:
-        # Last resort: maybe the JSON landed before the marker somehow, or there
-        # was no marker at all -- scan the whole text for a {...} blob.
-        json_start = full_text.find("{")
-        json_end = full_text.rfind("}")
-        if json_start == -1 or json_end == -1 or json_end < json_start:
-            raise ValueError(f"No JSON action found in model output: {full_text!r}")
-        if not thinking:
-            thinking = full_text[:json_start].strip()
-        raw = json.loads(full_text[json_start:json_end + 1])
-        return thinking, raw
-
-    raw = json.loads(after[json_start:json_end + 1])
-    return thinking, raw
+def profile_for(combatant) -> dict:
+    """Finds the behavior profile for a combatant (by archetype name; hero rivals by id)."""
+    name = _norm(getattr(combatant, "name", ""))
+    for key, prof in PROFILES.items():
+        if key in name:
+            return prof
+    if str(getattr(combatant, "id", "")).startswith("hero_"):
+        return HERO_RIVAL_PROFILE
+    return DEFAULT_PROFILE
 
 
-def _parse_llm_action(combatant, state: dict, raw: dict) -> Action:
-    action_str = str(raw.get("action", "")).lower().strip()
-    skill_id = raw.get("skill_id") or None
-    target_id = raw.get("target_id") or None
-    target_ids = [target_id] if target_id else []
-
-    skills_by_id = {s["id"]: s for s in state.get("available_skills", [])}
-    # A model can misjudge its own MP (or ignore the "only if you can afford it"
-    # instruction) and ask for a skill it can no longer pay for. Previously that
-    # request reached the engine unchanged, which just makes the unit "hesitate"
-    # and burns the whole turn doing nothing -- a worse outcome than the
-    # already-existing "invalid skill_id" degrade below. Catching it here and
-    # falling back to a basic attack keeps a turn from being wasted purely
-    # because the commander's MP math was off.
-    requested_skill = skills_by_id.get(skill_id) if action_str == "skill" else None
-    unaffordable = requested_skill is not None and combatant.mp < requested_skill["mp_cost"]
-
-    if action_str == "skill" and requested_skill is not None and not unaffordable:
-        return Action.use_skill(combatant.id, skill_id, target_ids)
-    if action_str == "defend":
-        return Action.defend(combatant.id)
-    if action_str == "flee":
-        return Action.flee(combatant.id)
-    if action_str == "attack" or (action_str == "skill" and (requested_skill is None or unaffordable)):
-        # A skill request with an invalid/missing id, or one the unit can't currently
-        # afford, degrades gracefully to a basic attack rather than wasting the whole
-        # turn on a parsing failure or an MP shortfall.
-        return Action.attack(combatant.id, target_id or "")
-    raise ValueError(f"Unrecognized action from LLM: {raw!r}")
+# ----------------------------------------------------------------------------
+# Rival memory
+# ----------------------------------------------------------------------------
+def new_rival_memory() -> dict:
+    return {"heals_by": {}, "dmg_by": {}, "defends": 0, "attacks": 0, "debuffs": 0, "turns": 0}
 
 
-def scripted_fallback_action(combatant, state: dict) -> Action:
-    """A simple heuristic AI, used when Ollama is unreachable or misbehaves.
-
-    Keeps the battle playable even with no local LLM running at all, and
-    guarantees enemy turns never simply hang or crash the game. This is
-    deliberately simpler than what a real LLM enemy would do -- it's a
-    safety net, not the intended difficulty -- but it's also what the
-    headless tests measure balance against, so it's worth it being a little
-    sharper than "always attack the lowest-HP target": a status-only skill
-    (a debuff, since this AI never carries buffs on itself as its *only*
-    option) is aimed at whichever living party member has the most MP
-    instead, since this roster's two casters (Lyra, Sera) both sit well
-    above the two MP-light fighters -- a rough but free-to-compute stand-in
-    for "go bother the spellcaster" without needing to see anyone's actual
-    skill list, which this AI doesn't have access to for the *party* side.
-    """
-    party = [p for p in state["party"] if p["alive"]]
-    if not party:
-        return Action.defend(combatant.id)
-
-    # Battle formations (engine/formation.py's reachable_targets, reimplemented inline here rather
-    # than imported -- this module stays self-contained from engine/, same as the rest of ai/): a
-    # melee unit (combatant.is_melee) can only reach an occupied front row; a ranged/magical unit
-    # reaches anyone. Only narrows SINGLE-target picks below -- all_enemies still hits everyone.
-    if getattr(combatant, "is_melee", True):
-        front = [p for p in party if p.get("formation") == "front"]
-        reachable = front if front else party
-    else:
-        reachable = party
-
-    skills = state.get("available_skills", [])
-    affordable = [s for s in skills if s["mp_cost"] <= combatant.mp and s.get("kind") not in ("heal",)]
-    lowest_hp_target = min(reachable, key=lambda p: p["hp"])
-    highest_mp_target = max(reachable, key=lambda p: p["mp"])
-
-    # Occasionally defend for flavor/unpredictability if healthy and no cheap skill available.
-    if not affordable and random.random() < 0.15:
-        return Action.defend(combatant.id)
-
-    if affordable and random.random() < 0.8:
-        # Prefer an actually-damaging skill when one's affordable -- a self-buff
-        # or self-heal is fine as occasional flavor, but picking uniformly at
-        # random among everything affordable let self-only skills (which this
-        # roster has a few of) eat turns that should've been offense.
-        damaging = [s for s in affordable if s.get("kind") in ("physical", "magical")]
-        pool = damaging if damaging and random.random() < 0.8 else affordable
-        skill = random.choice(pool)
-        target_type = skill.get("target")
-        if target_type == "self":
-            return Action.use_skill(combatant.id, skill["id"], [combatant.id])
-        if target_type == "all_enemies":
-            return Action.use_skill(combatant.id, skill["id"], [p["id"] for p in party])
-        if skill.get("kind") == "status":
-            return Action.use_skill(combatant.id, skill["id"], [highest_mp_target["id"]])
-        return Action.use_skill(combatant.id, skill["id"], [lowest_hp_target["id"]])
-
-    return Action.attack(combatant.id, lowest_hp_target["id"])
+def decay_memory(memory: dict) -> None:
+    """Called at the start of each fight: old habits fade by half so a rival adapts to *recent* play."""
+    for key in ("heals_by", "dmg_by"):
+        for who in list(memory.get(key, {})):
+            memory[key][who] = memory[key][who] / 2.0
+            if memory[key][who] < 0.5:
+                del memory[key][who]
+    for key in ("defends", "attacks", "debuffs", "turns"):
+        memory[key] = memory.get(key, 0) / 2.0
 
 
-def _run_streaming_with_relay(stream_fn: Callable[[Callable[[str], None]], str],
-                               on_chunk: Optional[Callable[[str], None]] = None,
-                               on_tick: Optional[Callable[[float], None]] = None,
-                               tick_interval: float = 0.08) -> str:
-    """Runs stream_fn(emit) on a background thread -- stream_fn should call
-    emit(text_chunk) for each piece of streamed content it receives (see
-    OllamaClient.chat_stream). Chunks are relayed to on_chunk on the
-    *calling* thread through a queue, which is what makes it safe for
-    on_chunk to call straight into a UI toolkit like pygame (SDL calls must
-    happen on the main thread) instead of the network thread.
-
-    on_tick(elapsed_seconds), if given, fires roughly every tick_interval
-    even between chunks -- this covers the gap before the first token
-    arrives (prompt processing/"prefill" can itself take a moment on a large
-    model), where there'd otherwise be nothing to show yet.
-
-    Returns stream_fn's full return value once the thread finishes; re-raises
-    whatever it raised, on the calling thread.
-    """
-    q: "queue.Queue" = queue.Queue()
-    box: Dict[str, object] = {}
-    done_marker = object()
-
-    def emit(chunk: str) -> None:
-        q.put(("chunk", chunk))
-
-    def worker() -> None:
-        try:
-            box["result"] = stream_fn(emit)
-        except Exception as exc:  # noqa: BLE001 - re-raised on the calling thread below
-            box["error"] = exc
-        q.put((done_marker, None))
-
-    thread = threading.Thread(target=worker, daemon=True)
-    start = time.perf_counter()
-    thread.start()
-    while True:
-        try:
-            kind, payload = q.get(timeout=tick_interval)
-        except queue.Empty:
-            if on_tick:
-                on_tick(time.perf_counter() - start)
-            continue
-        if kind is done_marker:
-            break
-        if kind == "chunk" and on_chunk:
-            on_chunk(payload)
-    thread.join()
-    if on_tick:
-        on_tick(time.perf_counter() - start)
-    if "error" in box:
-        raise box["error"]
-    return box.get("result", "")
+def _skills_db() -> dict:
+    try:
+        from data.skills_db import SKILLS
+        return SKILLS
+    except Exception:  # noqa: BLE001 - the AI must work even if the data module can't be imported
+        return {}
 
 
-def make_enemy_ai_fn(client: OllamaClient, use_fallback_on_error: bool = True,
-                      on_decision: Optional[Callable[[dict], None]] = None) -> Callable:
+def _bump(d: dict, key, amount=1.0) -> None:
+    d[key] = d.get(key, 0.0) + amount
+
+
+# ----------------------------------------------------------------------------
+# The decision maker
+# ----------------------------------------------------------------------------
+class _Brain:
+    def __init__(self, memory: dict, notify: Callable[[dict], None], rng: random.Random):
+        self.memory = memory
+        self.notify = notify
+        self.rng = rng
+        self.opened: Dict[str, set] = {}        # actor id -> skill ids already used as openers
+        self.charges: Dict[str, dict] = {}      # actor id -> {"skill", "round", "released"}
+        self.last_charge_round: Dict[str, int] = {}
+        self.skills = _skills_db()
+
+    # --- helpers -------------------------------------------------------
+    def _reachable(self, actor, party: List[dict]) -> List[dict]:
+        if getattr(actor, "is_melee", True):
+            front = [p for p in party if p.get("formation") == "front"]
+            return front if front else party
+        return party
+
+    def _target_weight(self, prof: dict, t: dict, party: List[dict], marks: dict) -> float:
+        mode = prof.get("target", "balanced")
+        hp_frac = t["hp"] / max(1, t["max_hp"])
+        if mode == "weakest":
+            w = 1.0 + 0.9 * (1.0 - hp_frac)
+        elif mode == "tank":
+            w = 1.0 + 0.6 * (t["max_hp"] / max(1, max(p["max_hp"] for p in party)))
+        elif mode == "caster":
+            w = 1.0 + 0.8 * (t["max_mp"] / max(1, max(p["max_mp"] for p in party)))
+        elif mode == "strongest":
+            w = 1.0 + 0.6 * (t["hp"] / max(1, max(p["hp"] for p in party)))
+        else:
+            w = 1.0 + 0.8 * (1.0 - hp_frac)
+        if t.get("name") == marks.get("healer"):
+            w *= 1.45
+        if t.get("name") == marks.get("nuker"):
+            w *= 1.30
+        return w
+
+    def _marks(self, prof: dict) -> dict:
+        if not prof.get("adaptive"):
+            return {}
+        mem, marks = self.memory, {}
+        heals = mem.get("heals_by", {})
+        if heals:
+            who, n = max(heals.items(), key=lambda kv: kv[1])
+            if n >= 2:
+                marks["healer"] = who
+        dmg = mem.get("dmg_by", {})
+        total = sum(dmg.values())
+        if total >= 4:
+            who, n = max(dmg.items(), key=lambda kv: kv[1])
+            if n / total >= 0.4:
+                marks["nuker"] = who
+        if mem.get("defends", 0) >= 3:
+            marks["turtle"] = True
+        return marks
+
+    @staticmethod
+    def _est(actor, sk: Optional[dict], t: dict) -> float:
+        kind = sk["kind"] if sk else "physical"
+        power = sk["power"] if sk and sk.get("power") else 1.0
+        stat = actor.effective_stat("mag" if kind == "magical" else "atk")
+        est = power * stat * 1.1
+        if t.get("defending"):
+            est *= 0.5
+        return est
+
+    # --- charge / telegraph ----------------------------------------------
+    def _maybe_charge(self, actor, state, prof, sk_list, party) -> Optional[Action]:
+        sid = prof.get("charge")
+        if not sid:
+            return None
+        sk = next((s for s in sk_list if s["id"] == sid), None)
+        if sk is None or sk["mp_cost"] > actor.mp:
+            return None
+        rnd = state.get("round", 1)
+        if rnd < 2 or rnd - self.last_charge_round.get(actor.id, -99) < CHARGE_COOLDOWN_ROUNDS:
+            return None
+        if actor.hp < actor.max_hp * 0.3 or self.rng.random() > CHARGE_CHANCE:
+            return None
+        from engine.status_effects import get_status
+        actor.add_status(get_status(CHARGE_STATUS))
+        self.charges[actor.id] = {"skill": sid, "round": rnd, "released": False}
+        self.last_charge_round[actor.id] = rnd
+        self.notify({"phase": "telegraph", "combatant_id": actor.id, "combatant_name": actor.name,
+                     "skill_id": sid, "skill_name": sk["name"],
+                     "message": f"{actor.name} gathers power for {sk['name']}! (stun it, or brace)"})
+        return Action.defend(actor.id)
+
+    def _release_or_clear(self, actor, state, prof, sk_list, party, marks) -> Optional[Action]:
+        ch = self.charges.get(actor.id)
+        if not ch:
+            if actor.has_status(CHARGE_STATUS):
+                actor.remove_status(CHARGE_STATUS)
+            return None
+        if ch["released"] or state.get("round", 1) != ch["round"] + 1:
+            # Already spent, or a missed turn (stunned) broke the charge: the power fizzles.
+            if not ch["released"]:
+                self.notify({"phase": "interrupt", "combatant_id": actor.id, "combatant_name": actor.name,
+                             "message": f"{actor.name}'s charge fizzles out!"})
+            actor.remove_status(CHARGE_STATUS)
+            del self.charges[actor.id]
+            return None
+        sk = next((s for s in sk_list if s["id"] == ch["skill"]), None)
+        if sk is None or sk["mp_cost"] > actor.mp:
+            actor.remove_status(CHARGE_STATUS)
+            del self.charges[actor.id]
+            return None
+        ch["released"] = True
+        return self._skill_action(actor, sk, party, prof, marks)
+
+    def _skill_action(self, actor, sk, party, prof, marks) -> Action:
+        if sk["target"] == "all_enemies":
+            return Action.use_skill(actor.id, sk["id"], [p["id"] for p in party])
+        pool = self._reachable(actor, party)
+        best = max(pool, key=lambda t: self._est(actor, sk, t) * self._target_weight(prof, t, party, marks))
+        return Action.use_skill(actor.id, sk["id"], [best["id"]])
+
+    # --- main decision -----------------------------------------------------
+    def decide(self, actor, state: dict) -> Action:
+        party = [p for p in state["party"] if p["alive"]]
+        if not party:
+            return Action.defend(actor.id)
+        prof = profile_for(actor)
+        marks = self._marks(prof)
+        sk_list = state.get("available_skills", [])
+        allies = [e for e in state.get("enemies", []) if e["alive"]]
+
+        released = self._release_or_clear(actor, state, prof, sk_list, party, marks)
+        if released is not None:
+            return released
+        telegraph = self._maybe_charge(actor, state, prof, sk_list, party)
+        if telegraph is not None:
+            return telegraph
+
+        reach = self._reachable(actor, party)
+        hp_frac = actor.hp / max(1, actor.max_hp)
+        opened = self.opened.setdefault(actor.id, set())
+        chaos = prof.get("chaos", 0.12)
+        aoe_at = prof.get("aoe_at", 3)
+        options = []   # (score, Action, opener_skill_id_or_None)
+
+        def add(score, action, opener=None):
+            options.append((score * (1.0 + self.rng.uniform(-chaos, chaos)), action, opener))
+
+        add(5.0 + (14.0 if hp_frac < prof.get("guard_at", 0.25) else 0.0), Action.defend(actor.id))
+        for t in reach:
+            dmg = min(self._est(actor, None, t), t["hp"])
+            kill = 0.3 * t["max_hp"] if self._est(actor, None, t) >= t["hp"] else 0.0
+            add((dmg + kill) * self._target_weight(prof, t, party, marks), Action.attack(actor.id, t["id"]))
+
+        for sk in sk_list:
+            if sk["mp_cost"] > actor.mp:
+                continue
+            sid, kind, tgt = sk["id"], sk["kind"], sk["target"]
+            db = self.skills.get(sid)
+            applies = getattr(db, "status_to_apply", None) if db else None
+            opener = sid if sid in prof.get("open", []) and sid not in opened else None
+            open_bonus = 500.0 if opener else 0.0   # openers are close to forced, once each
+            cost = 0.8 * sk["mp_cost"]
+
+            if kind in ("physical", "magical"):
+                if tgt == "all_enemies":
+                    total = sum(min(self._est(actor, sk, t), t["hp"]) * self._target_weight(prof, t, party, marks)
+                                for t in party)
+                    if len(party) >= aoe_at:
+                        total += 10.0 * (len(party) - aoe_at + 1)
+                    if marks.get("turtle"):
+                        total *= 1.2
+                    add(total - cost + open_bonus, Action.use_skill(actor.id, sid, [p["id"] for p in party]), opener)
+                else:
+                    for t in reach:
+                        est = self._est(actor, sk, t)
+                        score = min(est, t["hp"]) * self._target_weight(prof, t, party, marks)
+                        if est >= t["hp"]:
+                            score += 0.3 * t["max_hp"]
+                        fin = prof.get("finisher")
+                        if fin and fin[0] == sid and t["hp"] <= fin[1] * t["max_hp"]:
+                            score += 40.0
+                        if applies and applies not in t["statuses"]:
+                            score += 0.10 * t["max_hp"] * prof.get("debuff", 1.0)
+                        add(score - cost + open_bonus, Action.use_skill(actor.id, sid, [t["id"]]), opener)
+            elif kind == "status":
+                if tgt == "self":
+                    if applies and actor.has_status(applies):
+                        continue
+                    score = 22.0
+                    if applies == "def_up":
+                        score += 30.0 * (1.0 - hp_frac)
+                    elif applies == "regen":
+                        score += 70.0 * (1.0 - hp_frac) if hp_frac < 0.7 else -15.0
+                    elif applies == "atk_up" and state.get("round", 1) <= 2:
+                        score += 15.0
+                    add(score - cost + open_bonus, Action.use_skill(actor.id, sid, [actor.id]), opener)
+                elif tgt == "single_enemy":
+                    for t in reach:
+                        if applies and applies in t["statuses"]:
+                            continue
+                        score = (12.0 + 0.10 * t["max_hp"]) * prof.get("debuff", 1.0)
+                        if marks.get("turtle"):
+                            score *= 1.3
+                        w = self._target_weight(prof, t, party, marks)
+                        add(score * w - cost + open_bonus, Action.use_skill(actor.id, sid, [t["id"]]), opener)
+            elif kind == "heal":
+                mag = actor.effective_stat("mag")
+                if tgt == "all_allies":
+                    gain = sum(min(a["max_hp"] - a["hp"], sk["power"] * mag) for a in allies)
+                    needy = sum(1 for a in allies if a["hp"] < prof.get("heal_at", 0.45) * a["max_hp"])
+                    if needy:
+                        add(gain * 1.2 - cost, Action.use_skill(actor.id, sid, [a["id"] for a in allies]))
+                else:
+                    for a in allies:
+                        missing = a["max_hp"] - a["hp"]
+                        frac = a["hp"] / max(1, a["max_hp"])
+                        amount = min(missing, sk["power"] * mag * 1.2)
+                        if frac < prof.get("heal_at", 0.45):
+                            add(amount * 1.5 - cost, Action.use_skill(actor.id, sid, [a["id"]]))
+                        elif frac < 0.8:
+                            add(amount * 0.3 - cost, Action.use_skill(actor.id, sid, [a["id"]]))
+
+        score, action, opener = max(options, key=lambda o: o[0])
+        if opener:
+            opened.add(opener)
+        return action
+
+
+def make_enemy_ai_fn(memory: Optional[dict] = None,
+                     on_decision: Optional[Callable[[dict], None]] = None,
+                     rng: Optional[random.Random] = None) -> Callable:
     """Builds the (combatant, state) -> Action callable BattleEngine expects.
 
-    on_decision, if given, is called with a small dict at several points in
-    each enemy turn -- this is the hook debug mode's "what's the model
-    thinking, and how long is it taking" popup is built on (see
-    ui/pygame_ui.py and ui/text_ui.py's on_ai_event):
-      {"phase": "start",         "combatant_id", "combatant_name", "model"}
-      {"phase": "tick",          "combatant_id", "combatant_name", "elapsed_seconds"}
-          -- fires ~every 80ms while waiting, including gaps between chunks
-      {"phase": "thinking_chunk", "combatant_id", "combatant_name",
-       "delta", "text_so_far"}
-          -- fires as each piece of the model's THINKING text streams in
-      {"phase": "done", "combatant_id", "combatant_name", "elapsed_seconds",
-       "used_fallback", "action_type", "skill_id", "target_id", "reason", "raw_content", "error"}
+    on_decision(record) is called for visible tells: {"phase": "telegraph" | "interrupt",
+    "combatant_id", "combatant_name", "message", ...}. The host turns those into log lines.
     """
+    mem = memory if memory is not None else new_rival_memory()
 
     def _notify(record: dict) -> None:
         if on_decision:
             try:
                 on_decision(record)
-            except Exception as exc:  # noqa: BLE001 - a broken debug UI must never break the battle
-                print(f"[debug-ui] on_decision callback raised {exc!r}; ignoring.")
+            except Exception as exc:  # noqa: BLE001 - a broken UI hook must never break the battle
+                print(f"[ai] on_decision callback raised {exc!r}; ignoring.")
+
+    brain = _Brain(mem, _notify, rng or random)
 
     def get_enemy_action(combatant, state: dict) -> Action:
-        _notify({"phase": "start", "combatant_id": combatant.id, "combatant_name": combatant.name,
-                 "model": client.model})
-
-        def tick(elapsed: float) -> None:
-            _notify({"phase": "tick", "combatant_id": combatant.id, "combatant_name": combatant.name,
-                     "elapsed_seconds": elapsed})
-
-        # Streamed chunks are raw model output, which includes the "THINKING: "
-        # label itself and (once it shows up) the start of "ACTION_JSON: {...".
-        # We only want to display the THINKING sentence as it types, so we stop
-        # relaying chunks once we've seen the ACTION_JSON marker -- the JSON
-        # itself isn't meant to be watched typing out character by character.
-        #
-        # Stripping "THINKING:" off progressively (rather than just once at the
-        # end) needs care: a naive regex-strip-per-chunk makes the displayed
-        # text visibly SHRINK the instant the label finishes streaming in (e.g.
-        # showing "THINKI" for a moment, then jumping back to "" once "NG:" of
-        # "THINKING:" arrives). _visible_thinking_prefix avoids that by holding
-        # back any output at all until it's sure whether a leading "THINKING:"
-        # label is present.
-        label = "THINKING:"
-        action_marker = "ACTION_JSON:"
-
-        def _visible_thinking_prefix(value: str) -> str:
-            stripped = value.lstrip()
-            upper = stripped.upper()
-            if upper.startswith(label):
-                return stripped[len(label):].lstrip()
-            if label.startswith(upper):
-                return ""  # only a partial prefix of "THINKING:" so far -- nothing to show yet
-            return stripped  # doesn't look like our label format; show the raw text rather than lose it
-
-        def _hold_back_partial_marker(text: str, marker: str) -> str:
-            # Same problem in reverse, at the *end* of the text: if the tail could be
-            # the start of "ACTION_JSON:" (e.g. text ending in "...now.\nACT"), showing
-            # it would flash "ACT" on screen for a moment before it gets swallowed once
-            # the marker completes. Hold back any tail that's still an unresolved prefix.
-            upper = text.upper()
-            for k in range(min(len(marker) - 1, len(text)), 0, -1):
-                if upper.endswith(marker[:k]):
-                    return text[: len(text) - k]
-            return text
-
-        seen_text = {"value": "", "action_marker_hit": False}
-
-        def on_chunk(delta: str) -> None:
-            seen_text["value"] += delta
-            if seen_text["action_marker_hit"]:
-                return
-            value = seen_text["value"]
-            marker_idx = value.upper().find(action_marker)
-            if marker_idx != -1:
-                seen_text["action_marker_hit"] = True
-                visible = _visible_thinking_prefix(value[:marker_idx])
-            else:
-                visible = _hold_back_partial_marker(_visible_thinking_prefix(value), action_marker)
-            _notify({"phase": "thinking_chunk", "combatant_id": combatant.id,
-                     "combatant_name": combatant.name, "delta": delta, "text_so_far": visible})
-
-        start = time.perf_counter()
+        mem["turns"] = mem.get("turns", 0) + 1
         try:
-            full_text = _run_streaming_with_relay(
-                lambda emit: client.chat_stream(SYSTEM_PROMPT, _build_user_prompt(combatant, state), emit=emit),
-                on_chunk=on_chunk, on_tick=tick,
-            )
-            thinking, raw = _split_thinking_and_json(full_text)
-            action = _parse_llm_action(combatant, state, raw)
-            elapsed = time.perf_counter() - start
-            _notify({
-                "phase": "done", "combatant_id": combatant.id, "combatant_name": combatant.name,
-                "elapsed_seconds": elapsed, "used_fallback": False,
-                "action_type": action.type.value, "skill_id": action.skill_id,
-                "target_id": action.target_ids[0] if action.target_ids else None,
-                "reason": thinking, "raw_content": raw, "error": None,
-            })
-            return action
-        except (OllamaError, ValueError, KeyError, TypeError) as exc:
-            elapsed = time.perf_counter() - start
-            if not use_fallback_on_error:
-                _notify({
-                    "phase": "done", "combatant_id": combatant.id, "combatant_name": combatant.name,
-                    "elapsed_seconds": elapsed, "used_fallback": False, "action_type": None,
-                    "skill_id": None, "target_id": None, "reason": None, "raw_content": None,
-                    "error": str(exc),
-                })
-                raise
-            print(f"[ai] {combatant.name}: falling back to scripted AI ({exc})")
-            fallback = scripted_fallback_action(combatant, state)
-            _notify({
-                "phase": "done", "combatant_id": combatant.id, "combatant_name": combatant.name,
-                "elapsed_seconds": elapsed, "used_fallback": True,
-                "action_type": fallback.type.value, "skill_id": fallback.skill_id,
-                "target_id": fallback.target_ids[0] if fallback.target_ids else None,
-                "reason": None, "raw_content": None, "error": str(exc),
-            })
-            return fallback
+            return brain.decide(combatant, state)
+        except Exception as exc:  # noqa: BLE001 - never hang a battle on an AI bug
+            print(f"[ai] {combatant.name}: decision failed ({exc!r}); attacking instead.")
+            party = [p for p in state.get("party", []) if p["alive"]]
+            if not party:
+                return Action.defend(combatant.id)
+            return Action.attack(combatant.id, min(party, key=lambda p: p["hp"])["id"])
 
+    def observe(party_member, action: Action) -> None:
+        """Records one player action so adaptive rivals can react to the player's habits."""
+        name = getattr(party_member, "name", None)
+        if not name or action is None:
+            return
+        if action.type == ActionType.DEFEND:
+            mem["defends"] = mem.get("defends", 0) + 1
+        elif action.type == ActionType.ATTACK:
+            mem["attacks"] = mem.get("attacks", 0) + 1
+            _bump(mem.setdefault("dmg_by", {}), name, 1.0)
+        elif action.type == ActionType.SKILL:
+            sk = _skills_db().get(action.skill_id)
+            kind = getattr(sk, "kind", "")
+            if kind == "heal":
+                _bump(mem.setdefault("heals_by", {}), name, 1.0)
+            elif kind == "status":
+                mem["debuffs"] = mem.get("debuffs", 0) + 1
+            else:
+                _bump(mem.setdefault("dmg_by", {}), name, 1.0 + (1.0 if getattr(sk, "power", 1) >= 1.8 else 0.0))
+
+    get_enemy_action.observe = observe
+    get_enemy_action.memory = mem
     return get_enemy_action
+
+
+def scripted_fallback_action(combatant, state: dict) -> Action:
+    """One stateless decision with the combatant's profile (kept for tests and tools)."""
+    brain = _Brain(new_rival_memory(), lambda record: None, random)
+    return brain.decide(combatant, state)

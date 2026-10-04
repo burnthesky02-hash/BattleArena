@@ -33,7 +33,6 @@ sys.modules["pygame"] = make_pygame_stub(event_queue)
 
 import main  # noqa: E402
 import config  # noqa: E402
-from ai.ollama_client import OllamaClient  # noqa: E402
 from data.items_db import ITEMS  # noqa: E402
 from data.skills_db import SKILLS  # noqa: E402
 from engine.actions import Action  # noqa: E402
@@ -53,11 +52,10 @@ def test_run_one_battle_applies_rewards_and_persists_inventory():
     starting_money, starting_gems = player_state.money, player_state.gems
     starting_inventory = dict(player_state.inventory)
 
-    client = OllamaClient(host="http://localhost:1", model="unreachable", timeout=0.5)
     # party=None -- the default -- falls back to the whole roster (just the
     # solo hero here), same as every call site before the party-select
     # screen existed; see main.run_one_battle's docstring.
-    result, money, gems, xp, level_ups = main.run_one_battle(ui, player_state, client, "normal", 1)
+    result, money, gems, xp, level_ups = main.run_one_battle(ui, player_state, "normal", 1)
 
     assert isinstance(result, BattleResult)
     assert money > 0, "money should be awarded regardless of outcome"
@@ -177,7 +175,7 @@ def test_new_game_creates_and_saves_then_battle_then_quit(tmp_path=None):
         orig_run_one_battle = main.run_one_battle
         battle_calls = []
 
-        def fake_run_one_battle(ui, player_state, client, difficulty, num_enemies, party=None):
+        def fake_run_one_battle(ui, player_state, difficulty, num_enemies, party=None):
             battle_calls.append((difficulty, num_enemies))
             player_state.add_rewards(40, 5)
             return BattleResult.VICTORY, 40, 5, 0, {}
@@ -186,7 +184,7 @@ def test_new_game_creates_and_saves_then_battle_then_quit(tmp_path=None):
         try:
             assert not save_system.save_exists()
             ui = _FakeUI(title_choices=["new_game", "quit"], hub_choices=["battle", "quit_to_title"])
-            main.run_game_loop(ui, client=None)
+            main.run_game_loop(ui)
 
             assert ui.chargen_calls == 1, "new_game should trigger character creation exactly once"
             assert ui.battle_setup_calls == 1, "the 'battle' hub choice should show the battle setup screen first"
@@ -215,7 +213,7 @@ def test_continue_loads_existing_save_without_recreating_a_character():
         save_system.save_game(existing)
 
         ui = _FakeUI(title_choices=["continue", "quit"], hub_choices=["quit_to_title"])
-        main.run_game_loop(ui, client=None)
+        main.run_game_loop(ui)
 
         assert ui.chargen_calls == 0, "continuing an existing save must not create a new character"
         reloaded = save_system.load_game()
@@ -237,7 +235,7 @@ def test_battle_setup_back_out_skips_battle():
         try:
             ui = _FakeUI(title_choices=["new_game", "quit"], hub_choices=["battle", "quit_to_title"],
                          battle_setup_choices=[None])
-            main.run_game_loop(ui, client=None)
+            main.run_game_loop(ui)
             assert ui.battle_setup_calls == 1
             assert ui.end_screen_calls == [], "no end screen should show when the player backs out"
         finally:
@@ -258,7 +256,7 @@ def test_party_select_back_out_skips_battle_and_battle_setup():
         try:
             ui = _FakeUI(title_choices=["new_game", "quit"], hub_choices=["battle", "quit_to_title"],
                          party_select_choices=[None])
-            main.run_game_loop(ui, client=None)
+            main.run_game_loop(ui)
             assert ui.party_select_calls == 1
             assert ui.battle_setup_calls == 0, "backing out of party select must not even show battle setup"
             assert ui.end_screen_calls == []
@@ -283,9 +281,8 @@ def test_only_the_selected_party_fights_and_earns_xp():
     player_state.characters.append(bystander)
     bystander_xp, bystander_level = bystander.xp, bystander.level
 
-    client = OllamaClient(host="http://localhost:1", model="unreachable", timeout=0.5)
     result, money, gems, xp, level_ups = main.run_one_battle(
-        ui, player_state, client, "normal", 1, [fighter])
+        ui, player_state, "normal", 1, [fighter])
 
     assert bystander.name not in level_ups
     assert bystander.xp == bystander_xp and bystander.level == bystander_level, (
@@ -304,7 +301,7 @@ def test_debug_add_gems_hub_choice_grants_gems_and_saves():
             ui = _FakeUI(title_choices=["new_game", "quit"],
                          hub_choices=["debug_add_gems", "quit_to_title"])
             starting_gems = 20  # PlayerState.new_game's STARTING_GEMS
-            main.run_game_loop(ui, client=None)
+            main.run_game_loop(ui)
             saved = save_system.load_game()
             assert saved.gems == starting_gems + config.DEBUG_GEM_GRANT, (saved.gems, config.DEBUG_GEM_GRANT)
         finally:
@@ -321,7 +318,7 @@ def test_shop_hub_choice_calls_show_shop_and_saves():
         try:
             ui = _FakeUI(title_choices=["new_game", "quit"],
                          hub_choices=["shop", "quit_to_title"])
-            main.run_game_loop(ui, client=None)
+            main.run_game_loop(ui)
             assert ui.shop_calls == [1], "the 'shop' hub choice should call the real show_shop, not a placeholder"
             assert save_system.save_exists(), "leaving the shop should save (equip/buy changes must persist)"
         finally:
@@ -338,7 +335,7 @@ def test_summon_hub_choice_calls_show_summon_and_saves():
         try:
             ui = _FakeUI(title_choices=["new_game", "quit"],
                          hub_choices=["summon", "quit_to_title"])
-            main.run_game_loop(ui, client=None)
+            main.run_game_loop(ui)
             assert ui.summon_calls == [1], "the 'summon' hub choice should call the real show_summon, not a placeholder"
             assert ui.not_implemented_calls == [], "nothing on the hub should still be a placeholder"
             assert save_system.save_exists(), "leaving Summon should save (a new recruit/gear must persist)"
@@ -356,7 +353,7 @@ def test_heroes_hub_choice_calls_show_heroes_and_saves():
         try:
             ui = _FakeUI(title_choices=["new_game", "quit"],
                          hub_choices=["heroes", "quit_to_title"])
-            main.run_game_loop(ui, client=None)
+            main.run_game_loop(ui)
             assert ui.heroes_calls == [1], "the 'heroes' hub choice should call the real show_heroes"
             assert save_system.save_exists(), "leaving Heroes should save (an equip/upgrade must persist)"
         finally:

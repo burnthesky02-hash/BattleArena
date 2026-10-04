@@ -6,12 +6,12 @@
   "use strict";
   var M = window.JrpgMenu = {};
   var O = {}, root = null, st = null, isOpen = false, busy = false;
-  var CMDS = ["Items", "Magic", "Equip", "Status", "Bestiary", "Save", "Settings", "Close"];
-  var TITLES = { main: "Main menu", items: "Check items", magic: "Cast magic", equip: "Change equipment", status: "Check status", bestiary: "Bestiary", save: "Save game", settings: "Settings" };
+  var CMDS = ["Items", "Magic", "Equip", "Status", "Quests", "Bestiary", "Save", "Settings", "Close"];
+  var TITLES = { main: "Main menu", items: "Check items", magic: "Cast magic", equip: "Change equipment", status: "Check status", quests: "Quest log", bestiary: "Bestiary", save: "Save game", settings: "Settings" };
   var STATS = [["max_hp", "HP"], ["max_mp", "MP"], ["atk", "ATK"], ["def_", "DEF"], ["mag", "MAG"], ["res", "RES"], ["spd", "SPD"], ["luk", "LUK"]];
   var SLOT_LABEL = { weapon: "Weapon", offhand: "Off-hand", armor: "Armor", helmet: "Helmet", boots: "Boots", accessory: "Accessory" };
   var WEIGHT = { light: 0, medium: 1, heavy: 2 }, ARMOR = { armor: 1, helmet: 1, boots: 1 };
-  var mode = "main", ph = "cmd", cmd = 0, li = 0, ci = 0, cas = 0, si = 0, pi = 0, yes = 0, sr = 0, msg = "", msgBad = false, bz = 0, bst = null;
+  var mode = "main", ph = "cmd", cmd = 0, li = 0, ci = 0, cas = 0, si = 0, pi = 0, yes = 0, sr = 0, msg = "", msgBad = false, bz = 0, bst = null, qz = 0, qf = 0, qv = [];
 
   /* ---------- settings ---------- */
   var SET_KEY = "rpgSettings";
@@ -163,6 +163,38 @@
     d += "</div>";
     return '<div class="jm-panel jm-bestiary"><div class="jm-ptitle">Seen ' + bst.seen + " / " + bst.total + " &middot; Defeated " + bst.defeated + '</div><div class="jm-bgrid"><div class="jm-scroll jm-blist">' + list + '</div><div class="jm-bdetail">' + d + "</div></div></div>";
   }
+  /* ---------- quest log ---------- */
+  var QF = ["All", "Main", "Side"];
+  function questList() {
+    var all = (window.Hub3D && Hub3D.quests) ? Hub3D.quests() : [], want = qf === 1 ? "main" : qf === 2 ? "side" : "";
+    var f = all.filter(function (q) { return !want || q.kind === want; });
+    var rank = function (q) { return (q.status === "done" ? 2 : 0) + (q.kind === "main" ? 0 : 1); };
+    return f.map(function (q, i) { return { q: q, i: i }; }).sort(function (a, b) { return rank(a.q) - rank(b.q) || a.i - b.i; }).map(function (x) { return x.q; });
+  }
+  function questHtml() {
+    qv = questList(); if (qz >= qv.length) qz = Math.max(0, qv.length - 1);
+    var tabs = '<div class="jm-qtabs">' + QF.map(function (t, i) { return '<span class="' + (i === qf ? "on" : "") + '" data-a="qf" data-i="' + i + '">' + t + "</span>"; }).join("") + "</div>";
+    var list = "";
+    qv.forEach(function (q, i) {
+      var mark = q.status === "done" ? "&#10003;" : q.tracked ? "&#9670;" : "&#9671;";
+      list += '<div class="jm-row' + (i === qz ? " cur" : "") + (q.status === "done" ? " dim" : "") + '" data-a="qz" data-i="' + i + '"><span><b class="jm-qk ' + q.kind + '">' + (q.kind === "main" ? "M" : "S") + "</b> " + mark + " " + esc(q.title) + "</span><em>" + (q.status === "ready" ? "return" : q.status === "done" ? "done" : "") + "</em></div>";
+    });
+    if (!qv.length) list = '<div class="jm-empty">' + (qf ? "No quests of this kind yet." : "No quests yet. Talk to people with a ! over their heads.") + "</div>";
+    var q = qv[qz], d = "";
+    if (q) {
+      d += '<div class="jm-bhead"><div class="jm-nm">' + esc(q.title) + ' <small class="jm-qk ' + q.kind + '">' + (q.kind === "main" ? "MAIN QUEST" : "SIDE QUEST") + "</small></div><div class=\"jm-cls\">" +
+        (q.status === "done" ? "Completed" : q.status === "ready" ? "Objective complete &mdash; return to " + esc(q.giver || "the quest giver") : "In progress") + "</div></div>";
+      d += '<div class="jm-binfo">';
+      if (q.giver || q.where) d += '<div class="jm-stat"><b>From</b><span>' + esc(q.giver || "&mdash;") + "</span></div><div class=\"jm-stat\"><b>Where</b><span>" + esc(q.where || "&mdash;") + "</span></div>";
+      if (q.status !== "done") d += '<div class="jm-skill"><b>Objective</b><br><small>' + esc(q.text) + (q.count ? " (" + q.count[0] + "/" + q.count[1] + ")" : "") + "</small></div>";
+      d += '<div class="jm-skill"><b>Story</b><br><small>' + esc(q.summary) + "</small></div>";
+      if (q.status !== "done") d += '<div class="jm-row jm-qtrack' + (q.tracked ? " on" : "") + '" data-a="qtrack">' + (q.tracked ? "&#9670; Tracked &mdash; Enter to stop tracking" : "&#9671; Not tracked &mdash; Enter to track") + "</div>";
+      d += "</div>";
+    } else d = '<div class="jm-empty">Quests you accept appear here. Tracked quests are listed on the screen while you explore.</div>';
+    var leg = (window.Hub3D && Hub3D.markLegend) ? Hub3D.markLegend() : [];
+    var lg = '<div class="jm-legend">' + leg.map(function (l) { return '<span><i style="background:' + l.bg + ";color:" + l.fg + '">' + l.glyph + "</i>" + esc(l.label) + "</span>"; }).join("") + "</div>";
+    return '<div class="jm-panel jm-bestiary"><div class="jm-ptitle">Quest log</div>' + tabs + '<div class="jm-bgrid"><div class="jm-scroll jm-blist">' + list + '</div><div class="jm-bdetail">' + d + "</div></div>" + lg + "</div>";
+  }
   function saveHtml() {
     return '<div class="jm-panel jm-center"><div class="jm-big">Save your progress?</div><div class="jm-yn"><div class="jm-row' + (yes === 0 ? " cur" : "") + '" data-a="yn" data-i="0">Yes</div><div class="jm-row' + (yes === 1 ? " cur" : "") + '" data-a="yn" data-i="1">No</div></div></div>';
   }
@@ -180,10 +212,11 @@
     if (mode === "equip" && ph !== "hero") right = equipHtml();
     else if (mode === "status" && ph === "view") right = statusHtml();
     else if (mode === "bestiary") right = bestiaryHtml();
+    else if (mode === "quests") right = questHtml();
     else if (mode === "save") right = saveHtml();
     else if (mode === "settings") right = settingsHtml();
     else right = cardsHtml();
-    var hint = { main: "Choose a command", items: ph === "target" ? "Use on whom?" : "Pick an item", magic: ph === "caster" ? "Whose abilities?" : ph === "skills" ? "Healing spells can be cast here" : "Cast on whom?", equip: ph === "hero" ? "Choose a hero" : ph === "slot" ? "Choose a slot" : "Choose gear", status: "Choose a hero", save: "", settings: "" }[mode] || "";
+    var hint = { main: "Choose a command", items: ph === "target" ? "Use on whom?" : "Pick an item", magic: ph === "caster" ? "Whose abilities?" : ph === "skills" ? "Healing spells can be cast here" : "Cast on whom?", equip: ph === "hero" ? "Choose a hero" : ph === "slot" ? "Choose a slot" : "Choose gear", status: "Choose a hero", quests: "Enter: track / untrack  \u00b7  \u2190 \u2192: filter", save: "", settings: "" }[mode] || "";
     root.innerHTML = '<div class="jm-wrap"><div class="jm-head"><div class="jm-title">' + TITLES[mode] + '</div><div class="jm-sub">' + (msg ? '<span class="' + (msgBad ? "bad" : "good") + '">' + esc(msg) + "</span>" : esc(hint)) +
       '</div><div class="jm-back" data-a="back">Esc &middot; ' + (mode === "main" ? "Close" : "Back") + '</div></div><div class="jm-left">' + left + infoHtml() + '</div><div class="jm-right">' + right + "</div></div>";
     var cur = root.querySelector(".jm-list .cur, .jm-col .cur"); if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest" });
@@ -205,6 +238,7 @@
       else if (n === "Magic") { ci = 0; go("magic", "caster"); }
       else if (n === "Equip") { ci = 0; si = 0; go("equip", "hero"); }
       else if (n === "Status") { ci = 0; go("status", "hero"); }
+      else if (n === "Quests") { qz = 0; go("quests", "view"); }
       else if (n === "Bestiary") { bz = 0; bst = null; go("bestiary", "view"); fetch("/api/bestiary").then(function (r) { return r.json(); }).then(function (b) { bst = b; render(); }).catch(function () { say("The server could not be reached.", true); render(); }); }
       else if (n === "Save") { yes = 0; go("save", "confirm"); }
       else if (n === "Settings") { sr = 0; go("settings", "rows"); }
@@ -252,6 +286,11 @@
       }
     }
     if (mode === "status" && ph === "hero") { ph = "view"; sfx("confirm"); return render(); }
+    if (mode === "quests") {
+      var cq = qv[qz]; if (!cq || cq.status === "done") { sfx("denied"); return; }
+      if (window.Hub3D && Hub3D.setTracked) Hub3D.setTracked(cq.id, !cq.tracked);
+      sfx("confirm"); return render();
+    }
     if (mode === "save") {
       if (yes === 1) return back();
       busy = true; return post("/api/menu/save").then(function (r) { busy = false; go("main", "cmd"); afterAction(r, "confirm"); }, fail);
@@ -288,6 +327,7 @@
     else if (ctx === "equip/slot") { if (dy) si = wrap(si + dy, st.slots.length); else if (dx) ci = wrap(ci + dx, n); }
     else if (ctx === "equip/pick") pi = wrap(pi + dy, candidates().length);
     else if (ctx === "status/view") ci = wrap(ci + dx, n);
+    else if (ctx === "quests/view") { if (dy) qz = wrap(qz + dy, qv.length); else if (dx) { qf = wrap(qf + dx, QF.length); qz = 0; } }
     else if (ctx === "bestiary/view") { if (!bst) return; bz = wrap(bz + dy + dx * 6, bst.entries.length); }
     else if (ctx === "save/confirm") yes = wrap(yes + dx + dy, 2);
     else if (ctx === "settings/rows") { if (dy) sr = wrap(sr + dy, 3); else if (dx) return adjust(dx); }
@@ -321,6 +361,9 @@
     if (a === "card") { if (!cardsActive()) return; ci = i; return confirm(); }
     if (a === "li") { li = i; return confirm(); }
     if (a === "bz") { bz = i; sfx("hover"); return render(); }
+    if (a === "qz") { qz = i; sfx("hover"); return render(); }
+    if (a === "qf") { qf = i; qz = 0; sfx("hover"); return render(); }
+    if (a === "qtrack") return confirm();
     if (a === "slot") { if (ph === "pick") ph = "slot"; si = i; ph = "slot"; return confirm(); }
     if (a === "pick") { pi = i; return confirm(); }
     if (a === "yn") { yes = i; return confirm(); }
@@ -381,6 +424,10 @@
       ".jm-stat{display:flex;gap:10px;padding:5px 8px;font-size:clamp(13px,1.8vh,16px);border-bottom:1px solid rgba(232,199,102,.18)}.jm-stat b{width:78px;color:#bfe3ee;font-weight:600}.jm-stat span{font-weight:700}.jm-stat i{font-style:normal;margin-left:auto;font-weight:700}.jm-stat i.up{color:#9df08a}.jm-stat i.dn{color:#ff9a8a}",
       ".jm-eqd{padding:8px;font-size:14px;line-height:1.5}.jm-skill{padding:5px 6px;border-bottom:1px solid rgba(232,199,102,.18);font-size:14px}.jm-skill em{font-style:normal;font-size:12px;opacity:.75}.jm-skill small{opacity:.8}",
       ".jm-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}.jm-center.wide{align-items:stretch;padding:20px 8%}.jm-big{font-size:26px;font-weight:700;color:#ffe9a0}",
+      ".jm-qtabs{display:flex;gap:8px;margin:0 0 8px}.jm-qtabs span{cursor:pointer;padding:2px 12px;border:1px solid rgba(232,199,102,.3);border-radius:999px;font-size:13px;opacity:.7}.jm-qtabs span.on{opacity:1;border-color:#e8c766;color:#e8c766}",
+      ".jm-qk{display:inline-block;font-style:normal;font-size:11px;font-weight:800;padding:0 5px;border-radius:4px}.jm-qk.main{background:#ffd23f;color:#2a1d00}.jm-qk.side{background:#4fb3ff;color:#04223a}",
+      ".jm-qtrack{margin-top:10px;text-align:center}.jm-qtrack.on{border-color:#e8c766}",
+      ".jm-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:11px;opacity:.85}.jm-legend span{display:inline-flex;align-items:center;gap:5px}.jm-legend i{display:inline-block;min-width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;font-style:normal;font-size:10px;font-weight:900}",
       ".jm-bestiary{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}.jm-bgrid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(150px,.8fr) 2.2fr;gap:12px}",
       ".jm-blist{border-right:1px solid #e8c76655;padding-right:6px}.jm-bdetail{min-width:0;min-height:0;display:flex;flex-direction:column}.jm-bhead{padding:2px 6px 8px;border-bottom:1px solid #e8c76655}",
       ".jm-bbody{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:8px}.jm-bart{display:flex;align-items:flex-end;justify-content:center;min-height:0;border-radius:8px;background:radial-gradient(ellipse at 50% 80%,rgba(255,230,140,.16),rgba(0,0,0,.25))}",

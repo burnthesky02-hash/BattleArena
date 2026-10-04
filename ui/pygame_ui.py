@@ -110,10 +110,8 @@ from engine.types import ActionType
 
 WIDTH, HEIGHT = 1280, 800
 HIT_FLASH_DURATION = 0.5   # seconds a hit/heal flash + floating number stays visible
-DEBUG_PANEL_W = 320
 BG_COLOR = (24, 24, 34)
 PANEL_COLOR = (40, 40, 56)
-DEBUG_PANEL_COLOR = (30, 34, 48)
 TEXT_COLOR = (235, 235, 240)
 DIM_COLOR = (120, 120, 130)
 HP_GREEN = (70, 190, 90)
@@ -123,9 +121,6 @@ MP_BLUE = (70, 130, 220)
 HIGHLIGHT = (255, 255, 255)
 BUTTON_COLOR = (60, 60, 84)
 BUTTON_HOVER = (90, 90, 130)
-THINKING_COLOR = (230, 200, 90)
-LLM_COLOR = (120, 220, 140)
-FALLBACK_COLOR = (230, 150, 60)
 
 # Where Andrew drops portrait art, one image per character, named after the
 # character (e.g. "Kael.png") -- see show_heroes' hero-card grid below.
@@ -311,7 +306,7 @@ class PygameUI:
         pygame.init()
         self.debug = debug
         self.content_width = width or WIDTH   # battlefield/menu/log layout area
-        self.width = self.content_width + (DEBUG_PANEL_W if debug else 0)  # full window
+        self.width = self.content_width  # full window
         self.height = height
         caption = "Battle Colosseum - Prototype (placeholder graphics)"
         if debug:
@@ -334,8 +329,6 @@ class PygameUI:
         self.items_db = items_db
         self.log_lines = []
         self.engine = None  # set via attach_engine
-        self._thinking = None      # dict while an enemy decision is in flight, else None
-        self.debug_history = []    # most-recent-last list of completed "done" decision records
         # Lightweight hit/heal feedback: since actions otherwise resolve instantly
         # with only the log/bars changing, we diff each combatant's HP between
         # frames (see _update_hit_flashes) and show a brief flash + floating
@@ -383,8 +376,6 @@ class PygameUI:
         the log panel and debug history would still be showing the end of the
         *last* fight when the next one starts."""
         self.log_lines = []
-        self.debug_history = []
-        self._thinking = None
         self._prev_hp = {}
         self._flashes = {}
         self._mover = None
@@ -416,7 +407,7 @@ class PygameUI:
         """Diffs this snapshot's HP against the last one seen and starts a
         flash/floating-number for anyone whose HP moved. Called from
         print_line, since that's the only place a resolved action's HP change
-        becomes visible -- on_ai_event's own redraws (while an enemy is still
+        becomes visible -- print_line's own redraws (while an enemy is still
         deciding) don't need this, HP can't have changed yet."""
         now = time.perf_counter()
         for c in state["party"] + state["enemies"]:
@@ -438,34 +429,6 @@ class PygameUI:
             del self._flashes[combatant_id]
             return None
         return flash["delta"], age / HIT_FLASH_DURATION
-
-    # Wire this in as on_decision=ui.on_ai_event when building the enemy AI (see main.py).
-    # Called at several points per enemy turn (see ai/enemy_ai.py's make_enemy_ai_fn docstring
-    # for the exact record shapes): "start", repeated "tick"s while the Ollama call is in
-    # flight, "thinking_chunk" as the model's THINKING sentence streams in, and "done". We
-    # redraw + pump events on every call (not just in debug mode) -- that's what keeps the
-    # window responsive/alive instead of looking frozen while an enemy is deciding, regardless
-    # of whether --debug is on. The debug panel itself only shows when self.debug is True.
-    def on_ai_event(self, record: dict) -> None:
-        phase = record["phase"]
-        if phase == "start":
-            self._thinking = {"name": record["combatant_name"], "model": record.get("model", "?"),
-                               "elapsed": 0.0, "text": ""}
-        elif phase == "tick":
-            if self._thinking:
-                self._thinking["elapsed"] = record["elapsed_seconds"]
-        elif phase == "thinking_chunk":
-            if self._thinking:
-                self._thinking["text"] = record.get("text_so_far", "")
-        elif phase == "done":
-            self._thinking = None
-            self.debug_history.append(record)
-            self.debug_history = self.debug_history[-8:]
-
-        state = self.engine.build_state() if self.engine else None
-        if state:
-            self._draw_frame(state)
-        self._pump()
 
     # ------------------------------------------------------------------
     # Drawing
@@ -607,7 +570,7 @@ class PygameUI:
     def _battler_frame_index(self, combatant_id: str, num_frames: int) -> int:
         """Which idle-loop frame to show right now, driven by wall-clock time
         (not per-battle state) so it keeps animating smoothly across the many
-        separate _draw_frame calls a single turn makes (print_line, on_ai_event,
+        separate _draw_frame calls a single turn makes (print_line,
         the ~30fps _wait_for_choice poll loop). A per-combatant phase offset
         (from hashing their id) keeps a whole column of identical placeholder
         sprites from breathing in perfect unison."""
@@ -983,9 +946,6 @@ class PygameUI:
                     if sprite_rect is not None:
                         button_rects.append((sprite_rect, _value))
 
-        if self.debug:
-            self._draw_debug_panel()
-
         pygame.display.flip()
         return button_rects
 
@@ -1170,121 +1130,6 @@ class PygameUI:
     def _wrap(self, text: str, width_chars: int):
         import textwrap
         return textwrap.wrap(text, width=width_chars) or [""]
-
-    def _debug_target_name(self, target_id):
-        if not target_id:
-            return None
-        if self.engine:
-            combatant = self.engine.get_by_id(target_id)
-            if combatant:
-                return combatant.name
-        return target_id
-
-    def _draw_debug_panel(self) -> None:
-        """Renders the 'what's the model thinking, how long is it taking' panel
-        along the right edge of the window (only drawn when debug=True)."""
-        pygame = self.pygame
-        panel_x = self.content_width
-        panel_w = self.width - self.content_width
-        pygame.draw.rect(self.screen, DEBUG_PANEL_COLOR, (panel_x, 0, panel_w, self.height))
-        pygame.draw.rect(self.screen, (10, 10, 10), (panel_x, 0, panel_w, self.height), 1)
-
-        pad = 14
-        x = panel_x + pad
-        y = 14
-        wrap_chars = max(20, (panel_w - 2 * pad) // 8)
-        header = self.font.render("AI DEBUG", True, TEXT_COLOR)
-        self.screen.blit(header, (x, y))
-        y += 30
-
-        if self._thinking:
-            think_txt = self.font_small.render(f"{self._thinking['name']} is thinking...", True, THINKING_COLOR)
-            self.screen.blit(think_txt, (x, y))
-            y += 18
-            timer_txt = self.font.render(f"{self._thinking['elapsed']:.1f}s", True, THINKING_COLOR)
-            self.screen.blit(timer_txt, (x, y))
-            model_txt = self.font_small.render(f"({self._thinking['model']})", True, DIM_COLOR)
-            self.screen.blit(model_txt, (x + timer_txt.get_width() + 8, y + 4))
-            y += 28
-            # The model's THINKING sentence, live, growing as it streams in.
-            live_text = self._thinking.get("text", "")
-            if live_text:
-                for line in self._wrap(live_text, wrap_chars)[:6]:
-                    surf = self.font_small.render(line, True, TEXT_COLOR)
-                    self.screen.blit(surf, (x, y))
-                    y += 16
-            else:
-                # A long wait here with the timer still climbing (not frozen) usually
-                # means Ollama is still loading the model into memory rather than
-                # generating -- large models can take a while to load, especially if
-                # keep_alive expired since the last call. main.py's startup warm-up
-                # avoids this for the first turn of a battle; this just keeps it from
-                # reading as a hang if it happens again later.
-                elapsed = self._thinking.get("elapsed", 0.0)
-                if elapsed < 8:
-                    wait_lines = ["(waiting for first token...)"]
-                else:
-                    wait_lines = self._wrap(
-                        "(still waiting -- this usually means the model is still "
-                        "loading into memory, not stuck; large models can take a "
-                        "while, especially if it had been idle)", wrap_chars)
-                for line in wait_lines[:5]:
-                    surf = self.font_small.render(line, True, DIM_COLOR)
-                    self.screen.blit(surf, (x, y))
-                    y += 16
-            y += 8
-        else:
-            idle_txt = self.font_small.render("(idle)", True, DIM_COLOR)
-            self.screen.blit(idle_txt, (x, y))
-            y += 24
-
-        pygame.draw.rect(self.screen, (60, 60, 76), (x, y, self.width - pad - x, 1))
-        y += 10
-        history_label = self.font_small.render("Recent decisions:", True, DIM_COLOR)
-        self.screen.blit(history_label, (x, y))
-        y += 20
-
-        for record in reversed(self.debug_history):
-            if y > self.height - 20:
-                break
-            elapsed = record.get("elapsed_seconds", 0.0)
-            name = record.get("combatant_name", "?")
-            if record.get("used_fallback") or record.get("error"):
-                color = FALLBACK_COLOR
-                headline = f"{name}: fallback ({elapsed:.2f}s)"
-            else:
-                color = LLM_COLOR
-                bits = [record.get("action_type") or "?"]
-                if record.get("skill_id"):
-                    bits.append(record["skill_id"])
-                target_name = self._debug_target_name(record.get("target_id"))
-                if target_name:
-                    bits.append(f"-> {target_name}")
-                headline = f"{name}: {' '.join(bits)} ({elapsed:.2f}s)"
-
-            for line in self._wrap(headline, wrap_chars):
-                if y > self.height - 20:
-                    break
-                surf = self.font_small.render(line, True, color)
-                self.screen.blit(surf, (x, y))
-                y += 16
-
-            reason = record.get("reason")
-            if reason:
-                for line in self._wrap(f'"{reason}"', wrap_chars):
-                    if y > self.height - 20:
-                        break
-                    surf = self.font_small.render(line, True, DIM_COLOR)
-                    self.screen.blit(surf, (x, y))
-                    y += 14
-            elif record.get("error"):
-                for line in self._wrap(record["error"], wrap_chars):
-                    if y > self.height - 20:
-                        break
-                    surf = self.font_small.render(line, True, DIM_COLOR)
-                    self.screen.blit(surf, (x, y))
-                    y += 14
-            y += 10
 
     # ------------------------------------------------------------------
     # Meta-game screens: title, character creation, Colosseum hub.

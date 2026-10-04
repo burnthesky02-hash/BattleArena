@@ -10,44 +10,10 @@ class TextUI:
         self.skills_db = skills_db
         self.items_db = items_db
         self.debug = debug
-        self._thinking_printed_len = 0  # how much of the current "thinking" sentence we've already printed
 
     # Wire this in as on_event=ui.print_line for live commentary.
     def print_line(self, message: str) -> None:
         print(message)
-
-    # Wire this in as on_decision=ui.on_ai_event (see ai/enemy_ai.py's make_enemy_ai_fn
-    # docstring for the record shape). No-op unless --debug was passed. Prints the
-    # model's THINKING text live, character-chunk by character-chunk, as it streams in.
-    def on_ai_event(self, record: dict) -> None:
-        if not self.debug:
-            return
-        phase = record["phase"]
-        if phase == "tick":
-            return  # a live-updating timer doesn't make sense as scrolling text; the streamed
-                     # THINKING text itself is what shows this turn is progressing
-        if phase == "start":
-            print(f"\n[debug] {record['combatant_name']} ({record.get('model', '?')}): ", end="", flush=True)
-            self._thinking_printed_len = 0
-            return
-        if phase == "thinking_chunk":
-            text_so_far = record.get("text_so_far", "")
-            new_part = text_so_far[self._thinking_printed_len:]
-            if new_part:
-                print(new_part, end="", flush=True)
-                self._thinking_printed_len = len(text_so_far)
-            return
-        # phase == "done"
-        elapsed = record["elapsed_seconds"]
-        if record["used_fallback"] or record.get("error"):
-            print(f"\n[debug] -> scripted fallback after {elapsed:.2f}s ({record.get('error')})")
-            return
-        bits = [record["action_type"]]
-        if record.get("skill_id"):
-            bits.append(f"'{record['skill_id']}'")
-        if record.get("target_id"):
-            bits.append(f"-> {record['target_id']}")
-        print(f"\n[debug] -> {' '.join(bits)}  (decided in {elapsed:.2f}s)")
 
     def render_battlefield(self, state: dict) -> None:
         print("\n" + "=" * 50)

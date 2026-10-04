@@ -1,0 +1,450 @@
+{
+ "quests": [
+  {
+   "id": "m_wood",
+   "kind": "main",
+   "title": "The Thorn Barrier",
+   "giver": "Mayor Orrin",
+   "where": "Paradise Island",
+   "summary": "Thorns choke the Whispering Wood and the goblins feed them. Find Ranger Willa and reach the Old Oak Grove.",
+   "accept": "fq_start",
+   "done": "fq_done",
+   "steps": [
+    {
+     "text": "Find Ranger Willa in the Whispering Wood (the path in the north-west). Follow the water and find who feeds the thorn barrier.",
+     "if": "fq_start",
+     "unless": "fq_chief"
+    },
+    {
+     "text": "Cut through the withered brambles and reach the Old Oak Grove.",
+     "if": "fq_chief",
+     "unless": "fq_boss"
+    },
+    {
+     "text": "Speak with Ranger Willa in the grove.",
+     "if": "fq_boss",
+     "unless": "fq_seal"
+    },
+    {
+     "text": "Bring the Warden's Seal to Mayor Orrin.",
+     "if": "fq_seal",
+     "unless": "fq_done"
+    }
+   ],
+   "ready": "fq_seal"
+  },
+  {
+   "id": "m_lani",
+   "kind": "main",
+   "title": "The Missing Villager",
+   "giver": "Elder Mahina",
+   "where": "Hollow Cave, north of the village",
+   "summary": "Lani went into the Hollow Cave and has not come back.",
+   "accept": "st_quest",
+   "done": "st_found",
+   "steps": [
+    {
+     "text": "Speak with the healer resting by the campfire in the Smugglers' Camp, the first camp inside the cave.",
+     "if": "st_quest",
+     "unless": "st_sera"
+    },
+    {
+     "text": "Find Lani in the Hollow Cave north of the village. Light the lamps, raise the causeway, and defeat the Drowned Sovereign.",
+     "if": "st_sera",
+     "unless": "dg_boss"
+    },
+    {
+     "text": "Speak with Lani.",
+     "if": "dg_boss",
+     "unless": "st_found"
+    }
+   ]
+  },
+  {
+   "id": "m_village",
+   "kind": "main",
+   "title": "Defend the Village",
+   "giver": "",
+   "where": "Paradise Island",
+   "summary": "Masked raiders have come for the village.",
+   "accept": "st_attack",
+   "done": "st_a3",
+   "steps": [
+    {
+     "text": "Defend the village!",
+     "if": "st_attack",
+     "unless": "st_a3"
+    }
+   ]
+  },
+  {
+   "id": "m_pit",
+   "kind": "main",
+   "title": "Slave of the Colosseum",
+   "giver": "",
+   "where": "The Pit",
+   "summary": "You are in the Colosseum's pit. Win fights for the Overseer and climb the ladder to earn your freedom.",
+   "accept": "st_jailed",
+   "done": "st_free",
+   "steps": [
+    {
+     "text": "Fight for the Overseer until you rise past the freedom rank and win your release.",
+     "if": "st_jailed",
+     "unless": "st_free"
+    }
+   ]
+  },
+  {
+   "id": "m_home",
+   "kind": "main",
+   "title": "The Way Home",
+   "giver": "",
+   "where": "Olympus Colosseum",
+   "summary": "You are free. Leave through the main gate and take the ferry home.",
+   "accept": "st_free",
+   "done": "st_siege",
+   "steps": [
+    {
+     "text": "You are free! Leave through the main gate and take the ferry home to Paradise Island.",
+     "if": "st_free",
+     "unless": "st_siege"
+    }
+   ]
+  },
+  {
+   "id": "m_siege",
+   "kind": "main",
+   "title": "Defend the Colosseum",
+   "giver": "",
+   "where": "Olympus Colosseum",
+   "summary": "Raiders have stormed the Colosseum gate.",
+   "accept": "st_siege",
+   "done": "st_space",
+   "steps": [
+    {
+     "text": "Defend the Colosseum!",
+     "if": "st_siege",
+     "unless": "st_space"
+    }
+   ]
+  },
+  {
+   "id": "m_kestrel",
+   "kind": "main",
+   "title": "Outpost Kestrel",
+   "giver": "Captain Rhea",
+   "where": "Outpost Kestrel",
+   "summary": "You came through the rift. Captain Rhea and a rift scholar named Lyra want to talk to you.",
+   "accept": "st_landed",
+   "done": "st_lyra",
+   "steps": [
+    {
+     "text": "Speak with Captain Rhea.",
+     "if": "st_landed",
+     "unless": "st_met"
+    },
+    {
+     "text": "Find Lyra, the rift scholar Captain Rhea told you about (the mess hall, west of the pad).",
+     "if": "st_met",
+     "unless": "st_lyra"
+    }
+   ]
+  },
+  {
+   "id": "m_vault",
+   "kind": "main",
+   "title": "The Shard Vault",
+   "giver": "Lyra",
+   "where": "Beneath Outpost Kestrel",
+   "summary": "Lyra's compass points beneath the base. Clear the Shard Vault and defeat the Vault Warden.",
+   "accept": "st_lyra",
+   "done": "vt_boss",
+   "steps": [
+    {
+     "text": "Take the hatch west of the landing pad and clear the Shard Vault. Fight through the floating maze (west walkway first) and defeat the Vault Sentinel.",
+     "if": "st_lyra",
+     "unless": "vt_g1"
+    },
+    {
+     "text": "The east gate is open. Reach the Phase Stalker at the end of the east maze.",
+     "if": "vt_g1",
+     "unless": "vt_g2"
+    },
+    {
+     "text": "Cross the north walkways and defeat the Rift Colossus. The Warden's core lies beyond.",
+     "if": "vt_g2",
+     "unless": "vt_g3"
+    },
+    {
+     "text": "The north sector is cleared. The sealed door to the Warden's core is open.",
+     "if": "vt_g3",
+     "unless": "vt_boss"
+    }
+   ]
+  },
+  {
+   "id": "m_reach",
+   "kind": "main",
+   "title": "The Shattered Reach",
+   "giver": "Captain Rhea",
+   "where": "Outpost Kestrel, then the Reach",
+   "summary": "A new coordinate has resolved on the rift console.",
+   "accept": "vt_boss",
+   "done": "rc_end",
+   "steps": [
+    {
+     "text": "A new coordinate has resolved on the rift console. Step into the rift gate east of the landing pad.",
+     "if": "vt_boss",
+     "unless": "rc_arrive"
+    },
+    {
+     "text": "Fight across the floating ruins and defeat the Breach Warden to open the gate to the second court.",
+     "if": "rc_arrive",
+     "unless": "rc_g1"
+    },
+    {
+     "text": "Cross the bridge and defeat the Rift Harbinger in its arena.",
+     "if": "rc_g1",
+     "unless": "rc_boss"
+    },
+    {
+     "text": "The Harbinger has fallen. Step through the rift gate back to Outpost Kestrel.",
+     "if": "rc_boss",
+     "unless": "rc_end"
+    }
+   ]
+  },
+  {
+   "id": "s_net",
+   "kind": "side",
+   "title": "Pua's Lost Net",
+   "giver": "Pua",
+   "where": "Paradise Island pier",
+   "summary": "A storm swept Pua's best net up the stream into the Whispering Wood.",
+   "accept": "sq_net_q",
+   "done": "sq_net_done",
+   "steps": [
+    {
+     "text": "Pua (island pier): find his lost fishing net in the Whispering Wood.",
+     "if": "sq_net_q",
+     "unless": "sq_net"
+    },
+    {
+     "text": "Pua: bring the net back.",
+     "if": "sq_net",
+     "unless": "sq_net_done"
+    }
+   ],
+   "ready": "sq_net"
+  },
+  {
+   "id": "s_fence",
+   "kind": "side",
+   "title": "The Goblin Brute",
+   "giver": "Old Tane",
+   "where": "Paradise Island farm",
+   "summary": "A goblin brute smashes Old Tane's fence every night.",
+   "accept": "sq_fence_q",
+   "done": "sq_fence_done",
+   "steps": [
+    {
+     "text": "Old Tane (island farm): beat the goblin brute by his fence.",
+     "if": "sq_fence_q",
+     "unless": "sq_fence"
+    },
+    {
+     "text": "Old Tane: collect your reward.",
+     "if": "sq_fence",
+     "unless": "sq_fence_done"
+    }
+   ],
+   "ready": "sq_fence"
+  },
+  {
+   "id": "s_pages",
+   "kind": "side",
+   "title": "Torn Glyph Pages",
+   "giver": "Scholar Nema",
+   "where": "Paradise Island",
+   "summary": "Three torn pages of Nema's moon-glyph survey are scattered: one near the cave path, two in the Whispering Wood.",
+   "accept": "sq_pg_q",
+   "done": "sq_pg_done",
+   "steps": [
+    {
+     "text": "Scholar Nema (island): find the torn glyph pages (cave path, Whispering Wood).",
+     "if": "sq_pg_q",
+     "unless": "sq_pg_done",
+     "count": [
+      "sq_pg1",
+      "sq_pg2",
+      "sq_pg3"
+     ]
+    }
+   ],
+   "ready": "sq_pg1,sq_pg2,sq_pg3"
+  },
+  {
+   "id": "s_spring",
+   "kind": "side",
+   "title": "The Spirit Spring",
+   "giver": "Mossbeard",
+   "where": "Whispering Wood",
+   "summary": "Mossbeard asks you to drink from the spirit spring and listen.",
+   "accept": "sq_moss_q",
+   "done": "sq_moss_done",
+   "steps": [
+    {
+     "text": "Mossbeard (Whispering Wood): drink from the spirit spring.",
+     "if": "sq_moss_q",
+     "unless": "sq_spring"
+    },
+    {
+     "text": "Mossbeard: tell him what you heard.",
+     "if": "sq_spring",
+     "unless": "sq_moss_done"
+    }
+   ],
+   "ready": "sq_spring"
+  },
+  {
+   "id": "s_locket",
+   "kind": "side",
+   "title": "The Silver Locket",
+   "giver": "Mara",
+   "where": "Colosseum town",
+   "summary": "Mara lost a silver locket with a blue stone on the harbour road.",
+   "accept": "sq_locket_q",
+   "done": "sq_locket_done",
+   "steps": [
+    {
+     "text": "Mara (Colosseum town): find her locket on the harbour road.",
+     "if": "sq_locket_q",
+     "unless": "sq_locket"
+    },
+    {
+     "text": "Mara: return the locket.",
+     "if": "sq_locket",
+     "unless": "sq_locket_done"
+    }
+   ],
+   "ready": "sq_locket"
+  },
+  {
+   "id": "s_knight",
+   "kind": "side",
+   "title": "The Runaway Knight",
+   "giver": "Pip",
+   "where": "Colosseum town",
+   "summary": "Pip wants the runaway knight on the road dealt with.",
+   "accept": "sq_bounty_q",
+   "done": "sq_bounty_done",
+   "steps": [
+    {
+     "text": "Pip (Colosseum town): defeat the runaway knight on the road.",
+     "if": "sq_bounty_q",
+     "unless": "sq_bounty"
+    },
+    {
+     "text": "Pip: collect your reward.",
+     "if": "sq_bounty",
+     "unless": "sq_bounty_done"
+    }
+   ],
+   "ready": "sq_bounty"
+  },
+  {
+   "id": "s_salvage",
+   "kind": "side",
+   "title": "Loose Salvage",
+   "giver": "Scrapper Vel",
+   "where": "Outpost Kestrel",
+   "summary": "Three salvage crates have gone astray around the outpost.",
+   "accept": "sq_salv_q",
+   "done": "sq_salv_done",
+   "steps": [
+    {
+     "text": "Scrapper Vel (Outpost Kestrel): recover the loose salvage crates.",
+     "if": "sq_salv_q",
+     "unless": "sq_salv_done",
+     "count": [
+      "sq_s1",
+      "sq_s2",
+      "sq_s3"
+     ]
+    }
+   ],
+   "ready": "sq_s1,sq_s2,sq_s3"
+  },
+  {
+   "id": "s_drone",
+   "kind": "side",
+   "title": "The Rogue Drone",
+   "giver": "Corporal Dun",
+   "where": "Outpost Kestrel",
+   "summary": "A drone has gone rogue past the east scaffolding.",
+   "accept": "sq_drone_q",
+   "done": "sq_drone_done",
+   "steps": [
+    {
+     "text": "Corporal Dun (Outpost Kestrel): shut down the rogue drone past the east scaffolding.",
+     "if": "sq_drone_q",
+     "unless": "sq_drone"
+    },
+    {
+     "text": "Corporal Dun: collect the reserve.",
+     "if": "sq_drone",
+     "unless": "sq_drone_done"
+    }
+   ],
+   "ready": "sq_drone"
+  }
+ ],
+ "marks": {
+  "island/mayor0": "main!",
+  "island/mayor2": "main?",
+  "island/elder": "later",
+  "island/elder1": "main!",
+  "forest/willa1": "main?",
+  "dungeon/dg_lani": "main?",
+  "dungeon/dg_sera": "main!",
+  "asteroid/rhea": [
+   {
+    "unless": "st_met",
+    "mark": "main!"
+   }
+  ],
+  "asteroid/lyra": [
+   {
+    "if": "st_met",
+    "mark": "main?"
+   }
+  ],
+  "island/sq_pua0": "side!",
+  "island/sq_pua2": "side?",
+  "island/sq_tane0": "side!",
+  "island/sq_tane2": "side?",
+  "island/sq_nema0": "side!",
+  "island/sq_nema1": [
+   {
+    "if": "sq_pg1,sq_pg2,sq_pg3",
+    "mark": "side?"
+   }
+  ],
+  "forest/sq_moss0": "side!",
+  "forest/sq_moss2": "side?",
+  "outside/sq_mara0": "side!",
+  "outside/sq_mara2": "side?",
+  "outside/sq_pip0": "side!",
+  "outside/sq_pip2": "side?",
+  "asteroid/sq_vel0": "side!",
+  "asteroid/sq_vel1": [
+   {
+    "if": "sq_s1,sq_s2,sq_s3",
+    "mark": "side?"
+   }
+  ],
+  "asteroid/sq_kade0": "side!",
+  "asteroid/sq_kade2": "side?",
+  "island/ferry": "travel"
+ }
+}

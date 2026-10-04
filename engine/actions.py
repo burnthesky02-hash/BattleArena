@@ -1,6 +1,6 @@
 """The Action a combatant takes on their turn, and validation helpers.
 
-Both the human player (via a UI) and the LLM (via ai/enemy_ai.py) ultimately
+Both the human player (via a UI) and the rule-based enemy AI (via ai/enemy_ai.py) ultimately
 produce one of these; battle.py doesn't care which.
 """
 from dataclasses import dataclass, field

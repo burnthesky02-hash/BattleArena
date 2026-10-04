@@ -1,15 +1,14 @@
 """BattleEngine: turn order, round loop, and action resolution.
 
 Design notes:
-- This module knows nothing about pygame, the console, or Ollama. It takes
+- This module knows nothing about pygame, or the console. It takes
   two callables at construction time -- get_party_action and
   get_enemy_action -- and calls whichever one is appropriate when it's a
   given combatant's turn. That's the seam that lets the *same* engine be
   driven by a human player and either a text UI, a pygame UI, or (in tests)
-  a scripted stand-in, while enemies are driven by the local LLM (or a
-  scripted fallback AI when the LLM is unavailable).
+  a scripted stand-in, while enemies are driven by the rule-based AI in ai/enemy_ai.py.
 - resolve_action() is defensive: if a skill_id/item_id/target_id doesn't
-  resolve (e.g. a malformed LLM response), it falls back to something safe
+  resolve (e.g. a stale UI click), it falls back to something safe
   rather than crashing the battle.
 """
 import random
@@ -27,18 +26,11 @@ import engine.formation as formation
 
 MAX_ROUNDS = 100  # safety valve against infinite battles (e.g. two turtling sides that can't kill each other)
 
-# MP never regenerated anywhere in the engine, so skills were usable only 2-3
-# times per battle before falling back to free basic attacks. Each combatant
-# now regains a flat fraction of their own max MP at the start of their own
-# turn (same cadence as tick_statuses() below).
-#
-# Rebalance (Andrew: "some characters never run out of mp"): halved from the original 0.10 -- 10% of
-# max MP per turn meant a full refill in ~10 turns of doing nothing but basic-attacking, which made MP
-# a non-constraint for anyone patient. 0.05 doubles that to ~20 turns, and now compounds with the
-# skill-rank system just below (engine/skills.py's RANK_MP_COST_STEP): a maxed-rank skill costs over
-# 2x its base MP, so regen alone increasingly can't keep pace with a heavily-ranked kit. Minimum 1 per
-# turn unchanged, so this never fully zeroes out for a low-max-MP combatant.
-MP_REGEN_FRACTION = 0.05
+# MP does NOT regenerate during a battle (Andrew: remove the automatic MP regeneration). A combatant's
+# MP is a budget for the whole fight; once it runs dry they fall back to basic attacks. MP comes back
+# only from Ether-type items, resting, or leaving the battle. The constant stays (at 0) so anything that
+# imports it keeps working; set it above 0 to bring a flat per-turn fraction of max MP back.
+MP_REGEN_FRACTION = 0.0
 
 
 @dataclass
@@ -96,7 +88,7 @@ class BattleEngine:
         return sorted(alive, key=lambda c: c.effective_stat("spd") + random.uniform(-3, 3), reverse=True)
 
     # ------------------------------------------------------------------
-    # State snapshot (handed to the UI and to the LLM prompt builder)
+    # State snapshot (handed to the UI and to the enemy AI)
     # ------------------------------------------------------------------
     def build_state(self, for_actor: Optional[Combatant] = None) -> dict:
         state = {
@@ -162,7 +154,7 @@ class BattleEngine:
         # SINGLE_ENEMY (default/fallback case too). Formations (engine/formation.py): a melee actor
         # can only reach enemy_side's front row while it's occupied -- reachable narrows the pool
         # BEFORE a requested id is matched or a random fallback is picked, so a blocked target (from a
-        # stale UI click or a disobedient LLM pick) is never honored, just silently redirected to a
+        # stale UI click or a bad AI pick) is never honored, just silently redirected to a
         # legal one instead of crashing or cheating past the row.
         reachable = formation.reachable_targets(actor, enemy_side)
         chosen = pick_requested(reachable)
@@ -355,10 +347,10 @@ class BattleEngine:
                 continue
             for line in combatant.tick_statuses():
                 self.log(line)
-            regen = max(1, round(combatant.max_mp * MP_REGEN_FRACTION))
-            restored = combatant.restore_mp(regen)
-            if restored:
-                self.log(f"{combatant.name} regenerates {restored} MP.")
+            if MP_REGEN_FRACTION > 0:
+                restored = combatant.restore_mp(max(1, round(combatant.max_mp * MP_REGEN_FRACTION)))
+                if restored:
+                    self.log(f"{combatant.name} regenerates {restored} MP.")
             self._check_result()
             if self.result != BattleResult.ONGOING:
                 return

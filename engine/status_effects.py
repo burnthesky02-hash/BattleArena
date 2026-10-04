@@ -57,6 +57,10 @@ STATUS_DB: Dict[str, StatusEffect] = {
         key="def_down", name="Defense Down", duration=3, stat_mods={"def_": 0.7},
         icon_color=(160, 100, 70), description="Physical defense lowered.",
     ),
+    "charging": StatusEffect(
+        key="charging", name="Charging", duration=3, stat_mods={"atk": 1.6, "mag": 1.6},
+        icon_color=(255, 170, 40), description="Gathering power: the next attack hits much harder. Stun it to break the charge.",
+    ),
     "regen": StatusEffect(
         key="regen", name="Regen", duration=3, dot_damage=0,
         icon_color=(80, 200, 120), description="Recovers HP each turn.",
