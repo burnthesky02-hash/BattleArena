@@ -6,12 +6,12 @@
   "use strict";
   var M = window.JrpgMenu = {};
   var O = {}, root = null, st = null, isOpen = false, busy = false;
-  var CMDS = ["Items", "Magic", "Equip", "Status", "Quests", "Bestiary", "Save", "Settings", "Close"];
-  var TITLES = { main: "Main menu", items: "Check items", magic: "Cast magic", equip: "Change equipment", status: "Check status", quests: "Quest log", bestiary: "Bestiary", save: "Save game", settings: "Settings" };
+  var CMDS = ["Items", "Magic", "Equip", "Status", "Quests", "Bestiary", "Save", "Settings", "Quit Game", "Close"];
+  var TITLES = { main: "Main menu", items: "Check items", magic: "Cast magic", equip: "Change equipment", status: "Check status", quests: "Quest log", bestiary: "Bestiary", save: "Save game", settings: "Settings", quit: "Quit game" };
   var STATS = [["max_hp", "HP"], ["max_mp", "MP"], ["atk", "ATK"], ["def_", "DEF"], ["mag", "MAG"], ["res", "RES"], ["spd", "SPD"], ["luk", "LUK"]];
   var SLOT_LABEL = { weapon: "Weapon", offhand: "Off-hand", armor: "Armor", helmet: "Helmet", boots: "Boots", accessory: "Accessory" };
   var WEIGHT = { light: 0, medium: 1, heavy: 2 }, ARMOR = { armor: 1, helmet: 1, boots: 1 };
-  var mode = "main", ph = "cmd", cmd = 0, li = 0, ci = 0, cas = 0, si = 0, pi = 0, yes = 0, sr = 0, msg = "", msgBad = false, bz = 0, bst = null, qz = 0, qf = 0, qv = [];
+  var mode = "main", ph = "cmd", cmd = 0, li = 0, ci = 0, cas = 0, si = 0, pi = 0, yes = 0, sr = 0, msg = "", msgBad = false, bz = 0, bst = null, qz = 0, qf = 0, qv = [], ski = 0;
 
   /* ---------- settings ---------- */
   var SET_KEY = "rpgSettings";
@@ -78,7 +78,8 @@
   }
   function cmdListHtml() {
     var h = '<div class="jm-panel jm-cmds">';
-    CMDS.forEach(function (c, i) { h += '<div class="jm-row' + (i === cmd ? " cur" : "") + (ph === "cmd" ? "" : " off") + '" data-a="cmd" data-i="' + i + '">' + c + "</div>"; });
+    var anyPts = party().some(function (p) { return (p.talent_points_available || 0) > 0; });
+    CMDS.forEach(function (c, i) { h += '<div class="jm-row' + (i === cmd ? " cur" : "") + (ph === "cmd" ? "" : " off") + '" data-a="cmd" data-i="' + i + '">' + c + (c === "Status" && anyPts ? ' <span class="jm-pt">&#9733;</span>' : "") + "</div>"; });
     return h + "</div>";
   }
   function itemListHtml() {
@@ -139,8 +140,18 @@
     STATS.slice(2).forEach(function (s) { o += '<div class="jm-stat"><b>' + s[1] + "</b><span>" + h.stats[s[0]] + "</span></div>"; });
     o += '</div><div class="jm-col"><div class="jm-ptitle">Equipment</div>';
     st.slots.forEach(function (s) { var e = h.equipped[s]; o += '<div class="jm-stat"><b>' + SLOT_LABEL[s] + "</b><span>" + (e ? esc(e.name) : "&mdash;") + "</span></div>"; });
-    o += '</div><div class="jm-col"><div class="jm-ptitle">Skills</div><div class="jm-scroll">';
-    (h.skills || []).forEach(function (s) { o += '<div class="jm-skill"><b>' + esc(s.name) + "</b> <em>" + s.mp_cost + " MP &middot; rank " + s.rank + "</em><br><small>" + esc(s.description || "") + "</small></div>"; });
+    var pts = h.talent_points_available || 0, sk = h.skills || [];
+    if (ski >= sk.length) ski = Math.max(0, sk.length - 1);
+    o += '</div><div class="jm-col"><div class="jm-ptitle">Skills</div>';
+    o += '<div class="jm-tp">' + (pts > 0 ? '<b>' + pts + '</b> talent point' + (pts === 1 ? "" : "s") + ' to spend &middot; &uarr;&darr; choose, Enter to rank up'
+      : 'No talent points. Next one at level ' + ((Math.floor(h.level / (h.talent_point_interval || 5)) + 1) * (h.talent_point_interval || 5))) + '</div><div class="jm-scroll">';
+    sk.forEach(function (s, i) {
+      var can = pts > 0 && s.rank < s.max_rank;
+      var nx = s.next_mp_cost == null ? "Max rank" : "Next rank: " + s.next_mp_cost + " MP" + (s.next_power != null && s.power > 0 ? " &middot; power " + Math.round(s.power * 100) + "% &rarr; " + Math.round(s.next_power * 100) + "%" : "");
+      o += '<div class="jm-skill' + (i === ski ? " cur" : "") + '" data-a="skrow" data-i="' + i + '"><b>' + esc(s.name) + "</b> <em>" + s.mp_cost + " MP &middot; rank " + s.rank + "/" + s.max_rank + "</em>" +
+        (can ? ' <span class="jm-plus" data-a="sk" data-i="' + i + '" title="Spend a talent point">+</span>' : "") +
+        "<br><small>" + esc(s.description || "") + "</small>" + (i === ski ? '<br><small class="jm-nxr">' + nx + "</small>" : "") + "</div>";
+    });
     return o + "</div></div></div></div>";
   }
   function bestiaryHtml() {
@@ -198,6 +209,9 @@
   function saveHtml() {
     return '<div class="jm-panel jm-center"><div class="jm-big">Save your progress?</div><div class="jm-yn"><div class="jm-row' + (yes === 0 ? " cur" : "") + '" data-a="yn" data-i="0">Yes</div><div class="jm-row' + (yes === 1 ? " cur" : "") + '" data-a="yn" data-i="1">No</div></div></div>';
   }
+  function quitHtml() {
+    return '<div class="jm-panel jm-center"><div class="jm-big">Quit the game?</div><div class="jm-empty">Anything you have not saved is lost.</div><div class="jm-yn"><div class="jm-row' + (yes === 0 ? " cur" : "") + '" data-a="yn" data-i="0">Yes, quit</div><div class="jm-row' + (yes === 1 ? " cur" : "") + '" data-a="yn" data-i="1">No</div></div></div>';
+  }
   function settingsHtml() {
     function row(i, name, val) { return '<div class="jm-row' + (i === sr ? " cur" : "") + '" data-a="set" data-i="' + i + '"><b>' + name + '</b><span class="jm-slide">' + val + "</span></div>"; }
     function sl(v) { var n = Math.round(v * 10), s = ""; for (var i = 0; i < 10; i++) s += '<u class="' + (i < n ? "on" : "") + '"></u>'; return '<i data-a="dec">&#9664;</i>' + s + '<i data-a="inc">&#9654;</i>'; }
@@ -214,9 +228,10 @@
     else if (mode === "bestiary") right = bestiaryHtml();
     else if (mode === "quests") right = questHtml();
     else if (mode === "save") right = saveHtml();
+    else if (mode === "quit") right = quitHtml();
     else if (mode === "settings") right = settingsHtml();
     else right = cardsHtml();
-    var hint = { main: "Choose a command", items: ph === "target" ? "Use on whom?" : "Pick an item", magic: ph === "caster" ? "Whose abilities?" : ph === "skills" ? "Healing spells can be cast here" : "Cast on whom?", equip: ph === "hero" ? "Choose a hero" : ph === "slot" ? "Choose a slot" : "Choose gear", status: "Choose a hero", quests: "Enter: track / untrack  \u00b7  \u2190 \u2192: filter", save: "", settings: "" }[mode] || "";
+    var hint = { main: "Choose a command", items: ph === "target" ? "Use on whom?" : "Pick an item", magic: ph === "caster" ? "Whose abilities?" : ph === "skills" ? "Healing spells can be cast here" : "Cast on whom?", equip: ph === "hero" ? "Choose a hero" : ph === "slot" ? "Choose a slot" : "Choose gear", status: ph === "view" ? "Rank up skills with talent points" : "Choose a hero", quests: "Enter: track / untrack  \u00b7  \u2190 \u2192: filter", save: "", quit: "", settings: "" }[mode] || "";
     root.innerHTML = '<div class="jm-wrap"><div class="jm-head"><div class="jm-title">' + TITLES[mode] + '</div><div class="jm-sub">' + (msg ? '<span class="' + (msgBad ? "bad" : "good") + '">' + esc(msg) + "</span>" : esc(hint)) +
       '</div><div class="jm-back" data-a="back">Esc &middot; ' + (mode === "main" ? "Close" : "Back") + '</div></div><div class="jm-left">' + left + infoHtml() + '</div><div class="jm-right">' + right + "</div></div>";
     var cur = root.querySelector(".jm-list .cur, .jm-col .cur"); if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest" });
@@ -242,6 +257,7 @@
       else if (n === "Bestiary") { bz = 0; bst = null; go("bestiary", "view"); fetch("/api/bestiary").then(function (r) { return r.json(); }).then(function (b) { bst = b; render(); }).catch(function () { say("The server could not be reached.", true); render(); }); }
       else if (n === "Save") { yes = 0; go("save", "confirm"); }
       else if (n === "Settings") { sr = 0; go("settings", "rows"); }
+      else if (n === "Quit Game") { yes = 1; go("quit", "confirm"); }
       if (!party().length && (n === "Magic" || n === "Equip" || n === "Status")) { go("main", "cmd"); say("No one is in your party.", true); }
       sfx("confirm"); return render();
     }
@@ -285,7 +301,8 @@
         return req.then(function (r) { return refresh().then(function () { busy = false; ph = "slot"; say(r.message, !r.ok); sfx(r.ok ? "confirm" : "denied"); render(); }); }, fail);
       }
     }
-    if (mode === "status" && ph === "hero") { ph = "view"; sfx("confirm"); return render(); }
+    if (mode === "status" && ph === "hero") { ph = "view"; ski = 0; sfx("confirm"); return render(); }
+    if (mode === "status" && ph === "view") return rankUpSkill(ski);
     if (mode === "quests") {
       var cq = qv[qz]; if (!cq || cq.status === "done") { sfx("denied"); return; }
       if (window.Hub3D && Hub3D.setTracked) Hub3D.setTracked(cq.id, !cq.tracked);
@@ -295,7 +312,26 @@
       if (yes === 1) return back();
       busy = true; return post("/api/menu/save").then(function (r) { busy = false; go("main", "cmd"); afterAction(r, "confirm"); }, fail);
     }
+    if (mode === "quit") {
+      if (yes === 1) return back();
+      busy = true; return post("/api/menu/quit").then(function () {
+        say("Goodbye.", false); render();
+        try { window.close(); } catch (e) {}
+        setTimeout(function () { document.body.innerHTML = '<div style="color:#f3efd8;font:20px sans-serif;text-align:center;margin-top:30vh">The game has closed. You can close this window.</div>'; }, 700);
+      }, function () { busy = false; try { window.close(); } catch (e) {} say("Could not reach the game. Close this window to quit.", true); render(); });
+    }
     if (mode === "settings") { if (sr === 2) adjust(1); }
+  }
+  function rankUpSkill(i) {
+    if (busy) return;
+    var h = hero(ci), s = h && (h.skills || [])[i];
+    if (!s) { sfx("denied"); return; }
+    if (!(h.talent_points_available > 0)) { say("No talent points to spend. You earn one every " + (h.talent_point_interval || 5) + " levels.", true); sfx("denied"); return render(); }
+    if (s.rank >= s.max_rank) { say(s.name + " is already at max rank.", true); sfx("denied"); return render(); }
+    busy = true;
+    return post("/api/heroes/upgrade_skill", { character_id: h.id, skill_id: s.id }).then(function (r) {
+      return refresh().then(function () { busy = false; say(r.message, !r.ok); sfx(r.ok ? "confirm" : "denied"); render(); });
+    }, fail);
   }
   function fail() { busy = false; say("The server could not be reached.", true); render(); }
   function back() {
@@ -326,7 +362,8 @@
     else if (cardsActive()) ci = wrap(ci + dx + (mode === "equip" || mode === "status" ? dy : 0), n);
     else if (ctx === "equip/slot") { if (dy) si = wrap(si + dy, st.slots.length); else if (dx) ci = wrap(ci + dx, n); }
     else if (ctx === "equip/pick") pi = wrap(pi + dy, candidates().length);
-    else if (ctx === "status/view") ci = wrap(ci + dx, n);
+    else if (ctx === "status/view") { if (dy) ski = wrap(ski + dy, (hero(ci).skills || []).length); else if (dx) { ci = wrap(ci + dx, n); ski = 0; } }
+    else if (ctx === "quit/confirm") yes = wrap(yes + dx + dy, 2);
     else if (ctx === "quests/view") { if (dy) qz = wrap(qz + dy, qv.length); else if (dx) { qf = wrap(qf + dx, QF.length); qz = 0; } }
     else if (ctx === "bestiary/view") { if (!bst) return; bz = wrap(bz + dy + dx * 6, bst.entries.length); }
     else if (ctx === "save/confirm") yes = wrap(yes + dx + dy, 2);
@@ -334,7 +371,7 @@
     else return;
     msg = ""; sfx("hover"); render();
   }
-  function cycleHero() { var n = party().length; if (n < 2 || !(mode === "equip" && ph !== "hero" || mode === "status" && ph === "view")) return; ci = (ci + 1) % n; render(); sfx("hover"); }
+  function cycleHero() { var n = party().length; if (n < 2 || !(mode === "equip" && ph !== "hero" || mode === "status" && ph === "view")) return; ci = (ci + 1) % n; ski = 0; render(); sfx("hover"); }
 
   /* ---------- input ---------- */
   function onKey(e) {
@@ -367,6 +404,8 @@
     if (a === "slot") { if (ph === "pick") ph = "slot"; si = i; ph = "slot"; return confirm(); }
     if (a === "pick") { pi = i; return confirm(); }
     if (a === "yn") { yes = i; return confirm(); }
+    if (a === "sk") { ski = i; return rankUpSkill(i); }
+    if (a === "skrow") { ski = i; sfx("hover"); return render(); }
     if (a === "set") { sr = i; var d = e.target.getAttribute("data-a"); if (d === "dec") return adjust(-1); if (d === "inc") return adjust(1); if (d === "tog") return adjust(1); render(); return; }
     if (a === "dec" || a === "inc" || a === "tog") { var row = t.closest("[data-i]"); sr = row ? parseInt(row.getAttribute("data-i"), 10) : sr; return adjust(a === "dec" ? -1 : 1); }
   }
@@ -422,7 +461,7 @@
       ".jm-cols{flex:1;min-height:0;display:grid;grid-template-columns:1.1fr 1.2fr 1fr;gap:12px;padding-top:10px}.jm-col{min-width:0;min-height:0;display:flex;flex-direction:column}",
       ".jm-col .jm-row{font-size:clamp(13px,1.8vh,16px);padding:6px 8px}.jm-col .jm-row span{text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
       ".jm-stat{display:flex;gap:10px;padding:5px 8px;font-size:clamp(13px,1.8vh,16px);border-bottom:1px solid rgba(232,199,102,.18)}.jm-stat b{width:78px;color:#bfe3ee;font-weight:600}.jm-stat span{font-weight:700}.jm-stat i{font-style:normal;margin-left:auto;font-weight:700}.jm-stat i.up{color:#9df08a}.jm-stat i.dn{color:#ff9a8a}",
-      ".jm-eqd{padding:8px;font-size:14px;line-height:1.5}.jm-skill{padding:5px 6px;border-bottom:1px solid rgba(232,199,102,.18);font-size:14px}.jm-skill em{font-style:normal;font-size:12px;opacity:.75}.jm-skill small{opacity:.8}",
+      ".jm-eqd{padding:8px;font-size:14px;line-height:1.5}.jm-skill{padding:5px 6px;border-bottom:1px solid rgba(232,199,102,.18);font-size:14px}.jm-skill em{font-style:normal;font-size:12px;opacity:.75}.jm-skill small{opacity:.8}.jm-skill.cur{background:rgba(232,199,102,.16);outline:1px solid #e8c76699}.jm-skill{position:relative}.jm-plus{display:inline-block;margin-left:6px;width:22px;height:22px;line-height:20px;text-align:center;border-radius:50%;background:#e8c766;color:#2a1a00;font-weight:700;cursor:pointer}.jm-plus:hover{background:#fff1b8}.jm-tp{font-size:13px;margin:0 4px 6px;opacity:.9}.jm-tp b{color:#ffe9a0}.jm-nxr{color:#a8f0b0}.jm-pt{color:#ffe46b}",
       ".jm-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}.jm-center.wide{align-items:stretch;padding:20px 8%}.jm-big{font-size:26px;font-weight:700;color:#ffe9a0}",
       ".jm-qtabs{display:flex;gap:8px;margin:0 0 8px}.jm-qtabs span{cursor:pointer;padding:2px 12px;border:1px solid rgba(232,199,102,.3);border-radius:999px;font-size:13px;opacity:.7}.jm-qtabs span.on{opacity:1;border-color:#e8c766;color:#e8c766}",
       ".jm-qk{display:inline-block;font-style:normal;font-size:11px;font-weight:800;padding:0 5px;border-radius:4px}.jm-qk.main{background:#ffd23f;color:#2a1d00}.jm-qk.side{background:#4fb3ff;color:#04223a}",

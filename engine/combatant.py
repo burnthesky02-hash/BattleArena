@@ -49,6 +49,14 @@ class Combatant:
         self.status_effects: List[StatusEffect] = []
         self.defending: bool = False
         self.formation = clamp_formation(self.formation)
+        # --- ATB (engine/battle.py's step()): gauge 0..1 while "charging", then "ready" (waiting for a command),
+        # then "casting" (a skill with a cast time) until it resolves and the gauge starts over.
+        self.atb_gauge: float = 0.0
+        self.atb_phase: str = "charging"
+        self.cast: Optional[dict] = None          # {"action", "total", "left", "name", "pushed"} while casting
+        self.ready_since: float = 0.0
+        self.turn_count: int = 0                  # commands requested from this combatant so far
+        self.turns_skipped: int = 0               # turns lost to a stun
 
     # --- state queries -----------------------------------------------
     @property
@@ -177,4 +185,6 @@ class Combatant:
             "sprite_color": self.sprite_color,
             "formation": self.formation,
             "is_melee": self.is_melee,
+            "atb_phase": self.atb_phase,
+            "casting": self.cast["name"] if self.cast else None,
         }

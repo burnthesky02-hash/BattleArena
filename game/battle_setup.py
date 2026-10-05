@@ -245,6 +245,10 @@ def build_hero_enemy_combatant(recruit: RecruitableHero, level: int) -> Combatan
 MONSTER_STAT_SCALE = {"max_hp": 0.80, "atk": 0.80, "mag": 0.80, "def_": 0.90, "res": 0.90}
 
 
+ENEMY_MP_FLOOR = 30
+ENEMY_MP_PER_LEVEL = 3
+
+
 def _apply_monster_nerf(stats) -> None:
     for name, mult in MONSTER_STAT_SCALE.items():
         setattr(stats, name, max(1, round(getattr(stats, name) * mult)))
@@ -257,6 +261,9 @@ def build_enemy_combatant(enemy_id: str, level: int) -> Combatant:
     archetype = ENEMY_ARCHETYPES[enemy_id]
     stats = apply_growth(archetype.base_stats, archetype.growth, level)
     _apply_monster_nerf(stats)
+    # Brutes used to carry 10-14 MP -- enough for one or two skills, then plain attacks all fight. Every monster
+    # gets enough MP for a handful of skill casts, so battles keep showing their kit.
+    stats.max_mp = max(stats.max_mp, ENEMY_MP_FLOOR + ENEMY_MP_PER_LEVEL * max(1, level))
     return Combatant(
         name=archetype.name, is_enemy=True,
         base_stats=stats,

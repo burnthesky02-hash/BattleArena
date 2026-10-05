@@ -17,6 +17,10 @@ class Skill:
     status_chance: float = 0.0              # 0..1
     lifesteal: float = 0.0                  # fraction of dealt damage the caster heals for (magical/physical)
     description: str = ""
+    # --- ATB / boss "brace or die" attacks ---
+    cast_time: Optional[float] = None       # seconds of cast bar; None = derived from kind and MP cost (engine/battle.py)
+    interruptible_by_damage: bool = True    # False: hits do not delay this cast (a stun still cancels it)
+    undefended_mult: float = 1.0            # damage multiplier when the target is NOT defending (Defend is the answer)
 
     def is_offensive(self) -> bool:
         return self.kind in ("physical", "magical")

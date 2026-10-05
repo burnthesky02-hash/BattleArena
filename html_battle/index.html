@@ -45,6 +45,10 @@
     border-radius: 999px; padding: 4px 14px; font-size: 13px; cursor: pointer;
   }
   #auto-btn.on { background: var(--accent); color: #fff; border-color: #fff8; }
+  #dbg-auto-btn { display: none; position: absolute; top: 6px; left: calc(50% + 175px); z-index: 20;
+    background: var(--panel-bg); color: #ffd36a; border: 1px dashed #ffd36a99;
+    border-radius: 999px; padding: 4px 14px; font-size: 13px; cursor: pointer; }
+  #dbg-auto-btn.on { background: #ffd36a; color: #1a1408; border-style: solid; }
   #round-label {
     position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
     font-size: 13px; color: var(--text-dim);
@@ -143,6 +147,29 @@
   @keyframes np-bob { from { margin-bottom: 0; } to { margin-bottom: 6px; } }
 
   /* --- bottom command panel --- */
+  /* --- ATB: gauges, cast bars, turn-order strip --- */
+  .nameplate .np-atb { height: 4px; margin: 2px auto 0; width: 64px; background: #000a; border-radius: 3px; overflow: hidden; }
+  .nameplate .np-atbfill { height: 100%; width: 0; background: #e8c547; transition: width .1s linear; }
+  .nameplate .np-atbfill.ready { background: #fff6b0; box-shadow: 0 0 6px #fff6b0; }
+  .nameplate .np-atbfill.casting { background: #ff9440; }
+  .nameplate .np-cast { font-size: 11px; color: #ffcf8a; min-height: 0; line-height: 13px; display: none; }
+  .nameplate.casting .np-cast { display: block; }
+  .bar-fill.atb { background: #e8c547; transition: width .1s linear; }
+  .bar-fill.atb.ready { background: #fff6b0; }
+  .bar-fill.atb.casting { background: #ff9440; }
+  .status-row .castname { font-size: 11px; color: #ffcf8a; height: 13px; line-height: 13px; }
+  #atb-timeline { position: absolute; right: 16px; top: 52px; width: 168px; z-index: 30; pointer-events: none;
+    background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 10px; padding: 6px 8px 8px; font-size: 12px; }
+  #atb-timeline .tl-title { font-size: 10px; letter-spacing: .08em; color: var(--text-dim); text-transform: uppercase;
+    display: flex; justify-content: space-between; margin-bottom: 4px; }
+  #atb-timeline .tl-title .wait { color: #ffe27a; }
+  #atb-timeline .tl-row { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; margin-bottom: 2px;
+    border-left: 3px solid #4a8; background: rgba(255,255,255,0.04); white-space: nowrap; overflow: hidden; }
+  #atb-timeline .tl-row.foe { border-left-color: #d55; }
+  #atb-timeline .tl-row.first { background: rgba(255,230,140,0.14); }
+  #atb-timeline .tl-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  #atb-timeline .tl-cast { color: #ffcf8a; font-size: 10px; }
+  #atb-timeline .tl-eta { color: var(--text-dim); font-size: 11px; min-width: 30px; text-align: right; }
   #command-panel {
     position: absolute; left: 16px; bottom: 16px; width: 220px;
     background: var(--panel-bg); border: 1px solid var(--panel-border);
@@ -260,6 +287,23 @@
   #flash { position: absolute; inset: 0; z-index: 27; pointer-events: none; opacity: 0; }
   #flash.go { animation: fl 0.6s ease-out; }
   @keyframes fl { 0% { opacity: 0.75; } 100% { opacity: 0; } }
+  /* Top "what is happening" bar (FFXII-style): centred, fades at both ends, one line per action + effect lines. */
+  #cast-banner { position: absolute; top: 12px; left: 50%; z-index: 2000; opacity: 0; pointer-events: none;
+    min-width: 380px; max-width: 70%; padding: 8px 56px 10px; text-align: center; font-family: inherit; font-size: 22px;
+    color: #fff; white-space: nowrap; text-shadow: 0 2px 4px #000; transform: translate(-50%, -10px);
+    background: linear-gradient(90deg, rgba(20,40,120,0) 0%, rgba(20,40,120,0.88) 16%, rgba(20,40,120,0.88) 84%, rgba(20,40,120,0) 100%);
+    border-top: 1px solid rgba(160,190,255,0.35); border-bottom: 1px solid rgba(160,190,255,0.35);
+    transition: opacity .15s ease, transform .15s ease; }
+  #cast-banner.show { opacity: 1; transform: translate(-50%, 0); }
+  #cast-banner .cb-who { color: #fff; }
+  #cast-banner .cb-verb { color: #d6dcff; }
+  #cast-banner .cb-what { color: #ffe08a; font-weight: bold; }
+  #cast-banner .cb-fx { font-size: 18px; color: #bfe3ff; margin-top: 3px; }
+  #cast-banner.foe { background: linear-gradient(90deg, rgba(120,25,35,0) 0%, rgba(120,25,35,0.88) 16%, rgba(120,25,35,0.88) 84%, rgba(120,25,35,0) 100%);
+    border-color: rgba(255,170,170,0.35); }
+  #cast-banner.foe .cb-fx { color: #ffd0c0; }
+  #cast-banner .cb-fx.warn { color: #ffe27a; font-weight: bold; letter-spacing: .04em; animation: warnpulse .5s ease-in-out infinite alternate; }
+  @keyframes warnpulse { from { opacity: .65; } to { opacity: 1; } }
   #stage.shake { animation: shk 0.5s linear; }
   @keyframes shk { 0%,100% { transform: translate(0,0); } 15% { transform: translate(-9px,4px); } 30% { transform: translate(8px,-5px); }
     45% { transform: translate(-7px,-3px); } 60% { transform: translate(6px,5px); } 80% { transform: translate(-3px,2px); } }
@@ -349,8 +393,11 @@
 
 <div id="viewport">
   <div id="stage">
+    <div id="cast-banner"></div>
     <div id="round-label">Round --</div>
+    <div id="atb-timeline"></div>
     <button id="auto-btn" onclick="toggleAuto()">Auto: OFF</button>
+    <button id="dbg-auto-btn" onclick="toggleDbgAuto()" title="Debug: a full-player bot plays your party (defends braced casts, heals, buffs, focus fires)">Bot: OFF</button>
     <div id="connect-banner">Connecting to battle_server.py...</div>
     <div id="log-panel"></div>
     <button id="log-toggle" onclick="toggleLog()">Expand log</button>
@@ -726,7 +773,7 @@ class SpriteView {
     this.nameplate = document.createElement("div");
     this.nameplate.className = "nameplate " + (facingRight ? "enemy" : "party");
     this.nameplate.style.top = `${-SPRITE_H * this.hScale - 30}px`;
-    this.nameplate.innerHTML = '<div class="np-name"></div><div class="np-bar"><div class="np-fill"></div></div><div class="np-shield"><div></div></div><div class="np-mark">MARKED</div><div class="np-status"></div>';
+    this.nameplate.innerHTML = '<div class="np-name"></div><div class="np-bar"><div class="np-fill"></div></div><div class="np-atb"><div class="np-atbfill"></div></div><div class="np-cast"></div><div class="np-shield"><div></div></div><div class="np-mark">MARKED</div><div class="np-status"></div>';
     this.anchor.appendChild(this.nameplate);
     this.anchor.addEventListener("click", () => window.onSpriteClicked?.(this.id));
 
@@ -1194,9 +1241,12 @@ function renderStatusPanel(actingId) {
       <div class="name${c.id === actingId ? " acting" : ""}"><span>${c.name}</span><span>${c.hp}/${c.max_hp} HP</span></div>
       <div class="bar-track"><div class="bar-fill hp" style="width:${hpPct}%"></div></div>
       ${c.max_mp > 0 ? `<div class="bar-track"><div class="bar-fill mp" style="width:${mpPct}%"></div></div>` : ""}
+      <div class="bar-track"><div class="bar-fill atb" data-atb="${c.id}" style="width:0%"></div></div>
+      <div class="castname" data-cast="${c.id}"></div>
     `;
     panel.appendChild(row);
   }
+  applyAtbToUi();
 }
 
 let debugOn = false;
@@ -1205,6 +1255,29 @@ function setDebugUi(on) {
   debugOn = on;
   document.getElementById("log-panel").classList.toggle("dbg", on);
   document.getElementById("log-toggle").style.display = on ? "block" : "none";
+  document.getElementById("dbg-auto-btn").style.display = on ? "block" : "none";
+  if (on) {                                   // the bot setting survives from fight to fight (each fight reloads this page)
+    let want = false;
+    try { want = sessionStorage.getItem("dbgAuto") === "1"; } catch (e) {}
+    if (want) send({ type: "debug_auto", on: true });
+  }
+}
+let dbgAutoOn = false;
+function toggleDbgAuto() {
+  const want = !dbgAutoOn;
+  try { sessionStorage.setItem("dbgAuto", want ? "1" : "0"); } catch (e) {}
+  if (want && autoOn) toggleAuto();           // the old simple Auto and the bot would fight over the same prompts
+  send({ type: "debug_auto", on: want });
+}
+function handleDbgAuto(msg) {
+  dbgAutoOn = !!msg.on;
+  const b = document.getElementById("dbg-auto-btn");
+  b.textContent = dbgAutoOn ? "Bot: ON" : "Bot: OFF";
+  b.classList.toggle("on", dbgAutoOn);
+  if (dbgAutoOn) {
+    document.getElementById("command-panel").style.display = "none";
+    currentNeed = null;
+  }
 }
 function toggleLog() {
   const p = document.getElementById("log-panel");
@@ -1430,6 +1503,59 @@ function mergeStaticFields(state, prev) {
   return state;
 }
 
+/* ---- ATB: gauge / cast-bar / turn-order rendering ---------------------------------------------------------- */
+const atbUnits = new Map();     // combatant id -> {ph, g, fs, cl, ct, cn} from the server's 10 Hz "atb" snapshot
+let atbPaused = false;
+function atbEta(u) { return u.ph === "ready" ? 0 : u.ph === "casting" ? (u.cl || 0) : (1 - u.g) * u.fs; }
+function handleAtb(msg) {
+  atbUnits.clear();
+  (msg.units || []).forEach((u) => atbUnits.set(u.id, u));
+  atbPaused = !!msg.paused;
+  applyAtbToUi();
+}
+function applyAtbToUi() {
+  sprites.forEach((sp, id) => {
+    const u = atbUnits.get(id);
+    const fill = sp.nameplate.querySelector(".np-atbfill"), cast = sp.nameplate.querySelector(".np-cast");
+    if (!u) { fill.style.width = "0%"; sp.nameplate.classList.remove("casting"); return; }
+    const casting = u.ph === "casting";
+    fill.style.width = (casting ? 100 * (1 - (u.cl || 0) / Math.max(0.01, u.ct || 1)) : 100 * u.g) + "%";
+    fill.className = "np-atbfill" + (u.ph === "ready" ? " ready" : casting ? " casting" : "");
+    sp.nameplate.classList.toggle("casting", casting);
+    cast.textContent = casting ? (u.cn || "") : "";
+  });
+  document.querySelectorAll("#status-panel [data-atb]").forEach((el) => {
+    const u = atbUnits.get(el.dataset.atb);
+    if (!u) { el.style.width = "0%"; return; }
+    const casting = u.ph === "casting";
+    el.style.width = (casting ? 100 * (1 - (u.cl || 0) / Math.max(0.01, u.ct || 1)) : 100 * u.g) + "%";
+    el.className = "bar-fill atb" + (u.ph === "ready" ? " ready" : casting ? " casting" : "");
+  });
+  document.querySelectorAll("#status-panel [data-cast]").forEach((el) => {
+    const u = atbUnits.get(el.dataset.cast);
+    el.textContent = u && u.ph === "casting" ? "Casting " + (u.cn || "") : "";
+  });
+  const tl = document.getElementById("atb-timeline");
+  if (!tl || !latestState) return;
+  const byId = new Map();
+  for (const side of ["party", "enemies"]) for (const c of latestState[side] || []) byId.set(c.id, { c, foe: side === "enemies" });
+  const rows = [...atbUnits.values()].filter((u) => byId.has(u.id)).map((u) => ({ u, ...byId.get(u.id), eta: atbEta(u) }))
+    .sort((a, b) => a.eta - b.eta).slice(0, 9);
+  tl.innerHTML = `<div class="tl-title"><span>Turn order</span>${atbPaused ? '<span class="wait">time stopped</span>' : ""}</div>` +
+    rows.map((r, i) => `<div class="tl-row${r.foe ? " foe" : ""}${i === 0 ? " first" : ""}"><span class="tl-name">${esc(r.c.name)}</span>` +
+      (r.u.ph === "casting" ? `<span class="tl-cast">${esc(r.u.cn || "")}</span>` : "") +
+      `<span class="tl-eta">${r.u.ph === "ready" ? "now" : r.eta.toFixed(1) + "s"}</span></div>`).join("");
+}
+function atbPause(on) { try { if (socket && socket.readyState === 1) send({ type: "atb_pause", on: !!on }); } catch (e) { /* ignore */ } }
+function handleNeedCancel(msg) {
+  for (let i = msgQueue.length - 1; i >= 0; i--) if (msgQueue[i].type === "need_action" && msgQueue[i].actor_id === msg.actor_id) msgQueue.splice(i, 1);
+  if (!currentNeed || currentNeed.actorId !== msg.actor_id) return;
+  currentNeed = null;
+  document.getElementById("command-panel").style.display = "none";
+  hideTooltip();
+  clearTargeting();
+}
+
 async function handleNeedAction(actorId, state) {
   state = mergeStaticFields(state, latestState);
   latestState = state; // full snapshot -- includes actor-specific fields too
@@ -1438,7 +1564,7 @@ async function handleNeedAction(actorId, state) {
   currentNeed = { actorId, state };
   if (autoOn) {
     const need = currentNeed;
-    setTimeout(() => { if (currentNeed === need) autoAct(); }, 500); // brief beat so the fight stays readable
+    setTimeout(() => { if (currentNeed === need) autoAct(); }, 800); // brief beat so the fight stays readable
     return;
   }
 
@@ -1452,6 +1578,7 @@ async function handleNeedAction(actorId, state) {
     if (ids.length === 0) return null;
     if (ids.length === 1 && !allowEmpty) return ids[0];
     document.getElementById("command-title").textContent = "Choose a target (click a sprite or a name)";
+    atbPause(true);
     buttons.innerHTML = "";
     hideTooltip();
     for (const c of pool) {
@@ -1493,6 +1620,7 @@ async function handleNeedAction(actorId, state) {
   }
 
   function finish(actionMsg) {
+    atbPause(false);
     currentNeed = null;
     panel.style.display = "none";
     hideTooltip();
@@ -1504,6 +1632,7 @@ async function handleNeedAction(actorId, state) {
   }
 
   function showMainMenu() {
+    atbPause(false);
     showMenu([
       { label: "Attack", onClick: async () => {
           const targetId = await chooseTargetFrom(reachableEnemies(state, state.enemies.filter((c) => c.alive)));
@@ -1519,6 +1648,7 @@ async function handleNeedAction(actorId, state) {
   }
 
   function showSkillMenu() {
+    atbPause(true);
     const items = state.available_skills.map((s) => ({
       label: `${s.name}${s.rank > 1 ? ` Rk${s.rank}` : ""} (${s.mp_cost} MP)`,
       disabled: state.actor_mp < s.mp_cost,
@@ -1536,6 +1666,7 @@ async function handleNeedAction(actorId, state) {
   }
 
   function showItemMenu() {
+    atbPause(true);
     const items = state.available_items.map((it) => ({
       label: `${it.name} x${it.count}`,
       tooltip: itemTooltipHtml(it),
@@ -1900,8 +2031,64 @@ async function playProjectileFx(fromPt, toPt, elementCfg, boltSize, impactSize, 
   await playImpactFx(elementCfg.impact, toPt.x, toPt.y, elementCfg.tint, impactSize || 170);
 }
 
+// ---- Pacing + cast banner -------------------------------------------------------------------
+// BATTLE_PACE stretches every beat of the fight (banner hold, gap between actions). 1 = old speed.
+const BATTLE_PACE = 1.0;   // ATB paces the fight itself now; this only stretches the banner / pre-move beat
+let _bannerTimer = null;
+function showCastBanner(msg) {
+  const el = document.getElementById("cast-banner");
+  if (!el) return;
+  const t = msg.action_type, who = msg.actor_name || "Someone";
+  let verb, what = "";
+  if (t === "skill" && msg.skill_name) {
+    const kind = msg.skill_kind;
+    verb = (msg.casting || kind === "magical" || kind === "heal") ? " begins casting " : " uses "; what = msg.skill_name;
+  } else if (t === "item" && msg.item_name) { verb = " uses "; what = msg.item_name; }
+  else if (t === "defend") verb = " defends";
+  else if (t === "flee") verb = " tries to flee";
+  else if (t === "attack") verb = " attacks";
+  else return;
+  el.innerHTML = "";
+  const line = document.createElement("div"); el.appendChild(line);
+  const add = (cls, text) => { const sp = document.createElement("span"); sp.className = cls; sp.textContent = text; line.appendChild(sp); };
+  add("cb-who", who); add("cb-verb", verb); if (what) add("cb-what", what); add("cb-verb", ".");
+  el.className = "show" + (msg.actor_is_enemy ? " foe" : "");
+  clearTimeout(_bannerTimer);
+  _bannerTimer = setTimeout(() => { el.className = ""; }, Math.round(1500 * BATTLE_PACE));
+}
+
+// Effect lines ("Goblin's attack increased.") hang under the action line once the move has landed.
+function showCastEffects(msg) {
+  const el = document.getElementById("cast-banner");
+  if (!el || !msg.lines || !msg.lines.length) return;
+  if (!el.classList.contains("show")) { el.innerHTML = ""; el.className = "show" + (msg.actor_is_enemy ? " foe" : ""); }
+  msg.lines.forEach((t) => { const d = document.createElement("div"); d.className = "cb-fx" + (msg.warn ? " warn" : ""); d.textContent = t; el.appendChild(d); });
+  clearTimeout(_bannerTimer);
+  const hold = msg.warn ? Math.round((msg.total || 4) * 1000) + 600 : Math.round(1500 * BATTLE_PACE);
+  _bannerTimer = setTimeout(() => { el.className = ""; }, hold);
+}
+
+function handleCastStart(msg) {
+  showCastBanner({ action_type: "skill", skill_name: msg.skill_name, skill_kind: msg.skill_kind, actor_name: msg.actor_name,
+                   actor_is_enemy: msg.actor_is_enemy, casting: true });
+  const sp = sprites.get(msg.actor_id);
+  if (sp && sp.poke) sp.poke("cast");
+  if (msg.brace) { showCastEffects({ lines: ["Defend before it lands!"], actor_is_enemy: msg.actor_is_enemy, warn: true, total: msg.total }); playSfx(SFX.encounter, 0.6); }
+}
+
 async function handleActionEvent(msg) {
-  await returnDone;            // one action finishes (attacker back home) before the next begins
+  await returnDone;
+  if (!msg.was_cast) {                 // a finished cast already showed its banner when the cast began
+    showCastBanner(msg);
+    const big = msg.action_type === "skill" || msg.action_type === "item";
+    await wait(Math.round((big ? 700 : 450) * BATTLE_PACE));   // let the banner read before the move starts
+  }
+  await playActionEvent(msg);
+  await wait(Math.round(350 * BATTLE_PACE));                 // breathing room after the hit lands
+}
+
+async function playActionEvent(msg) {
+             // one action finishes (attacker back home) before the next begins
   combatHint = { element: msg.element || "physical", skill_kind: msg.skill_kind, crit: new Set(), weak: new Set() };
   const actor = sprites.get(msg.actor_id);
   const animKind = msg.anim_kind || (msg.is_melee ? "melee" : null);
@@ -2182,7 +2369,10 @@ function connect() {
   // Server messages are played back strictly in order: a melee action holds the queue until the attacker
   // has reached its target, and the next action waits for it to get back (see returnDone).
   socket.onmessage = (event) => {
-    msgQueue.push(JSON.parse(event.data));
+    const m = JSON.parse(event.data);
+    if (m.type === "atb") { handleAtb(m); return; }          // live gauges bypass the animation queue
+    if (m.type === "need_cancel") { handleNeedCancel(m); }    // a hero fell / lost the turn while choosing
+    msgQueue.push(m);
     pumpMessages();
   };
 }
@@ -2202,9 +2392,14 @@ async function dispatchMessage(msg) {
   switch (msg.type) {
     case "state": handleState(msg.state); break;
     case "log": appendLog(msg.message, msg.debug); break;
+    case "action_effects": showCastEffects(msg); await wait(Math.round(450 * BATTLE_PACE)); break;
     case "action_event": await handleActionEvent(msg); break;
+    case "cast_start": handleCastStart(msg); break;
+    case "cast_cancel": showCastEffects({ lines: [`${msg.actor_name}'s casting is interrupted!`], actor_is_enemy: msg.actor_is_enemy }); break;
+    case "anim_sync": await returnDone; send({ type: "anim_done", seq: msg.seq }); break;
     case "dialogue": await returnDone; showDialogue(msg.lines || []); break;
     case "fx": handleFx(msg); if (msg.kind === "pause") await wait(msg.ms || 0); break;
+    case "debug_auto": handleDbgAuto(msg); break;
     case "need_action": await returnDone; handleNeedAction(msg.actor_id, msg.state); break;
     case "battle_end": await returnDone; handleBattleEnd(msg); break;
     case "ladder_status": renderLadderHud(msg); break;

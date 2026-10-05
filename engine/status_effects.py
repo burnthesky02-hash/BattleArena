@@ -61,6 +61,14 @@ STATUS_DB: Dict[str, StatusEffect] = {
         key="charging", name="Charging", duration=3, stat_mods={"atk": 1.6, "mag": 1.6},
         icon_color=(255, 170, 40), description="Gathering power: the next attack hits much harder. Stun it to break the charge.",
     ),
+    "haste": StatusEffect(
+        key="haste", name="Haste", duration=4, stat_mods={"spd": 1.5},
+        icon_color=(255, 220, 90), description="Acts and casts faster.",
+    ),
+    "slow": StatusEffect(
+        key="slow", name="Slow", duration=4, stat_mods={"spd": 0.6},
+        icon_color=(120, 120, 200), description="Acts and casts slower.",
+    ),
     "regen": StatusEffect(
         key="regen", name="Regen", duration=3, dot_damage=0,
         icon_color=(80, 200, 120), description="Recovers HP each turn.",

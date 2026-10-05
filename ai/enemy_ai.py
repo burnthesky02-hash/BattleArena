@@ -92,6 +92,43 @@ PROFILES: Dict[str, dict] = {
     "null_reaper":        {"target": "strongest", "finisher": ("executioners_edge", 0.5),
                            "adaptive": True, "chaos": 0.05},
 }
+# ---- ATB traits ------------------------------------------------------------------------------------------------
+# Layered on the profiles above (only used when the battle runs ATB):
+#   heavy    {skill_id: (cast_seconds, brace_mult)}  a signature move: a long, telegraphed cast that hits brace_mult x as hard
+#            on anyone NOT defending. Used at most every HEAVY_COOLDOWN_TURNS of the enemy's own turns, and only when some hero
+#            can still act before it lands (so "Defend" is always an answer).
+#   disrupt  prefers heroes that are mid-cast (a hit delays / a stun cancels the cast)
+#   enrage   HP fraction under which it flies into a frenzy (Haste) once
+#   start    (lo, hi) opening gauge: ambushers act early, brutes lumber in
+ATB_TRAITS: Dict[str, dict] = {
+    "iron_golem":         {"heavy": {"crushing_blow": (3.5, 1.7)}, "start": (0.0, 0.15)},
+    "bandit_rogue":       {"disrupt": True, "start": (0.45, 0.8), "enrage": 0.3},
+    "goblin_skirmisher":  {"disrupt": True, "start": (0.4, 0.75), "enrage": 0.35},
+    "stone_gargoyle":     {"heavy": {"crushing_blow": (3.5, 1.7)}, "start": (0.0, 0.15)},
+    "flame_imp":          {"start": (0.3, 0.6), "enrage": 0.35},
+    "storm_harpy":        {"disrupt": True, "start": (0.5, 0.9)},
+    "venom_spider":       {"start": (0.2, 0.5)},
+    "cursed_knight":      {"heavy": {"crushing_blow": (3.5, 1.7)}, "enrage": 0.3},
+    "colosseum_champion": {"heavy": {"crushing_blow": (3.5, 1.7)}, "enrage": 0.35, "start": (0.2, 0.5)},
+    "shard_sentry":       {"heavy": {"ground_slam": (4.0, 1.6)}, "start": (0.0, 0.2)},
+    "abyssal_horror":     {"heavy": {"thunderbolt": (4.0, 1.6)}, "enrage": 0.3},
+    "arc_drone":          {"disrupt": True, "start": (0.4, 0.8)},
+    "phase_hound":        {"disrupt": True, "start": (0.55, 0.95), "enrage": 0.35},
+    "forge_juggernaut":   {"heavy": {"crushing_blow": (4.0, 1.8), "ground_slam": (4.0, 1.6)}, "start": (0.0, 0.1)},
+    "null_reaper":        {"heavy": {"executioners_edge": (3.5, 1.8)}, "start": (0.3, 0.6)},
+}
+for _k, _v in ATB_TRAITS.items():
+    PROFILES.setdefault(_k, {}).update(_v)
+HEAVY_COOLDOWN_TURNS = 3
+
+
+def opening_gauge(combatant):
+    """(lo, hi) opening ATB gauge for this enemy, or None for the default."""
+    return profile_for(combatant).get("start")
+
+
+SKILL_MP_WEIGHT = 0.3     # was 0.8: MP was treated as precious, so enemies hoarded it and basic-attacked
+SKILL_BONUS = 1.35        # damage skills score this much over the same hit as a plain attack
 DEFAULT_PROFILE: dict = {"target": "balanced"}
 HERO_RIVAL_PROFILE: dict = {"target": "balanced", "adaptive": True, "chaos": 0.07}
 
@@ -152,6 +189,9 @@ class _Brain:
         self.opened: Dict[str, set] = {}        # actor id -> skill ids already used as openers
         self.charges: Dict[str, dict] = {}      # actor id -> {"skill", "round", "released"}
         self.last_charge_round: Dict[str, int] = {}
+        self.last_skill: Dict[str, Optional[str]] = {}
+        self.heavy_turn: Dict[str, int] = {}        # actor id -> own-turn count when it last used a heavy move
+        self.enraged: set = set()
         self.skills = _skills_db()
 
     # --- helpers -------------------------------------------------------
@@ -178,6 +218,8 @@ class _Brain:
             w *= 1.45
         if t.get("name") == marks.get("nuker"):
             w *= 1.30
+        if prof.get("disrupt") and t.get("casting"):
+            w *= 1.8        # a hit delays the cast, so cut off whoever is winding up
         return w
 
     def _marks(self, prof: dict) -> dict:
@@ -212,8 +254,8 @@ class _Brain:
     # --- charge / telegraph ----------------------------------------------
     def _maybe_charge(self, actor, state, prof, sk_list, party) -> Optional[Action]:
         sid = prof.get("charge")
-        if not sid:
-            return None
+        if not sid or state.get("atb"):
+            return None     # ATB: the cast bar is the telegraph (and can be interrupted), so no separate charge turn
         sk = next((s for s in sk_list if s["id"] == sid), None)
         if sk is None or sk["mp_cost"] > actor.mp:
             return None
@@ -279,6 +321,18 @@ class _Brain:
 
         reach = self._reachable(actor, party)
         hp_frac = actor.hp / max(1, actor.max_hp)
+        atb = bool(state.get("atb"))
+        turn = state.get("actor_turn", 0)
+        if atb and prof.get("enrage") and hp_frac < prof["enrage"] and actor.id not in self.enraged:
+            from engine.status_effects import get_status
+            self.enraged.add(actor.id)
+            actor.add_status(get_status("haste"))
+            self.notify({"phase": "enrage", "combatant_id": actor.id, "combatant_name": actor.name,
+                         "message": f"{actor.name} flies into a frenzy!"})
+        heavy = prof.get("heavy", {}) if atb else {}
+        last_h = self.heavy_turn.get(actor.id)
+        heavy_ready = bool(heavy) and turn >= 1 and (last_h is None or turn - last_h >= HEAVY_COOLDOWN_TURNS)
+        can_react = any(p.get("eta", 0.0) <= 2.5 for p in party)      # someone gets a turn within the wind-up
         opened = self.opened.setdefault(actor.id, set())
         chaos = prof.get("chaos", 0.12)
         aoe_at = prof.get("aoe_at", 3)
@@ -297,11 +351,17 @@ class _Brain:
             if sk["mp_cost"] > actor.mp:
                 continue
             sid, kind, tgt = sk["id"], sk["kind"], sk["target"]
+            if sid in heavy and not (heavy_ready and can_react):
+                continue                     # a signature move is only ever used as the telegraphed heavy version
+            hb = 1.4 if sid in heavy else 1.0
             db = self.skills.get(sid)
             applies = getattr(db, "status_to_apply", None) if db else None
             opener = sid if sid in prof.get("open", []) and sid not in opened else None
             open_bonus = 500.0 if opener else 0.0   # openers are close to forced, once each
-            cost = 0.8 * sk["mp_cost"]
+            cost = SKILL_MP_WEIGHT * sk["mp_cost"]
+            # Enemies should show their kit: a skill beats a plain attack unless it is clearly worse, and the one used
+            # last turn is dimmed so a monster rotates through its moves instead of spamming the strongest.
+            stale = 0.8 if self.last_skill.get(actor.id) == sid else 1.0
 
             if kind in ("physical", "magical"):
                 if tgt == "all_enemies":
@@ -311,7 +371,7 @@ class _Brain:
                         total += 10.0 * (len(party) - aoe_at + 1)
                     if marks.get("turtle"):
                         total *= 1.2
-                    add(total - cost + open_bonus, Action.use_skill(actor.id, sid, [p["id"] for p in party]), opener)
+                    add(total * SKILL_BONUS * stale * hb - cost + open_bonus, Action.use_skill(actor.id, sid, [p["id"] for p in party]), opener)
                 else:
                     for t in reach:
                         est = self._est(actor, sk, t)
@@ -323,7 +383,7 @@ class _Brain:
                             score += 40.0
                         if applies and applies not in t["statuses"]:
                             score += 0.10 * t["max_hp"] * prof.get("debuff", 1.0)
-                        add(score - cost + open_bonus, Action.use_skill(actor.id, sid, [t["id"]]), opener)
+                        add(score * SKILL_BONUS * stale * hb - cost + open_bonus, Action.use_skill(actor.id, sid, [t["id"]]), opener)
             elif kind == "status":
                 if tgt == "self":
                     if applies and actor.has_status(applies):
@@ -335,7 +395,7 @@ class _Brain:
                         score += 70.0 * (1.0 - hp_frac) if hp_frac < 0.7 else -15.0
                     elif applies == "atk_up" and state.get("round", 1) <= 2:
                         score += 15.0
-                    add(score - cost + open_bonus, Action.use_skill(actor.id, sid, [actor.id]), opener)
+                    add(score * stale - cost + open_bonus, Action.use_skill(actor.id, sid, [actor.id]), opener)
                 elif tgt == "single_enemy":
                     for t in reach:
                         if applies and applies in t["statuses"]:
@@ -365,6 +425,11 @@ class _Brain:
         score, action, opener = max(options, key=lambda o: o[0])
         if opener:
             opened.add(opener)
+        self.last_skill[actor.id] = action.skill_id if action.type == ActionType.SKILL else None
+        if action.type == ActionType.SKILL and action.skill_id in heavy:
+            cast, brace = heavy[action.skill_id]
+            action.cast_time, action.brace_mult = cast, brace
+            self.heavy_turn[actor.id] = turn
         return action
 
 

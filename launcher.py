@@ -30,6 +30,7 @@ if not FROZEN:
 LOG_PATH = os.path.join(APP_DIR, "launcher.log")
 URL = "http://127.0.0.1:8767/"
 HTTP_PORT = 8767
+_APP_PROC = None          # the game window process (set in _open_window)
 
 
 def _redirect_output_if_headless() -> None:
@@ -96,7 +97,8 @@ def _open_window(use_browser: bool, fullscreen: bool = False) -> None:
     ]
     if fullscreen:
         flags.append("--kiosk")
-    proc = subprocess.Popen(flags)
+    global _APP_PROC
+    proc = _APP_PROC = subprocess.Popen(flags)          # hub_server's Esc-menu "Quit Game" terminates this window
     proc.wait()               # returns when the game window is closed
     time.sleep(0.5)
     print("[launcher] window closed -- shutting down.")

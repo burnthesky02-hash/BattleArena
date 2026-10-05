@@ -24,6 +24,27 @@ from engine.types import ActionType, TargetType, BattleResult
 import engine.formulas as formulas
 import engine.formation as formation
 
+# ---- ATB (active time battle) tuning --------------------------------------------------------------------------------
+# Every combatant has a gauge that fills over fill_seconds(); at full they get a turn ("ready"), pick a command, and
+# skills with a cast time run a cast bar before they resolve. Speed is compressed (SPEED_BIAS) so a fast monster acts a
+# bit more often than a slow one rather than five times as often. Retune by feel.
+ATB_FILL_K = 240.0           # fill_seconds = K / (spd + SPEED_BIAS), clamped
+ATB_SPEED_BIAS = 18.0
+ATB_FILL_MIN, ATB_FILL_MAX = 3.0, 16.0
+ATB_START_MAX = 0.45         # opening gauges are random in [0, this] so nobody opens in lockstep
+ROUND_SECONDS = 8.0          # boss scripts count "rounds": one per this many seconds of un-frozen battle time
+ATB_MAX_SECONDS = 1200.0     # draw if a fight runs this long
+ATB_TICK = 0.05              # seconds of battle time per loop tick
+# Cast times (seconds) by skill kind: base + per_mp * mp_cost. 0-MP skills, attacks, items, defend and flee are instant.
+CAST_BASE = {"physical": (0.8, 0.10), "magical": (1.2, 0.11), "heal": (1.0, 0.09), "status": (0.8, 0.07)}
+CAST_MAX = 5.0
+CAST_AOE_MULT = 1.25
+# Interrupts: every hit on a casting unit delays its cast by CAST_PUSH_BASE + damage/max_hp (capped) of the cast time.
+CAST_PUSH_BASE = 0.12
+CAST_PUSH_DMG_CAP = 0.30
+CAST_PUSH_TOTAL_CAP = 1.0    # the total delay can never exceed this fraction of the original cast time
+STUN_GAUGE_LOSS = 0.5        # a stunned unit that is not casting loses this much gauge
+
 MAX_ROUNDS = 100  # safety valve against infinite battles (e.g. two turtling sides that can't kill each other)
 
 # MP does NOT regenerate during a battle (Andrew: remove the automatic MP regeneration). A combatant's
@@ -43,11 +64,25 @@ class BattleEngine:
     get_party_action: Callable[[Combatant, dict], Action]
     get_enemy_action: Callable[[Combatant, dict], Action]
     on_event: Optional[Callable[[str], None]] = None   # optional live-log hook for a UI
+    # --- ATB mode (see the ATB constants above) ---
+    atb: bool = False
+    # Non-blocking command source for heroes: (combatant, state) -> Action, or None while the player is still choosing.
+    # Without it ATB falls back to get_party_action (which then must answer immediately).
+    poll_party_action: Optional[Callable[[Combatant, dict], Optional[Action]]] = None
+    on_tick: Optional[Callable[["BattleEngine"], None]] = None        # every ATB tick (UI snapshot, input pump)
+    on_cast_start: Optional[Callable[[Combatant, Action, float], None]] = None
+    on_cast_cancel: Optional[Callable[[Combatant, str], None]] = None  # reason: "stun" | "dead"
+    on_need_cancel: Optional[Callable[[Combatant], None]] = None       # a ready hero lost their turn before choosing
+    sleep: Optional[Callable[[float], None]] = None                    # real-time wait per tick (None = run flat out)
 
     def __post_init__(self):
         self.log_history: List[str] = []
         self.result: BattleResult = BattleResult.ONGOING
         self.round_number: int = 0
+        self.clock: float = 0.0          # ATB battle time in seconds (frozen while paused / animating)
+        self.paused: bool = False        # set by the host while the player is in a sub-menu (wait mode)
+        self._rng = random.Random()
+        self._last_action_was_cast: bool = False   # read by the host's resolve wrapper (was this a finished cast?)
 
     # ------------------------------------------------------------------
     # Lookup helpers
@@ -93,14 +128,20 @@ class BattleEngine:
     def build_state(self, for_actor: Optional[Combatant] = None) -> dict:
         state = {
             "round": self.round_number,
+            "atb": self.atb,
             "party": [c.to_public_dict() for c in self.party],
             "enemies": [c.to_public_dict() for c in self.enemies],
             "log_tail": self.log_history[-8:],
             "result": self.result.value,
         }
+        if self.atb:
+            for entry, c in zip(state["party"], self.party):
+                entry["eta"] = round(self.eta(c), 2)         # seconds until this hero can act (the AI times its heavy casts by it)
         if for_actor is not None:
             state["actor_id"] = for_actor.id
             state["actor_name"] = for_actor.name
+            state["actor_turn"] = for_actor.turn_count
+            state["actor_skipped"] = for_actor.turns_skipped
             state["actor_persona"] = for_actor.persona
             state["actor_mp"] = for_actor.mp
             # Formation (engine/formation.py): lets a UI/AI pre-filter which single-target actions are
@@ -226,13 +267,20 @@ class BattleEngine:
                 continue
             dealt = 0
             if skill.kind == "physical":
-                result = formulas.physical_damage(actor, target, power)
-                dealt = target.take_damage(result.amount)
+                result = formulas.physical_damage(actor, target, power * action.power_mult)
+                amount = result.amount
+                brace = skill.undefended_mult * action.brace_mult
+                if brace != 1.0 and not target.defending:
+                    amount = round(amount * brace)      # a brace-or-die attack: Defend is the answer
+                dealt = target.take_damage(amount)
                 crit_txt = " Critical!" if result.crit else ""
                 self.log(f"  {target.name} takes {dealt} damage.{crit_txt}")
             elif skill.kind == "magical":
-                result = formulas.magical_damage(actor, target, power, skill.element)
-                dealt = target.take_damage(result.amount)
+                result = formulas.magical_damage(actor, target, power * action.power_mult, skill.element)
+                amount = result.amount
+                if action.brace_mult != 1.0 and not target.defending:
+                    amount = round(amount * action.brace_mult)
+                dealt = target.take_damage(amount)
                 crit_txt = " Critical!" if result.crit else ""
                 weak_txt = " It's super effective!" if target.resistances.get(skill.element, 1.0) > 1.0 else ""
                 self.log(f"  {target.name} takes {dealt} {skill.element.value} damage.{crit_txt}{weak_txt}")
@@ -374,8 +422,231 @@ class BattleEngine:
             self.resolve_action(action)
             self._check_result()
 
+
+    # ------------------------------------------------------------------
+    # ATB (active time battle)
+    # ------------------------------------------------------------------
+    def fill_seconds(self, c: Combatant) -> float:
+        spd = c.effective_stat("spd")
+        return max(ATB_FILL_MIN, min(ATB_FILL_MAX, ATB_FILL_K / (spd + ATB_SPEED_BIAS)))
+
+    def eta(self, c: Combatant) -> float:
+        """Seconds until c next acts (0 when ready; the cast time left while casting)."""
+        if c.atb_phase == "ready":
+            return 0.0
+        if c.atb_phase == "casting" and c.cast:
+            return max(0.0, c.cast["left"])
+        return max(0.0, (1.0 - c.atb_gauge) * self.fill_seconds(c))
+
+    def cast_seconds(self, actor: Combatant, action: Action) -> float:
+        """How long this command's cast bar runs. Attacks, items, defend and flee are instant."""
+        if action.type != ActionType.SKILL or not action.skill_id:
+            return 0.0
+        skill = self.skills_db.get(action.skill_id)
+        if skill is None:
+            return 0.0
+        explicit = action.cast_time if action.cast_time is not None else getattr(skill, "cast_time", None)
+        if explicit is not None:
+            base = float(explicit)
+        else:
+            mp = mp_cost_at_rank(skill, actor.rank_of(skill.id))
+            if mp <= 0:
+                return 0.0
+            b, per = CAST_BASE.get(skill.kind, CAST_BASE["status"])
+            base = b + per * mp
+            if getattr(skill.target, "value", skill.target) in ("all_enemies", "all_allies"):
+                base *= CAST_AOE_MULT
+        if explicit is not None:
+            return base          # a hand-set cast (boss telegraph, heavy move) is the same length whoever casts it
+        base = min(CAST_MAX, base)
+        speed_factor = max(0.7, min(1.6, (actor.effective_stat("spd") + ATB_SPEED_BIAS) / 30.0))
+        return base / speed_factor
+
+    def begin_atb(self) -> None:
+        """Opening gauges: random head starts, round counter at 1."""
+        self.round_number = 1
+        for c in self.all_combatants():
+            start = getattr(c, "atb_start", None)       # (lo, hi) opening-gauge range a profile asked for, else the default
+            lo, hi = start if start else (0.0, ATB_START_MAX)
+            c.atb_gauge = self._rng.uniform(lo, hi)
+            c.atb_phase = "charging"
+            c.cast = None
+
+    def _ready_heroes(self) -> List[Combatant]:
+        return sorted((c for c in self.party if c.alive and c.atb_phase == "ready"), key=lambda c: c.ready_since)
+
+    def _turn_ready(self, c: Combatant) -> None:
+        """A gauge just filled: statuses tick, then an enemy decides at once and a hero waits for the player."""
+        for line in c.tick_statuses():
+            self.log(line)
+        self._check_result()
+        if self.result != BattleResult.ONGOING or not c.alive:
+            return
+        if c.is_stunned():
+            self.log(f"{c.name} is stunned and can't act!")
+            c.turns_skipped += 1
+            c.atb_gauge, c.atb_phase = 0.0, "charging"
+            return
+        c.atb_gauge, c.atb_phase, c.ready_since = 1.0, "ready", self.clock
+        if c.is_enemy:
+            self._request_action(c)
+
+    def _request_action(self, c: Combatant) -> Optional[Action]:
+        """Asks the right source for c's command. Returns the action once started (cast or executed), else None."""
+        state = self.build_state(for_actor=c)
+        try:
+            if c.is_enemy:
+                action = self.get_enemy_action(c, state)
+            elif self.poll_party_action is not None:
+                action = self.poll_party_action(c, state)
+            else:
+                action = self.get_party_action(c, state)
+        except Exception as exc:  # noqa: BLE001 - a bad action source must never crash the battle
+            self.log(f"({c.name}'s action failed to resolve: {exc}; defending instead.)")
+            action = Action.defend(c.id)
+        if action is None:
+            return None
+        c.turn_count += 1
+        self._begin_action(c, action)
+        return action
+
+    def _begin_action(self, c: Combatant, action: Action) -> None:
+        total = self.cast_seconds(c, action)
+        if total <= 0.05:
+            self._execute(c, action)
+            return
+        skill = self.skills_db.get(action.skill_id)
+        c.cast = {"action": action, "total": total, "left": total, "pushed": 0.0, "name": skill.name if skill else "?",
+                  "pushback": bool(getattr(skill, "interruptible_by_damage", True)) and not action.no_pushback,
+                  "brace": action.brace_mult > 1.0 or getattr(skill, "undefended_mult", 1.0) > 1.0}
+        c.atb_phase = "casting"
+        if self.on_cast_start:
+            self.on_cast_start(c, action, total)
+
+    def _execute(self, c: Combatant, action: Action) -> None:
+        """Resolves the action now (cast finished or instant), then restarts the actor's gauge."""
+        was_cast = c.cast is not None
+        hp_before = {x.id: x.hp for x in self.all_combatants()}
+        stun_before = {x.id: x.is_stunned() for x in self.all_combatants()}
+        c.cast = None
+        c.atb_gauge, c.atb_phase = 0.0, "charging"
+        action_cast_flag = was_cast
+        self._last_action_was_cast = action_cast_flag
+        self.resolve_action(action)
+        self._after_action_interrupts(c, hp_before, stun_before)
+        self._check_result()
+
+    def _after_action_interrupts(self, actor: Combatant, hp_before: dict, stun_before: dict) -> None:
+        """Hits delay other units' casts; a freshly stunned unit loses its cast (or half its gauge)."""
+        for x in self.all_combatants():
+            if x is actor or not x.alive and x.cast is None:
+                continue
+            if not x.alive:
+                if x.cast is not None:
+                    x.cast = None
+                    x.atb_phase, x.atb_gauge = "charging", 0.0
+                    if self.on_cast_cancel:
+                        self.on_cast_cancel(x, "dead")
+                continue
+            if not stun_before.get(x.id) and x.is_stunned():
+                if x.cast is not None:
+                    x.cast = None
+                    x.atb_phase, x.atb_gauge = "charging", 0.0
+                    self.log(f"{x.name}'s casting is interrupted by the stun!")
+                    if self.on_cast_cancel:
+                        self.on_cast_cancel(x, "stun")
+                elif x.atb_phase == "charging":
+                    x.atb_gauge = max(0.0, x.atb_gauge - STUN_GAUGE_LOSS)
+                continue
+            if x.cast is not None:
+                lost = max(0, hp_before.get(x.id, x.hp) - x.hp)
+                if lost > 0 and x.cast.get("pushback", True):
+                    cast = x.cast
+                    push = cast["total"] * (CAST_PUSH_BASE + min(CAST_PUSH_DMG_CAP, lost / max(1, x.max_hp)))
+                    push = min(push, cast["total"] * CAST_PUSH_TOTAL_CAP - cast["pushed"])
+                    if push > 0:
+                        cast["left"] += push
+                        cast["pushed"] += push
+                        self.log(f"{x.name}'s {cast['name']} is delayed!")
+
+    def _finish_cast(self, c: Combatant) -> None:
+        action = c.cast["action"] if c.cast else None
+        if action is None:
+            c.atb_phase, c.atb_gauge = "charging", 0.0
+            return
+        self._execute(c, action)
+
+    def step(self, dt: float) -> None:
+        """Advances ATB battle time by dt seconds (gauges fill, casts count down, turns come up)."""
+        if self.result != BattleResult.ONGOING:
+            return
+        self.clock += dt
+        new_round = int(self.clock // ROUND_SECONDS) + 1
+        if new_round > self.round_number:
+            self.round_number = new_round
+        units = [c for c in self.all_combatants() if c.alive]
+        self._rng.shuffle(units)
+        for c in units:
+            if self.result != BattleResult.ONGOING:
+                return
+            if not c.alive:
+                continue
+            if c.atb_phase == "charging":
+                c.atb_gauge += dt / self.fill_seconds(c)
+                if c.atb_gauge >= 1.0:
+                    c.atb_gauge = 1.0
+                    self._turn_ready(c)
+            elif c.atb_phase == "casting" and c.cast is not None:
+                c.cast["left"] -= dt
+                if c.cast["left"] <= 0:
+                    self._finish_cast(c)
+        self._check_result()
+
+    def service_heroes(self) -> None:
+        """Offers a command slot to every ready hero, longest-waiting first."""
+        for h in self._ready_heroes():
+            if self.result != BattleResult.ONGOING:
+                return
+            if h.is_stunned():
+                if self.on_need_cancel:
+                    self.on_need_cancel(h)
+                h.turns_skipped += 1
+                h.atb_gauge, h.atb_phase = 0.0, "charging"
+                continue
+            self._request_action(h)
+
+    def run_atb(self) -> BattleResult:
+        self.begin_atb()
+        while self.result == BattleResult.ONGOING and self.clock < ATB_MAX_SECONDS:
+            self.service_heroes()
+            if self.result != BattleResult.ONGOING:
+                break
+            if not self.paused:
+                self.step(ATB_TICK)
+            if self.on_tick:
+                self.on_tick(self)
+            if self.sleep:
+                self.sleep(ATB_TICK)
+        if self.result == BattleResult.ONGOING:
+            self.log("The battle drags on too long and ends in a draw.")
+            self.result = BattleResult.DEFEAT
+        return self.result
+
+    def timeline(self) -> List[dict]:
+        """Who acts next: [{id, name, is_enemy, eta, phase, cast}] soonest first (for the turn-order strip)."""
+        out = []
+        for c in self.all_combatants():
+            if not c.alive:
+                continue
+            eta = self.eta(c)
+            out.append({"id": c.id, "name": c.name, "is_enemy": c.is_enemy, "eta": round(eta, 2),
+                        "phase": c.atb_phase, "cast": c.cast["name"] if c.cast else None})
+        return sorted(out, key=lambda e: e["eta"])
+
     def run(self) -> BattleResult:
         """Runs rounds until the battle ends. Returns the final result."""
+        if self.atb:
+            return self.run_atb()
         while self.result == BattleResult.ONGOING and self.round_number < MAX_ROUNDS:
             self.run_round()
         if self.result == BattleResult.ONGOING:

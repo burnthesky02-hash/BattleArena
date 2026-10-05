@@ -37,7 +37,7 @@ def save_game(state: PlayerState, path: str = SAVE_PATH) -> None:
         "equipment_shards": state.equipment_shards,
         "inventory": state.inventory,
         "equipment_instances": {
-            iid: {"base_id": inst.base_id, "bonus_stats": inst.bonus_stats}
+            iid: {"base_id": inst.base_id, "bonus_stats": inst.bonus_stats, "upgrade_level": inst.upgrade_level}
             for iid, inst in state.equipment_instances.items()
         },
         "equipment_stash": list(state.equipment_stash),
@@ -61,6 +61,7 @@ def save_game(state: PlayerState, path: str = SAVE_PATH) -> None:
         "active_party": list(state.active_party),
         "cleared_bosses": list(state.cleared_bosses),
         "bestiary": {k: {"seen": int(v.get("seen", 0)), "defeated": int(v.get("defeated", 0))} for k, v in state.bestiary.items()},
+        "arena_team_bought": bool(state.arena_team_bought),
         "rank": state.rank,
         "renown": state.renown,
         "tickets": dict(state.tickets),
@@ -161,7 +162,8 @@ def load_game(path: str = SAVE_PATH) -> PlayerState:
     else:
         instances = {
             iid: EquipmentInstance(instance_id=iid, base_id=rec.get("base_id", ""),
-                                   bonus_stats=dict(rec.get("bonus_stats", {})))
+                                   bonus_stats=dict(rec.get("bonus_stats", {})),
+                                   upgrade_level=int(rec.get("upgrade_level", 0) or 0))
             for iid, rec in data.get("equipment_instances", {}).items()
         }
         stash = list(data.get("equipment_stash", []))
@@ -195,6 +197,8 @@ def load_game(path: str = SAVE_PATH) -> PlayerState:
         bestiary={str(k): {"seen": int(v.get("seen", 0)), "defeated": int(v.get("defeated", 0))} for k, v in (data.get("bestiary") or {}).items() if isinstance(v, dict)},
         # Ranks/renown are new: a save from before them has neither key. Derive the rank from the bosses
         # already cleared (so a player who beat the Champion is already Rank 2) and start renown at 0.
+        # An older save has no flag: it already has a Colosseum roster (anyone who isn't a story hero) -> counts as bought.
+        arena_team_bought=bool(data["arena_team_bought"]) if "arena_team_bought" in data else any(not c.is_story for c in characters),
         rank=data.get("rank") or _renown.rank_for_cleared(data.get("cleared_bosses", [])),
         renown=data.get("renown", 0),
         tickets={"common": 0, "premium": 0, **{k: int(v) for k, v in data.get("tickets", {}).items()}},

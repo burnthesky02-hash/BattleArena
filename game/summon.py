@@ -139,6 +139,12 @@ def _roll_character(player_state: PlayerState, r: _random_module.Random,
     return HeroSummonResult(rarity, recruit, False, 0, message)
 
 
+def free_team_summon(player_state: PlayerState, rng: Optional[_random_module.Random] = None) -> HeroSummonResult:
+    """The free pull that comes with buying the arena team: one random hero at the Common Summon's odds, no cost.
+    Still random -- the tutorial just does the pull for the player."""
+    return _roll_character(player_state, rng or _random_module, weights=_COMMON_ROLL_WEIGHTS)
+
+
 def _pay(player_state: PlayerState, currency: str, cost_each: int, count: int, ticket_kind: str, pay: str,
          shard_cost_each: Optional[int] = None):
     """Returns an error message, or None after deducting the cost.

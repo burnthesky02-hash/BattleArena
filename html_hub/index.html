@@ -246,6 +246,37 @@
   #tut-back:disabled { opacity: 0.3; cursor: not-allowed; }
   #tut-next { background: linear-gradient(180deg, #e8c766, #b8892c); color: #241a05; border-color: #fff3c8; }
 
+  /* ---------- "Hire your arena team" tutorial: opens when a freed player first tries to fight in the Colosseum ---------- */
+  #team-overlay {
+    position: fixed; inset: 0; z-index: 70; background: rgba(6,5,10,0.86);
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  #team-overlay.open { display: flex; }
+  #team-modal {
+    width: min(480px, 100%); background: #17141f; border: 1px solid var(--panel-border);
+    border-radius: 16px; padding: 24px 26px 20px 26px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); text-align: center;
+  }
+  #team-icon { font-size: 34px; margin-bottom: 6px; }
+  #team-title { font-size: 19px; font-weight: 800; color: var(--gold); margin: 0 0 10px 0; }
+  #team-body { font-size: 13px; line-height: 1.6; color: var(--text); min-height: 60px; }
+  #team-card { margin: 14px auto 0 auto; }
+  #team-card .hero-reveal {
+    display: inline-block; min-width: 220px; padding: 16px 22px; border-radius: 14px; border: 2px solid var(--gold);
+    background: rgba(255,255,255,0.05); animation: team-pop 0.7s ease-out;
+  }
+  #team-card .hero-reveal .nm { font-size: 22px; font-weight: 800; }
+  #team-card .hero-reveal .sub { font-size: 12px; opacity: 0.8; margin-top: 4px; text-transform: capitalize; }
+  #team-card .circle { font-size: 54px; animation: team-spin 1.4s linear infinite; display: inline-block; }
+  @keyframes team-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes team-spin { to { transform: rotate(360deg); } }
+  #team-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; gap: 10px; }
+  #team-nav button {
+    padding: 9px 18px; border-radius: 10px; border: 1px solid var(--panel-border); cursor: pointer;
+    font-weight: 800; font-size: 12px; color: var(--text); background: rgba(255,255,255,0.05);
+  }
+  #team-nav button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #team-go { background: linear-gradient(180deg, #e8c766, #b8892c) !important; color: #241a05 !important; border-color: #fff3c8 !important; margin-left: auto; }
+
   #debug-btn {
     position: absolute; z-index: 3; bottom: 12px; left: 12px;
     background: rgba(200,40,40,0.75); border: 1px solid rgba(255,120,120,0.6);
@@ -418,6 +449,18 @@
     <div id="tut-nav">
       <button id="tut-back" type="button">Back</button>
       <button id="tut-next" type="button">Next</button>
+    </div>
+  </div>
+</div>
+<div id="team-overlay">
+  <div id="team-modal">
+    <div id="team-icon"></div>
+    <div id="team-title"></div>
+    <div id="team-body"></div>
+    <div id="team-card"></div>
+    <div id="team-nav">
+      <button id="team-cancel" type="button">Not yet</button>
+      <button id="team-go" type="button"></button>
     </div>
   </div>
 </div>
@@ -653,12 +696,72 @@
     }).then(function (r) { return r.json(); });
   }
 
+  // ---- Hire-your-team tutorial. After the Pit the Colosseum roster is empty: the player pays for a team and the
+  // game does one free (random) summon for them, step by step. Triggered by Battle / Ladder / boss challenge. ----
+  var teamStep = 0, teamBusy = false;
+  function needTeam() { return !!(state && state.arena_team === false && !state.slave); }
+  function teamShow(icon, title, body, cardHtml, goLabel, canCancel) {
+    document.getElementById("team-icon").textContent = icon;
+    document.getElementById("team-title").textContent = title;
+    document.getElementById("team-body").textContent = body;
+    document.getElementById("team-card").innerHTML = cardHtml || "";
+    var go = document.getElementById("team-go"); go.textContent = goLabel; go.disabled = false;
+    document.getElementById("team-cancel").style.display = canCancel ? "" : "none";
+  }
+  function openTeamTutorial() {
+    teamStep = 0; teamBusy = false;
+    var cost = (state && state.arena_team_cost) || 300, gold = (state && state.money) || 0;
+    teamShow("\u2694\uFE0F", "You need a team",
+      "The Colosseum only lets registered teams onto the sand. Hire a team of fighters for " + cost + " gold and the summoning circle will call your first hero for free. " +
+      "You have " + gold + " gold.", "", "Hire a team (" + cost + " gold)", true);
+    if (gold < cost) { var g = document.getElementById("team-go"); g.disabled = true; g.textContent = "Need " + (cost - gold) + " more gold"; }
+    document.getElementById("team-overlay").classList.add("open");
+  }
+  function closeTeamTutorial() { document.getElementById("team-overlay").classList.remove("open"); fetchState(); }
+  document.getElementById("team-cancel").addEventListener("click", function () { playSfx(SFX.decline); closeTeamTutorial(); });
+  document.getElementById("team-go").addEventListener("click", function () {
+    if (teamBusy) return;
+    if (teamStep === 0) {
+      teamBusy = true; playSfx(SFX.confirm);
+      teamShow("\u2726", "The summoning circle hums\u2026", "Your free summon is happening now. Who answers is up to fate.", '<span class="circle">\u2726</span>', "\u2026", false);
+      document.getElementById("team-go").disabled = true;
+      var started = Date.now();
+      fetch("/api/arena/buy_team", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          var wait = Math.max(0, 1600 - (Date.now() - started));
+          setTimeout(function () {
+            teamBusy = false;
+            if (!res.ok) { playSfx(SFX.denied); showToast(res.message || "Could not hire a team."); closeTeamTutorial(); return; }
+            var h = (res.results && res.results[0]) || {};
+            render(res);
+            playSfx(SFX.confirm);
+            teamShow("\u2728", "A hero answers!", res.message || "",
+              '<div class="hero-reveal" style="border-color:' + (res.rarity_color || "#e8c766") + '"><div class="nm" style="color:' + (res.rarity_color || "#e8c766") + '">' + (h.name || "Hero") +
+              '</div><div class="sub">' + (h.rarity || "") + " &middot; " + String(h.class_id || "").replace(/_/g, " ") + "</div></div>", "Next", false);
+            teamStep = 1;
+          }, wait);
+        })
+        .catch(function () { teamBusy = false; playSfx(SFX.denied); showToast("Could not reach the hub server."); closeTeamTutorial(); });
+      return;
+    }
+    if (teamStep === 1) {
+      playSfx(SFX.confirm); teamStep = 2;
+      teamShow("\u{1F6E1}\uFE0F", "Your team is registered",
+        "Enter Battle to choose who fights and which row they stand in. More fighters come from Summon (tickets, gems or gold); gear them up in Heroes. " +
+        "Win fights to earn Renown, rank up and challenge the next champion.", "", "Enter the Colosseum", false);
+      return;
+    }
+    playSfx(SFX.confirm); closeTeamTutorial();
+  });
+
   document.addEventListener("click", function (ev) {
     var el = ev.target.closest("[data-action]");
     if (!el) return;
     var action = el.getAttribute("data-action");
     playSfx(SFX.confirm);   // every data-action here is a navigation/confirm click
 
+    if ((action === "battle" || action === "ladder") && needTeam()) { openTeamTutorial(); return; }
     if (action === "battle") {
       if (state && state.battle_url) window.location.href = state.battle_url;
       return;
@@ -670,9 +773,13 @@
     if (action === "ladder") {
       fetch("/api/ladder/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
         .then(function (r) { return r.json(); })
-        .then(function (res) { if (res.ok) window.location.href = res.url; else { playSfx(SFX.denied); showToast(res.message || "Not yet."); } })
+        .then(function (res) { if (res.ok) window.location.href = res.url; else if (res.need_team) openTeamTutorial(); else { playSfx(SFX.denied); showToast(res.message || "Not yet."); } })
         .catch(function () { playSfx(SFX.denied); showToast("Could not reach the hub server."); });
       return;
+    }
+    if (action === "heroes" || action === "shop") {
+      if (!window.__viaNpc) { try { sessionStorage.removeItem("h3dVendor"); } catch (e) { /* best-effort */ } }   // opened from the plain nav: default vendor
+      window.__viaNpc = false;
     }
     if (action === "heroes") {
       window.location.href = "/heroes";
@@ -697,10 +804,12 @@
 
   document.getElementById("challenge-btn").addEventListener("click", function () {
     if (!state || !state.ladder || !state.ladder.unlocked) return;
+    if (needTeam()) { openTeamTutorial(); return; }
     fetch("/api/boss/challenge", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (res.ok) window.location.href = res.url;
+        else if (res.need_team) openTeamTutorial();
         else { playSfx(SFX.denied); showToast(res.message || "Not yet."); }
       })
       .catch(function () { playSfx(SFX.denied); showToast("Could not reach the hub server."); });
@@ -861,7 +970,7 @@
     { icon: "🛡️", title: "Build your party", body:
       "Enter Battle to pick up to 4 heroes and set each one's row — front, middle, or rear (max 2 heroes per row). Front takes less damage, middle deals more, rear deals and takes less but heals for more. Melee attackers can't reach past an enemy's occupied front row." },
     { icon: "⭐", title: "Heroes & growth", body:
-      "On the Heroes page, level up, spend talent points on skill ranks, and equip gear across 6 slots. A hero downed in battle isn't lost — they're just wounded and rest a couple of runs (or you can pay gold to heal them right away)." },
+      "On the Heroes page, level up, equip gear across 6 slots (the Blacksmith can upgrade weapons). Spend talent points on skill ranks from the Status page of the Esc menu. A hero downed in battle isn't lost — they're just wounded and rest a couple of runs (or you can pay gold to heal them right away)." },
     { icon: "💎", title: "Legacies", body:
       "Once a hero reaches their rarity's level cap, you can retire them for a permanent Legacy item. It's a deliberate trade you choose to make, not a penalty for losing a fight." },
     { icon: "🛍️", title: "Shop & Summon", body:
@@ -917,15 +1026,16 @@
     playSfx(SFX.confirm);
     openTutorial();
   });
-  var _seenTutorial = false;
-  try { _seenTutorial = localStorage.getItem(BA_TUTORIAL_KEY) === "1"; } catch (e) { /* best-effort */ }
-  if (!_seenTutorial) openTutorial();
+  // The overview no longer pops up by itself: it used to open at the very start of a new game, over the opening
+  // cutscene. It is still one click away (the ? button), and the "hire your team" tutorial below teaches the loop
+  // at the moment the Colosseum actually opens up.
 
   // 3D plaza: NPCs trigger the same controls the 2D menu uses. Falls back to the 2D layout if WebGL is unavailable.
   function h3dActivate(a) {
     var el = a === "challenge" ? document.getElementById("challenge-btn") : document.querySelector('#navbar [data-action="' + a + '"]');
     if (!el) return;
     if (el.disabled) { playSfx(SFX.denied); return; }
+    window.__viaNpc = true;      // a 3D NPC opened this (hub3d.js already stored which shop / smith it is)
     el.click();
   }
   if (window.JrpgMenu) JrpgMenu.init({ sfx: playSfx, SFX: SFX });

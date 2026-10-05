@@ -96,7 +96,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote, parse_qs
 from typing import Dict, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -104,7 +104,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import config
 import builder3d_api
-from ai.enemy_ai import decay_memory, make_enemy_ai_fn, new_rival_memory
+from ai.enemy_ai import decay_memory, make_enemy_ai_fn, new_rival_memory, opening_gauge
 from data.equipment_db import EQUIPMENT
 from data.hero_rarity import HERO_SUMMON_WEIGHTS, STORY_RARITY, rarity_multiplier, HERO_RARITY_COLOR, MAX_STARS, shard_cost_for_next_star, star_display
 from data.items_db import ITEMS, STARTING_INVENTORY
@@ -117,7 +117,9 @@ from engine.actions import Action
 from engine.battle import BattleEngine
 from engine import formulas
 from engine.combatant import Combatant
-from data.bosses import BOSSES, BOSS_SKILLS, WORLD_BOSSES
+from data import vendors as vendors_data
+from data.bosses import BOSSES, BOSS_SKILLS, WORLD_BOSSES, fixed_level_for
+from game.equipment_instances import WEAPON_MAX_UPGRADE, weapon_upgrade_cost
 ALL_BOSSES = {**BOSSES, **WORLD_BOSSES}    # the battle debug menu offers rank bosses and story (world) bosses
 from data.leveling import apply_growth, TALENT_POINT_INTERVAL
 from engine.skills import MAX_SKILL_RANK, power_at_rank, mp_cost_at_rank, status_duration_bonus_at_rank
@@ -142,6 +144,7 @@ from game.battle_setup import (MONSTER_STAT_SCALE, BattleSetup, apply_squad_form
                                party_average_level)
 from game import renown as renown_logic
 from game import debug_tools
+from game import debug_autoplay
 from game import ladder as ladder_logic
 from game import world as world_logic
 from data import world_data
@@ -149,7 +152,7 @@ from data.world_data import WORLD_MAPS, START_MAP
 from game.player_state import PlayerState
 from game.roster import PlayerCharacter
 from game.rewards import compute_battle_rewards, reward_multiplier, roll_hero_enemy_shard_drops
-from game.summon import summon_character_batch, summon_equipment_batch, summon_common_batch
+from game.summon import summon_character_batch, summon_equipment_batch, summon_common_batch, free_team_summon
 from data.summon_pool import (COMMON_SUMMON_COST, COMMON_SUMMON_COST_X10, COMMON_SUMMON_WEIGHTS, TARGET_SHARE,
                               TICKET_LABEL, EQUIPMENT_RARITY_WEIGHTS, EQUIPMENT_SHARD_SUMMON_COST,
                               EQUIPMENT_SALVAGE_YIELD)
@@ -178,6 +181,8 @@ ASSETS_DIR = PROJECT_ROOT / "Assets"  # sibling of data/ -- Music/, SFX/, and wa
 # until then every battle is a "normal", 2-opponent encounter, same as
 # battle_server.py used before this merge.
 DEMO_DIFFICULTY = "normal"
+ATB_MODE = True    # active-time battle (gauges, cast times, interrupts); False = the old strict turn rounds
+ATB_ANIM_TIMEOUT = 8.0   # seconds the engine waits for the browser to finish playing an action before moving on
 MIN_ENEMIES, MAX_ENEMIES = 1, 4  # each fight rolls its own enemy party size
 
 # Enemy scaling, applied to every enemy after it is built. d = |heroes - enemies|:
@@ -252,21 +257,29 @@ def build_scaled_battle(party, wins: int = 0, equipment_db=None, legacy_db=None)
 
 def _build_rank_boss_setup(bdef, party_pcs, challenge: bool, equipment_db=None, legacy_db=None):
     """A boss fight for the ladder: level = average party level + the boss's own offset."""
-    level = max(1, min(MAX_LEVEL, round(party_average_level(party_pcs)) + bdef.level_offset))
+    level = fixed_level_for(bdef.id)
+    if level is None:
+        level = round(party_average_level(party_pcs)) + bdef.level_offset
+    level = max(1, min(MAX_LEVEL, level))
     setup = _build_boss_setup(bdef, party_pcs, level, equipment_db=equipment_db, legacy_db=legacy_db)
     setup._rank_challenge = challenge
     return setup
 
 # Optional mini-bosses ("elite" fights in the 3D scenes): one monster, much sturdier and harder-hitting than a normal wild
 # fight. The scene's `battle` action passes `elite` (1.0 = standard; 0.5 / 1.5 scale how much of these factors apply).
-ELITE_MULT = {"max_hp": 2.6, "atk": 1.45, "mag": 1.45, "def_": 1.2, "res": 1.2}
+ELITE_MULT = {"max_hp": 3.6, "atk": 1.75, "mag": 1.75, "def_": 1.4, "res": 1.4}   # was 2.6 / 1.45 / 1.2: elites felt too soft
 
 
-def apply_elite(setup, strength: float = 1.0):
+ELITE_GAP_BONUS = 0.14   # extra elite power per level the party is BELOW the elite; an under-levelled party gets crushed
+
+
+def apply_elite(setup, strength: float = 1.0, party_level: float = 0):
+    gap = max(0.0, setup.enemy_level - party_level) if party_level else 0.0
+    gap_m = 1 + ELITE_GAP_BONUS * gap
     for e in setup.enemies:
         st = e.base_stats
         for name, v in ELITE_MULT.items():
-            setattr(st, name, max(1, round(getattr(st, name) * (1 + (v - 1) * strength))))
+            setattr(st, name, max(1, round(getattr(st, name) * (1 + (v - 1) * strength) * gap_m)))
         e.hp = st.max_hp
     return setup
 
@@ -287,7 +300,7 @@ def _build_range_battle(party_pcs, lo: int, hi: int, pool, equipment_db=None, le
                         enemies=enemies, enemy_hero_recruits=[None] * len(enemies))
     story_lvl = round(party_average_level(party_pcs)) if any(getattr(pc, "is_story", False) for pc in party_pcs) else 0
     apply_enemy_scaling(setup, 0, story_level=story_lvl)
-    return apply_elite(setup, elite) if elite else setup
+    return apply_elite(setup, elite, party_average_level(party_pcs)) if elite else setup
 
 
 # ---- Story: the slave arc ("The Pit") -------------------------------------------------------
@@ -374,13 +387,20 @@ def _default_new_game() -> PlayerState:
     return state
 
 
-COLOSSEUM_STARTER = ("Bran", "melee_dps")      # the free Colosseum fighter a game gets when it has none
+# The arena team is separate from the story party: nobody starts in it. Once freed from the Pit the player buys a team
+# for this much gold and gets one free (random) hero summon through a short tutorial (/api/arena/buy_team).
+ARENA_TEAM_COST = 300
+
+# Which shop / blacksmith the player is standing at (data/vendors.py keys, "<scene>/<npc id>"). The /shop and /heroes pages
+# send ?vendor= when they load; later buys / upgrades use whatever was set last. None = the default vendor.
+current_shop_key = None
+current_smith_key = None
 
 
 def _ensure_story_split(state: PlayerState) -> bool:
     """Story heroes (Mythic) vs Colosseum heroes: the starter Kael is a story hero (older saves had him
-    Common), story heroes never sit in the Colosseum party, and the Colosseum always has at least one
-    fighter (a free starter) so the ladder stays playable. Returns True if anything changed."""
+    Common), story heroes never sit in the Colosseum party. The Colosseum roster starts EMPTY: the player buys an
+    arena team after being freed (see ARENA_TEAM_COST). Returns True if anything changed."""
     changed = False
     for c in state.characters:
         if c.name == DEFAULT_STARTER_NAME and c.rarity != STORY_RARITY:
@@ -391,11 +411,6 @@ def _ensure_story_split(state: PlayerState) -> bool:
     for c in state.characters:
         if c.is_story and (c.wounded_runs_remaining or c.formation not in ("front", "middle", "rear")):
             c.wounded_runs_remaining = 0; changed = True
-    if not any(not c.is_story for c in state.characters):
-        starter = PlayerCharacter(name=COLOSSEUM_STARTER[0], class_id=COLOSSEUM_STARTER[1])
-        state.characters.append(starter)
-        state.active_party = [starter.id]
-        changed = True
     return changed
 
 
@@ -469,7 +484,7 @@ def _any_hero_needs_attention() -> bool:
     edb = _resolved_equipment_db()
     for c in player_state.characters:
         info = _hero_upgrade_info(c, edb)
-        if info["can_rank_up"] or info["upgrade_slots"] or info["has_talent_points"]:
+        if info["can_rank_up"] or info["upgrade_slots"]:
             return True
     return False
 
@@ -485,6 +500,9 @@ def _serialize_hub_state() -> dict:
         "equipment_shards": player_state.equipment_shards,
         "party": [_serialize_character_summary(c) for c in party_chars],
         "bench_count": bench_count,
+        "arena_team": bool(player_state.arena_team_bought),
+        "arena_team_cost": ARENA_TEAM_COST,
+        "slave": bool(story_slave),
         "roster_count": len(player_state.characters),
         "debug": config.DEBUG,
         "debug_gem_grant": config.DEBUG_GEM_GRANT,
@@ -560,14 +578,27 @@ def _serialize_ladder() -> dict:
 # ----------------------------------------------------------------------
 # Serialization helpers -- Heroes
 # ----------------------------------------------------------------------
+def _weapon_upgrade_info(instance_id, item) -> dict:
+    """Blacksmith data for one owned weapon instance ({} for anything else): its current level and the gold the next level costs."""
+    inst = player_state.equipment_instances.get(instance_id)
+    if inst is None or item is None or item.slot != "weapon":
+        return {}
+    lvl = inst.upgrade_level
+    cap = min(WEAPON_MAX_UPGRADE, vendors_data.smith_for(current_smith_key)["cap"])
+    return {"upgradable": True, "upgrade_level": lvl, "max_upgrade": WEAPON_MAX_UPGRADE, "smith_cap": cap,
+            "upgrade_cost": None if lvl >= min(cap, WEAPON_MAX_UPGRADE) else weapon_upgrade_cost(item.rarity, lvl)}
+
+
 def _serialize_equipped_slot(item_id, equipment_db) -> dict:
     if not item_id:
         return None
     item = equipment_db.get(item_id)
     if not item:
         return {"id": item_id, "name": item_id, "slot": None, "subtype": None, "rarity": None, "bonus_text": ""}
-    return {"id": item.id, "name": item.name, "slot": item.slot, "subtype": item.subtype, "rarity": item.rarity,
-            "bonus_text": item.bonus_text()}
+    out = {"id": item.id, "name": item.name, "slot": item.slot, "subtype": item.subtype, "rarity": item.rarity,
+           "bonus_text": item.bonus_text()}
+    out.update(_weapon_upgrade_info(item_id, item))
+    return out
 
 
 EQUIP_RARITY_RANK: Dict[str, int] = {r: i for i, r in enumerate(EQUIP_RARITIES)}
@@ -731,6 +762,7 @@ def _serialize_stash(equipment_db) -> list:
             "bonus_text": item.bonus_text(),
             "is_rolled": bool(inst and inst.bonus_stats),
             "salvage_value": EQUIPMENT_SALVAGE_YIELD.get(item.rarity, 0),
+            **_weapon_upgrade_info(instance_id, item),
         })
     return stash
 
@@ -755,6 +787,8 @@ def _serialize_heroes_state() -> dict:
         "legacy_stash": _serialize_legacy_stash(),
         "slots": list(SLOTS),
         "equipment_shards": player_state.equipment_shards,
+        "smith": {"name": vendors_data.smith_for(current_smith_key)["name"], "cap": vendors_data.smith_for(current_smith_key)["cap"],
+                  "max": WEAPON_MAX_UPGRADE},
         # For the Sacrifice/Heal Wound actions' affordability checks -- the Heroes page has never
         # needed a money readout before this.
         "money": player_state.money,
@@ -848,13 +882,17 @@ def _shop_fit(c: PlayerCharacter, item, edb) -> dict:
     return out
 
 
+def _shop_item_ids() -> set:
+    return set(vendors_data.shop_for(current_shop_key)["items"])
+
+
 def _serialize_shop_state() -> dict:
     items = [
         {"id": it.id, "name": it.name, "description": it.description, "cost": it.cost,
          "owned": player_state.inventory.get(it.id, 0),
          "heal_hp": getattr(it, "heal_hp", 0), "heal_mp": getattr(it, "heal_mp", 0),
          "revive": bool(getattr(it, "revive", False))}
-        for it in ITEMS.values() if it.cost > 0
+        for it in ITEMS.values() if it.cost > 0 and it.id in _shop_item_ids()
     ]
     # "owned" = how many un-rolled (shop-bought/debug) instances of this base item are sitting in the
     # stash right now -- the shop only ever sells/grants un-rolled copies, so this stays a plain count.
@@ -868,14 +906,17 @@ def _serialize_shop_state() -> dict:
     story = party_logic.story_party_characters(player_state)
     heroes_by_id = {c.id: c for c in colo + story}
     equipment = []
+    stock = set(vendors_data.equipment_ids(vendors_data.shop_for(current_shop_key), EQUIPMENT))
     for e in EQUIPMENT.values():
-        if e.cost <= 0:
+        if e.cost <= 0 or e.id not in stock:
             continue
         equipment.append({"id": e.id, "name": e.name, "slot": e.slot, "subtype": e.subtype, "rarity": e.rarity,
                           "cost": e.cost, "bonus_text": e.bonus_text(), "description": e.description,
                           "bonuses": dict(e.stat_bonuses), "owned": owned_counts.get(e.id, 0),
                           "fits": {cid: _shop_fit(c, e, edb) for cid, c in heroes_by_id.items()}})
+    shop = vendors_data.shop_for(current_shop_key)
     return {"money": player_state.money, "items": items, "equipment": equipment, "slots": list(SLOTS),
+            "vendor": {"name": shop["name"], "note": shop["note"], "for_heroes": shop["for_heroes"]},
             "equipment_shards": player_state.equipment_shards,
             "party_colosseum": [_shop_hero_card(c, edb) for c in colo],
             "party_story": [_shop_hero_card(c, edb) for c in story]}
@@ -1223,7 +1264,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, _serialize_debug_menu())
             return
         if route_path == "/api/shop":
+            global current_shop_key
             with _state_lock:
+                q = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+                current_shop_key = (q.get("vendor") or [None])[0]
                 self._send_json(200, _serialize_shop_state())
             return
         if route_path == "/api/party":
@@ -1327,7 +1371,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, _serialize_hub_state())
             return
         if route_path == "/api/heroes":
+            global current_smith_key
             with _state_lock:
+                q = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+                current_smith_key = (q.get("vendor") or [None])[0]
                 self._send_json(200, _serialize_heroes_state())
             return
         if route_path == "/api/menu/state":
@@ -1379,6 +1426,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_unequip()
         elif self.path == "/api/heroes/salvage":
             self._handle_salvage_equipment()
+        elif self.path == "/api/heroes/upgrade_weapon":
+            self._handle_upgrade_weapon()
         elif self.path == "/api/heroes/equip_legacy":
             self._handle_equip_legacy()
         elif self.path == "/api/heroes/unequip_legacy":
@@ -1395,6 +1444,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_buy_equip()
         elif self.path == "/api/party/confirm":
             self._handle_party_confirm()
+        elif self.path == "/api/arena/buy_team":
+            self._handle_buy_team()
         elif self.path == "/api/ladder/start":
             self._handle_ladder_start()
         elif self.path == "/api/boss/challenge":
@@ -1428,6 +1479,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_menu_rest()
         elif self.path == "/api/menu/save":
             self._handle_menu_save()
+        elif self.path == "/api/menu/quit":
+            self._handle_menu_quit()
         elif self.path == "/api/builder3d/scene":
             msg = self._read_json_body()
             try:
@@ -1565,9 +1618,20 @@ class Handler(BaseHTTPRequestHandler):
                 save_system.save_game(player_state)
             self._send_json(200, {"ok": ok, "message": message, **_serialize_heroes_state()})
 
+    def _shop_refuses(self, kind: str, thing_id) -> bool:
+        """This vendor does not stock that: answer with the shop state and a message (True when refused)."""
+        shop = vendors_data.shop_for(current_shop_key)
+        stocked = shop["items"] if kind == "item" else vendors_data.equipment_ids(shop, EQUIPMENT)
+        if thing_id in stocked:
+            return False
+        self._send_json(200, {"ok": False, "message": f"{shop['name']} doesn't stock that.", **_serialize_shop_state()})
+        return True
+
     def _handle_buy(self, buy_fn, db, key) -> None:
         msg = self._read_json_body()
         with _state_lock:
+            if self._shop_refuses("item" if key == "item_id" else "equipment", msg.get(key)):
+                return
             ok, message = buy_fn(player_state, msg.get(key), db)
             if ok:
                 save_system.save_game(player_state)
@@ -1577,15 +1641,45 @@ class Handler(BaseHTTPRequestHandler):
         """Shop > Buy & Equip: one purchase that goes straight onto the chosen hero (nothing is spent if they can't wear it)."""
         msg = self._read_json_body()
         with _state_lock:
+            if self._shop_refuses("equipment", msg.get("equipment_id")):
+                return
             ok, message = shop_logic.buy_and_equip(player_state, msg.get("equipment_id"), msg.get("character_id"),
                                                    EQUIPMENT, _resolved_equipment_db)
             if ok:
                 save_system.save_game(player_state)
             self._send_json(200, {"ok": ok, "message": message, **_serialize_shop_state()})
 
+    def _need_team_reply(self) -> bool:
+        """True (after sending the reply) when the player has no arena team yet; a slave fights alone and never needs one."""
+        if story_slave or player_state.arena_team_bought:
+            return False
+        self._send_json(200, {"ok": False, "need_team": True, "cost": ARENA_TEAM_COST,
+                               "message": f"You need an arena team before you can fight here ({ARENA_TEAM_COST} gold)."})
+        return True
+
+    def _handle_buy_team(self) -> None:
+        """Buy the Colosseum team: gold, then one automatic free summon (still random) that becomes the first fighter."""
+        with _state_lock:
+            if story_slave:
+                self._send_json(200, {"ok": False, "message": "A slave cannot hire a team."}); return
+            if player_state.arena_team_bought:
+                self._send_json(200, {"ok": False, "message": "You already have an arena team."}); return
+            if player_state.money < ARENA_TEAM_COST:
+                self._send_json(200, {"ok": False, "message": f"A team costs {ARENA_TEAM_COST} gold; you have {player_state.money}."}); return
+            player_state.money -= ARENA_TEAM_COST
+            player_state.arena_team_bought = True
+            result = free_team_summon(player_state)
+            if not result.is_duplicate and not result.character.is_story:
+                player_state.active_party = [result.character.id]
+            save_system.save_game(player_state)
+            self._send_json(200, {"ok": True, "message": result.message, "results": _serialize_character_results([result]),
+                                   "rarity_color": _rarity_hex(result.rarity), **_serialize_hub_state()})
+
     def _handle_ladder_start(self) -> None:
         global pending_ladder, pending_challenge, debug_battle
         with _state_lock:
+            if self._need_team_reply():
+                return
             if _slave_too_hurt():
                 self._send_json(200, {"ok": False, "message": "You are too wounded to fight. Rest on your cot to pass time."})
                 return
@@ -1596,6 +1690,8 @@ class Handler(BaseHTTPRequestHandler):
         """Hub's boss card: starts the challenge flow (party select, then the fight) if the renown is there."""
         global pending_challenge, pending_ladder, debug_battle
         with _state_lock:
+            if self._need_team_reply():
+                return
             if _slave_too_hurt():
                 self._send_json(200, {"ok": False, "message": "You are too wounded to fight. Rest on your cot to pass time."})
                 return
@@ -1613,6 +1709,8 @@ class Handler(BaseHTTPRequestHandler):
         ids = msg.get("ids") or []
         formations = msg.get("formations") or {}
         with _state_lock:
+            if self._need_team_reply():
+                return
             ok, message, party = party_logic.confirm_party(player_state, ids, formations=formations)
             if ok:
                 save_system.save_game(player_state)
@@ -1663,6 +1761,17 @@ class Handler(BaseHTTPRequestHandler):
                                    **{k: v for k, v in _serialize_summon_state().items()
                                       if k in ("gold", "tickets", "equipment_shards")},
                                    "results": _serialize_equipment_results(results) if ok else []})
+
+    def _handle_upgrade_weapon(self) -> None:
+        msg = self._read_json_body()
+        instance_id = msg.get("instance_id")
+        with _state_lock:
+            ok, message = shop_logic.upgrade_weapon(player_state, instance_id, _resolved_equipment_db(),
+                                                    cap=vendors_data.smith_for(current_smith_key)["cap"],
+                                                    smith_name=vendors_data.smith_for(current_smith_key)["name"])
+            if ok:
+                save_system.save_game(player_state)
+            self._send_json(200, {"ok": ok, "message": message, **_serialize_heroes_state()})
 
     def _handle_salvage_equipment(self) -> None:
         msg = self._read_json_body()
@@ -1907,6 +2016,22 @@ class Handler(BaseHTTPRequestHandler):
         else:
             text = "You sleep, and the days blur together. " + " ".join(msgs)
         self._menu_reply(True, text)
+
+    def _handle_menu_quit(self) -> None:
+        """Esc menu -> Quit Game: closes the game window (the launcher's Edge/Chrome app window) and stops the server."""
+        import os
+        self._send_json(200, {"ok": True, "message": "Goodbye."})
+
+        def _shutdown():
+            time.sleep(0.4)                                   # let the reply reach the browser first
+            proc = getattr(sys.modules.get("__main__"), "_APP_PROC", None)   # launcher.py keeps its window process here
+            try:
+                if proc is not None:
+                    proc.terminate()
+            except Exception:
+                pass
+            os._exit(0)
+        threading.Thread(target=_shutdown, daemon=True).start()
 
     def _handle_menu_save(self) -> None:
         with _state_lock:
@@ -2288,6 +2413,33 @@ def run_http_server():
 RIVAL_MEMORY = new_rival_memory()    # shared across fights this session (see ai/enemy_ai.py)
 
 
+_STAT_WORDS = {"atk": "attack", "mag": "magic", "def_": "defense", "res": "resistance", "spd": "speed", "luk": "luck"}
+
+
+def _status_effect_lines(combatants, before) -> list:
+    """Plain-English lines for statuses an action just applied or refreshed ("Goblin's attack increased.")."""
+    out = []
+    for c in combatants:
+        if not c.alive:
+            continue
+        prev = before.get(c.id, {})
+        for s in c.status_effects:
+            if s.key == "charging" or (s.key in prev and prev[s.key] >= s.duration):
+                continue
+            if s.stat_mods:
+                for stat, mult in s.stat_mods.items():
+                    out.append(f"{c.name}'s {_STAT_WORDS.get(stat, stat)} {'increased' if mult > 1 else 'decreased'}.")
+            elif s.key == "poison":
+                out.append(f"{c.name} is poisoned.")
+            elif s.key == "regen":
+                out.append(f"{c.name} begins regenerating.")
+            elif s.skip_turn:
+                out.append(f"{c.name} is {s.name.lower()}.")
+            else:
+                out.append(f"{c.name} is afflicted with {s.name}.")
+    return out
+
+
 def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> None:
     """Runs exactly one full battle on this thread, pushing every event onto
     `outbound` for the WebSocket side to relay, and blocking on `inbound`
@@ -2344,8 +2496,9 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
                 save_system.save_game(player_state)
         for message in wound_messages:
             outbound.put({"type": "log", "message": message})
-        if challenge_boss and from_world and world_level and world_level.get("boss_level"):
-            setup = _build_boss_setup(challenge_boss, party, world_level["boss_level"], equipment_db=edb, legacy_db=ldb)
+        if challenge_boss and from_world and (fixed_level_for(challenge_boss.id) or (world_level and world_level.get("boss_level"))):
+            boss_lv = fixed_level_for(challenge_boss.id) or world_level["boss_level"]      # a boss's set level beats whatever the scene sent
+            setup = _build_boss_setup(challenge_boss, party, max(1, min(MAX_LEVEL, boss_lv)), equipment_db=edb, legacy_db=ldb)
             setup._rank_challenge = False                  # a set-level dungeon boss
         elif from_world and not challenge_boss and world_level and world_level.get("min"):
             setup = _build_range_battle(party, world_level["min"], world_level["max"], world_level.get("pool"), edb, ldb, world_level.get("elite") or 0)
@@ -2490,12 +2643,16 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             outbound.put({"type": "state", "state": _serialize_battle_state(engine_ref[0])})
 
     auto_ids = set()
+    dbg_auto = [False]                 # debug-only full-player autoplay (game/debug_autoplay.py), toggled by the browser
+    dbg_memo = debug_autoplay.new_memo()
     observe_ref = [None]     # set to the enemy AI's .observe once it is built (below)
 
     def get_party_action(combatant, state: dict) -> Action:
         debug_refresh()
         if combatant.id in auto_ids:                  # a borrowed ally: the game plays it, the player can't
             return ally_auto_action(combatant, state)
+        if dbg_auto[0] and config.DEBUG and engine_ref[0] is not None:
+            return debug_autoplay.decide(engine_ref[0], combatant, state, SKILLS, dbg_memo) or Action.defend(combatant.id)
         for sk in state.get("available_skills", []):  # let the browser's auto-battle compare skill damage
             if sk["id"] in SKILLS:
                 sk["power"] = SKILLS[sk["id"]].power
@@ -2537,10 +2694,132 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             if msg.get("type") == "leave":
                 inbound.put(msg)   # let the normal flow see it
                 return
+            if msg.get("type") == "debug_auto" and config.DEBUG:
+                dbg_auto[0] = bool(msg.get("on"))
+                outbound.put({"type": "debug_auto", "on": dbg_auto[0]})
+
+    # ---- ATB plumbing --------------------------------------------------------------------------------------
+    # The engine loop ticks in real time. Player input is read without blocking: `stash` holds inbound messages nobody
+    # has claimed yet, `atb_need` is the hero whose command menu is open in the browser (one at a time), and the
+    # browser tells us when it enters/leaves a sub-menu (atb_pause) so time freezes while a skill list or target
+    # picker is open (wait mode only in sub-menus).
+    stash: list = []
+    atb_need = [None]
+    anim_seq = [0]
+    tick_n = [0]
+
+    def pump_inbound() -> None:
+        while True:
+            try:
+                m = inbound.get_nowait()
+            except queue.Empty:
+                return
+            if m.get("type") == "atb_pause":
+                if engine_ref[0] is not None:
+                    engine_ref[0].paused = bool(m.get("on"))
+            elif m.get("type") == "debug_auto":
+                if config.DEBUG:
+                    dbg_auto[0] = bool(m.get("on"))
+                    outbound.put({"type": "debug_auto", "on": dbg_auto[0]})
+                    if dbg_auto[0] and atb_need[0] is not None:       # an open command menu is taken over by the bot
+                        outbound.put({"type": "need_cancel", "actor_id": atb_need[0]})
+                        atb_need[0] = None
+                        if engine_ref[0] is not None:
+                            engine_ref[0].paused = False
+            else:
+                stash.append(m)
+
+    def claim(pred):
+        for i, m in enumerate(stash):
+            if pred(m):
+                return stash.pop(i)
+        return None
+
+    def poll_party_action(combatant, state):
+        """Non-blocking replacement for get_party_action: None until the player has chosen for this hero."""
+        if combatant.id in auto_ids:                  # a borrowed ally: the game plays it, the player can't
+            return ally_auto_action(combatant, state)
+        if dbg_auto[0] and config.DEBUG:              # debug autoplay: no command menu, the bot plays like a player
+            return debug_autoplay.decide(engine_ref[0], combatant, state, SKILLS, dbg_memo)
+        if atb_need[0] is None:
+            for sk in state.get("available_skills", []):
+                if sk["id"] in SKILLS:
+                    sk["power"] = SKILLS[sk["id"]].power
+            atb_need[0] = combatant.id
+            outbound.put({"type": "need_action", "actor_id": combatant.id, "state": state})
+        elif atb_need[0] != combatant.id:
+            return None
+        pump_inbound()
+        msg = claim(lambda m: m.get("actor_id") == combatant.id and m.get("type") not in ("anim_done",))
+        if msg is None:
+            return None
+        atb_need[0] = None
+        if engine_ref[0] is not None:
+            engine_ref[0].paused = False
+        act = _action_from_message(combatant.id, msg)
+        observer = observe_ref[0]
+        if observer is not None:
+            observer(combatant, act)       # adaptive rivals learn from how you play
+        return act
+
+    def atb_snapshot(e) -> dict:
+        units = []
+        for c in e.all_combatants():
+            if not c.alive:
+                continue
+            u = {"id": c.id, "ph": c.atb_phase, "g": round(c.atb_gauge, 3), "fs": round(e.fill_seconds(c), 2)}
+            if c.cast:
+                u.update({"cl": round(max(0.0, c.cast["left"]), 2), "ct": round(c.cast["total"], 2), "cn": c.cast["name"]})
+            units.append(u)
+        return {"type": "atb", "paused": bool(e.paused), "units": units}
+
+    def on_atb_tick(e) -> None:
+        pump_inbound()
+        need = atb_need[0]
+        if need is not None:
+            c = e.get_by_id(need)
+            if c is None or not c.alive:                   # the hero fell while their menu was open
+                atb_need[0] = None
+                e.paused = False
+                outbound.put({"type": "need_cancel", "actor_id": need})
+        tick_n[0] += 1
+        if tick_n[0] % 2 == 0 or e.paused:
+            outbound.put(atb_snapshot(e))
+
+    def on_cast_start(c, action, total) -> None:
+        sk = SKILLS.get(action.skill_id)
+        outbound.put({"type": "cast_start", "actor_id": c.id, "actor_name": c.name, "actor_is_enemy": bool(c.is_enemy),
+                      "skill_id": action.skill_id, "skill_name": sk.name if sk else "?",
+                      "skill_kind": sk.kind if sk else None, "total": round(total, 2),
+                      "brace": bool(c.cast and c.cast.get("brace"))})
+
+    def on_cast_cancel(c, reason) -> None:
+        outbound.put({"type": "cast_cancel", "actor_id": c.id, "actor_name": c.name, "reason": reason,
+                      "actor_is_enemy": bool(c.is_enemy)})
+
+    def on_need_cancel(c) -> None:
+        if atb_need[0] == c.id:
+            atb_need[0] = None
+            if engine_ref[0] is not None:
+                engine_ref[0].paused = False
+            outbound.put({"type": "need_cancel", "actor_id": c.id})
+
+    def wait_anim(seq: int) -> None:
+        """Freeze battle time until the browser has finished playing this action (or a timeout passes)."""
+        deadline = time.monotonic() + ATB_ANIM_TIMEOUT
+        while time.monotonic() < deadline:
+            pump_inbound()
+            if claim(lambda m: m.get("type") == "anim_done" and m.get("seq") == seq) is not None:
+                return
+            if any(m.get("type") == "leave" for m in stash):
+                return
+            time.sleep(0.02)
 
     if ladder is not None:
         outbound.put({"type": "ladder_status", **ladder_status()})
     while True:
+        stash.clear()
+        atb_need[0] = None
         bdef = getattr(setup, "_boss_def", None)   # a streak can roll a boss from the pool mid-way
         pay_boss_rewards = bool(bdef) and (not dbg or bool(dbg.get("rewards")))
         auto_ids.clear()
@@ -2575,9 +2854,14 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             inventory=inventory,
             get_party_action=get_party_action, get_enemy_action=get_enemy_action,
             on_event=lambda line: outbound.put({"type": "log", "message": line}),
+            atb=ATB_MODE, poll_party_action=poll_party_action, on_tick=on_atb_tick,
+            on_cast_start=on_cast_start, on_cast_cancel=on_cast_cancel, on_need_cancel=on_need_cancel,
+            sleep=time.sleep,
         )
 
         engine_ref[0] = engine
+        for _e in setup.enemies:
+            _e.atb_start = opening_gauge(_e)        # ambushers open with a head start, brutes lumber in
         engine._levels = {ch.name: ch.level for ch in party}
         engine._enemy_level = setup.enemy_level
         if dbg and not bdef:
@@ -2603,10 +2887,17 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             _sk = SKILLS.get(action.skill_id) if action.type == ActionType.SKILL else None
             _actor = _engine.get_by_id(action.actor_id)
             anim_kind = _anim_kind_for(action, _actor, roles, enemy_roles)
+            actor_is_party_pre = any(c.id == action.actor_id for c in _engine.party)
             payload = {
                 "type": "action_event", "actor_id": action.actor_id, "target_id": target_id,
                 "is_melee": anim_kind == "melee", "anim_kind": anim_kind, "action_type": action.type.value,
                 "skill_id": action.skill_id, "item_id": action.item_id,
+                "was_cast": bool(getattr(_engine, "_last_action_was_cast", False)),   # a finished cast: the banner already ran
+                # Top-of-screen "what is being cast" banner in the browser.
+                "actor_name": getattr(_actor, "name", ""),
+                "actor_is_enemy": not actor_is_party_pre,
+                "skill_name": (_sk.name if _sk is not None else None),
+                "item_name": (getattr(ITEMS.get(action.item_id), "name", None) if action.item_id else None),
                 # Damage-number colouring in the browser: the skill's element / kind.
                 "element": (_sk.element.value if _sk is not None else "physical"),
                 "skill_kind": (_sk.kind if _sk is not None else None),
@@ -2622,6 +2913,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             everyone = list(_engine.party) + list(_engine.enemies)
             before = {c.id: c.hp for c in everyone}
             side = {c.id: 0 for c in _engine.party}
+            st_before = {c.id: {s.key: s.duration for s in c.status_effects} for c in everyone}
             actor_is_party = action.actor_id in side
             _orig(action)
             # Debug damage tally: HP lost by the opposing side during this action is credited
@@ -2635,9 +2927,16 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
                 if actor_c is not None:
                     for line in ladder.after_hero_action(actor_c, foes, before, dealt):
                         outbound.put({"type": "log", "message": line})
+            fx_lines = _status_effect_lines(everyone, st_before)
+            if fx_lines:
+                outbound.put({"type": "action_effects", "lines": fx_lines, "actor_is_enemy": not actor_is_party})
             outbound.put({"type": "state", "state": _serialize_battle_state(_engine)})
             if runner_ref[0] is not None:
                 runner_ref[0].after_action(action, before.get(runner_ref[0].boss.id))   # counters + script triggers
+            if _engine.atb:
+                anim_seq[0] += 1
+                outbound.put({"type": "anim_sync", "seq": anim_seq[0]})
+                wait_anim(anim_seq[0])        # battle time stays frozen until the browser has played the move
 
         engine.resolve_action = resolve_with_broadcast
 

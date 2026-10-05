@@ -468,8 +468,16 @@
     ev.preventDefault();
   });
 
-  fetch("/api/shop").then(function (r) { return r.json(); })
-    .then(function (d) { data = d; render(false); })
+  var vendorKey = ""; try { vendorKey = sessionStorage.getItem("h3dVendor") || ""; } catch (e) { /* best-effort */ }
+  fetch("/api/shop" + (vendorKey ? "?vendor=" + encodeURIComponent(vendorKey) : "")).then(function (r) { return r.json(); })
+    .then(function (d) {
+      data = d;
+      if (d.vendor) {
+        document.querySelector("#top h1").textContent = d.vendor.name;
+        document.querySelector("#top .sub").textContent = d.vendor.note + (d.vendor.for_heroes ? " (Stocked for " + d.vendor.for_heroes.join(" and ") + ".)" : "");
+      }
+      render(false);
+    })
     .catch(function () { toast("Could not reach the hub server.", false); });
 })();
 </script>

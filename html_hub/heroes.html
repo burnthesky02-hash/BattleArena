@@ -269,6 +269,11 @@
     background: rgba(235,175,60,0.1); cursor: pointer; white-space: nowrap;
   }
   .picker-row .salvage-btn:hover { background: rgba(235,175,60,0.25); }
+  .smith-btn { margin-left: 10px; padding: 2px 9px; font-size: 11px; font-weight: 700; border-radius: 10px; cursor: pointer;
+    background: rgba(255,157,66,0.22); border: 1px solid #ff9d42; color: #ffd9a8; white-space: nowrap; }
+  .smith-btn:hover { background: rgba(255,157,66,0.4); }
+  .smith-btn.poor { opacity: 0.55; }
+  .smith-max { margin-left: 10px; font-size: 11px; font-weight: 700; color: var(--gold); }
   #picker-shards {
     padding: 6px 16px; border-top: 1px solid var(--panel-border); font-size: 11px; color: var(--dim);
   }
@@ -280,6 +285,7 @@
 <div id="app">
   <div id="topbar">
     <h1>Heroes</h1>
+    <span id="smith-note" style="font-size:12px;color:var(--dim);margin-left:14px;"></span>
     <a class="back" href="/">&larr; Back to Colosseum</a>
   </div>
   <div id="status"></div>
@@ -432,18 +438,25 @@
   }
 
   // A hero has a star-upgrade ready (enough shards already banked), a better item sitting unused in
-  // the stash, or an unspent talent point (server-computed in hub_server.py's _hero_upgrade_info) --
+  // the stash, (server-computed in hub_server.py's _hero_upgrade_info) --
   // drives the red dot on this hero's roster card and on the specific things it applies to on their
   // detail page.
   function heroNeedsAttention(h) {
-    return !!h.can_rank_up || !!(h.upgrade_slots && h.upgrade_slots.length) || !!h.has_talent_points;
+    return !!h.can_rank_up || !!(h.upgrade_slots && h.upgrade_slots.length);
+  }
+
+  function showSmith() {
+    var el = document.getElementById("smith-note");
+    if (el && data && data.smith) el.textContent = "Blacksmith: " + data.smith.name + " \u2014 upgrades weapons up to +" + data.smith.cap + (data.smith.cap < data.smith.max ? " (find a master smith for more)" : "");
   }
 
   function setStatus(msg) { document.getElementById("status").textContent = msg || ""; }
 
   function fetchHeroes() {
-    fetch("/api/heroes").then(function (r) { return r.json(); }).then(function (d) {
+    var vendorKey = ""; try { vendorKey = sessionStorage.getItem("h3dVendor") || ""; } catch (e) { /* best-effort */ }
+    fetch("/api/heroes" + (vendorKey ? "?vendor=" + encodeURIComponent(vendorKey) : "")).then(function (r) { return r.json(); }).then(function (d) {
       data = d;
+      showSmith();
       renderClassRail();
       renderRoster();
       if (selectedId) renderDetail();
@@ -662,11 +675,9 @@
     var talentPoints = h.talent_points_available || 0;
     var skillsHtml = (h.skills || []).map(function (sk) {
       var maxed = sk.rank >= sk.max_rank;
-      var canRankUp = talentPoints > 0 && !maxed;
       return '<div class="skill-slot' + (sk.shared ? " shared" : "") + '" data-skill-id="' + sk.id + '">' +
         iconHtml(skillIconCell(sk), 42) +
         '<span class="rank-badge' + (maxed ? " maxed" : "") + '">' + sk.rank + "/" + sk.max_rank + "</span>" +
-        (canRankUp ? '<button class="rank-up-btn" data-rankup-id="' + sk.id + '" title="Spend a talent point">+</button>' : "") +
         (sk.shared ? '<span class="skill-tag">Class</span>' : "") + "</div>";
     }).join("");
 
@@ -680,6 +691,7 @@
         '<span class="slot-left">' +
           '<span class="slot-item' + (eq ? "" : " empty") + '"' + (eq ? ' style="color:' + (RARITY_COLOR[eq.rarity] || "#fff") + '"' : "") + ">" + label + "</span>" +
           (hasUpgrade ? '<span class="alert-dot" title="A better item is in your stash"></span>' : "") +
+          smithBtnHtml(eq) +
         "</span>" +
         "</div>";
     }).join("");
@@ -751,9 +763,7 @@
         '<div class="stat-grid">' + statsHtml + "</div>" +
         '<div class="section-label">Skills (hover for details)</div>' +
         '<div class="talent-note">' +
-          (talentPoints > 0
-            ? '<span class="alert-dot" style="display:inline-block;"></span><b>' + talentPoints + '</b> talent point' + (talentPoints > 1 ? "s" : "") + ' to spend -- click the <b>+</b> on a skill'
-            : 'Talent points: <b>' + talentPoints + '</b> (earn one every ' + (h.talent_point_interval || 5) + ' levels)') +
+          'Rank skills up from the <b>Status</b> page of the Esc menu' + (talentPoints > 0 ? ' (<b>' + talentPoints + '</b> talent point' + (talentPoints > 1 ? "s" : "") + ' waiting)' : "") +
         "</div>" +
         '<div class="skill-row">' + skillsHtml + "</div>" +
         '<div class="section-label">Equipped (click a slot to choose gear)</div>' +
@@ -801,11 +811,10 @@
       slotEl.addEventListener("mouseenter", function () { showTooltip(slotEl, skillTooltipHtml(sk)); });
       slotEl.addEventListener("mouseleave", hideTooltip);
     });
-    body.querySelectorAll(".rank-up-btn").forEach(function (btn) {
+    body.querySelectorAll(".smith-btn[data-smith-id]").forEach(function (btn) {
       btn.addEventListener("click", function (ev) {
         ev.stopPropagation();
-        hideTooltip();
-        doUpgradeSkill(h.id, btn.getAttribute("data-rankup-id"));
+        doUpgradeWeapon(btn.getAttribute("data-smith-id"));
       });
     });
   }
@@ -855,7 +864,7 @@
           ' <span style="color:var(--dim);font-weight:400;">(' + (item.subtype || item.slot) + ')</span></span>' +
           (item.bonus_text && item.bonus_text !== "(no stat bonus)" ? '<div class="sbonus">' + item.bonus_text + '</div>' : '') +
           '</span>' +
-          (isEquipped ? '<span style="color:var(--gold);font-size:11px;">equipped</span>' : salvageBtn) +
+          (isEquipped ? '<span style="color:var(--gold);font-size:11px;">equipped</span>' : smithBtnHtml(item) + salvageBtn) +
           '</div>';
       }).join("");
     }
@@ -870,6 +879,12 @@
         closePicker();
       });
     }
+    list.querySelectorAll(".smith-btn[data-smith-id]").forEach(function (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        doUpgradeWeapon(btn.getAttribute("data-smith-id"));
+      });
+    });
     list.querySelectorAll(".salvage-btn").forEach(function (btn) {
       btn.addEventListener("click", function (ev) {
         ev.stopPropagation();
@@ -893,7 +908,7 @@
   function apply(result) {
     data = { roster: result.roster, stash: result.stash, slots: result.slots,
               equipment_shards: result.equipment_shards, legacy_stash: result.legacy_stash,
-              money: result.money };
+              money: result.money, smith: result.smith || (data && data.smith) };
     setStatus(result.message || "");
     renderRoster();
     if (selectedId) renderDetail();
@@ -985,6 +1000,29 @@
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ character_id: characterId }),
     }).then(function (r) { return r.json(); }).then(apply);
+  }
+
+  // Blacksmith: a weapon (worn or in the stash) can be reforged up to +max_upgrade for gold.
+  function smithBtnHtml(item) {
+    if (!item || !item.upgradable) return "";
+    if (item.upgrade_cost == null) return item.upgrade_level >= item.max_upgrade
+      ? '<span class="smith-max">MAX +' + item.max_upgrade + "</span>"
+      : '<span class="smith-max" title="This blacksmith cannot go higher. A master smith further on can.">Smith limit +' + item.smith_cap + "</span>";
+    var poor = (data.money || 0) < item.upgrade_cost;
+    return '<span class="smith-btn' + (poor ? " poor" : "") + '" data-smith-id="' + (item.instance_id || item.id) + '" title="Reforge this weapon: more stat bonus">' +
+      "Upgrade +" + (item.upgrade_level + 1) + " (" + item.upgrade_cost + "g)</span>";
+  }
+
+  function doUpgradeWeapon(instanceId) {
+    fetch("/api/heroes/upgrade_weapon", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instance_id: instanceId }),
+    }).then(function (r) { return r.json(); }).then(function (result) {
+      playSfx(result.ok ? SFX.confirm : SFX.denied);
+      apply(result);
+      setStatus(result.message || "");
+      if (pickerHero) renderPicker();
+    });
   }
 
   function doUpgradeSkill(characterId, skillId) {

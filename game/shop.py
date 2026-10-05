@@ -179,3 +179,32 @@ def unequip(player_state: PlayerState, character_id: str, slot: str,
     item = equipment_db.get(current_id)
     name = item.name if item else current_id
     return True, f"Unequipped {name} from {character.name}."
+
+
+def upgrade_weapon(player_state: PlayerState, instance_id: str,
+                   equipment_db: Dict[str, Equipment], cap: int = 10, smith_name: str = "The blacksmith") -> Tuple[bool, str]:
+    """Blacksmith: pay gold to take one WEAPON (worn by anyone, or in the stash) up one upgrade level. Each level
+    adds a slice of the weapon's stat bonuses (game/equipment_instances.py's weapon_upgrade_bonus). All-or-nothing."""
+    from game.equipment_instances import WEAPON_MAX_UPGRADE, weapon_upgrade_cost
+    inst = player_state.equipment_instances.get(instance_id)
+    item = equipment_db.get(instance_id)
+    if inst is None or item is None:
+        return False, "That weapon doesn't exist."
+    if item.slot != "weapon":
+        return False, "The blacksmith only upgrades weapons."
+    owned = instance_id in player_state.equipment_stash or any(
+        instance_id in c.equipped.values() for c in player_state.characters)
+    if not owned:
+        return False, "You don't own that weapon."
+    if inst.upgrade_level >= WEAPON_MAX_UPGRADE:
+        return False, f"{item.name} is already at its limit (+{WEAPON_MAX_UPGRADE})."
+    if inst.upgrade_level >= cap:
+        return False, f"{smith_name} can't take a weapon past +{cap}. Look for a master smith further on."
+    cost = weapon_upgrade_cost(item.rarity, inst.upgrade_level)
+    if player_state.money < cost:
+        return False, f"Upgrading costs {cost} gold; you have {player_state.money}."
+    player_state.money -= cost
+    inst.upgrade_level += 1
+    base_item = equipment_db.get(inst.base_id)
+    base_name = base_item.name if base_item else item.name
+    return True, f"{smith_name} reforges {base_name} to +{inst.upgrade_level} for {cost} gold."

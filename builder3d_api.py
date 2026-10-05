@@ -12,14 +12,15 @@ import time
 from pathlib import Path
 
 SLUG = re.compile(r"^[a-z0-9][a-z0-9_\-]{0,47}$")
-NOT_HUB_SCENES = {"sprites"}                  # html_hub/3d/*.json files that are not scenes
+NOT_HUB_SCENES = {"sprites", "quests", "sidequests", "stills"}                  # html_hub/3d/*.json files that are not scenes
 MAX_BYTES = 3_000_000
 KINDS = ("hub", "battle")
 
 
 def _scene_name(path: Path) -> str:
     try:
-        return str(json.loads(path.read_text(encoding="utf-8")).get("name") or path.stem)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return str(data.get("name") or path.stem) if isinstance(data, dict) else path.stem
     except (OSError, ValueError):
         return path.stem
 

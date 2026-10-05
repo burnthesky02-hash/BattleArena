@@ -40,13 +40,36 @@ class EquipmentInstance:
     instance_id: str
     base_id: str                                    # data/equipment_db.py catalog id
     bonus_stats: Dict[str, int] = field(default_factory=dict)   # random extras, empty for shop/debug gear
+    upgrade_level: int = 0                          # blacksmith upgrades (weapons only), 0..WEAPON_MAX_UPGRADE
 
     def total_bonuses(self, equipment_db: Dict[str, Equipment]) -> Dict[str, int]:
         base = equipment_db[self.base_id].stat_bonuses if self.base_id in equipment_db else {}
         out = dict(base)
         for k, v in self.bonus_stats.items():
             out[k] = out.get(k, 0) + v
+        if self.upgrade_level > 0:
+            for k, v in list(out.items()):
+                out[k] = v + weapon_upgrade_bonus(v, self.upgrade_level)
         return out
+
+
+# ---- Blacksmith weapon upgrades ------------------------------------------------------------------
+WEAPON_MAX_UPGRADE = 10
+WEAPON_UPGRADE_STEP = 0.15          # each +1 adds 15% of the weapon's (base + rolled) stat bonuses, at least +1 per stat
+# Gold for the NEXT upgrade = base for the weapon's rarity x (current level + 1). So a common +0 -> +1 costs 150
+# and +9 -> +10 costs 1500; a mythic +9 -> +10 costs 16000.
+WEAPON_UPGRADE_BASE_COST = {"common": 150, "rare": 300, "epic": 600, "legendary": 1000, "mythic": 1600}
+
+
+def weapon_upgrade_bonus(stat_value: int, level: int) -> int:
+    if level <= 0 or stat_value <= 0:
+        return 0
+    return max(1, round(stat_value * WEAPON_UPGRADE_STEP * level))
+
+
+def weapon_upgrade_cost(rarity: str, level: int) -> int:
+    """Gold to take a weapon from `level` to `level + 1`."""
+    return WEAPON_UPGRADE_BASE_COST.get(rarity, WEAPON_UPGRADE_BASE_COST["common"]) * (level + 1)
 
 
 def roll_bonus_stats(rarity: str, rng: Optional[_random_module.Random] = None) -> Dict[str, int]:
@@ -96,7 +119,7 @@ def resolve_equipment_db(base_db: Dict[str, Equipment], instances: Dict[str, Equ
         if base is None:
             continue
         out[inst.instance_id] = Equipment(
-            id=inst.instance_id, name=base.name, slot=base.slot, subtype=base.subtype, rarity=base.rarity,
+            id=inst.instance_id, name=base.name + (f" +{inst.upgrade_level}" if inst.upgrade_level > 0 else ""), slot=base.slot, subtype=base.subtype, rarity=base.rarity,
             stat_bonuses=inst.total_bonuses(base_db), cost=0, description=base.description,
         )
     return out

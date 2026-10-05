@@ -48,6 +48,10 @@ class PlayerState:
     cleared_bosses: List[str] = field(default_factory=list)
     # Bestiary: enemy/boss name -> {"seen": fights it appeared in, "defeated": fights won against it}. Missing from old saves -> empty.
     bestiary: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    # The arena team: after the hero is freed from the Pit they must BUY a Colosseum team (hub_server.py's
+    # /api/arena/buy_team: gold + one free automatic summon). Until then the Colosseum roster is empty -- the story
+    # party (Mythic heroes) and the arena party are two separate groups. Missing from old saves -> derived on load.
+    arena_team_bought: bool = False
     # The Colosseum ladder (game/renown.py): your rank, and the renown meter within it.
     rank: int = 1
     renown: int = 0

@@ -101,12 +101,21 @@ class BossRunner:
 
     def before_boss_action(self, combatant=None) -> Optional[Action]:
         self._check_triggers()
+        held = []       # brace-or-die casts nobody could answer yet: they wait (max 2 boss turns) for the party to be able to react
         while self.forced:
             f = self.forced.pop(0)
             target_ids = self._pick_targets(f.get("target", "random"))
             if target_ids is None:
                 continue
-            return Action.use_skill(self.boss.id, f["skill"], target_ids)
+            if f.get("brace") and f.get("cast") and f.get("waited", 0) < 2 and not self._party_can_react(f["cast"]):
+                f["waited"] = f.get("waited", 0) + 1
+                held.append(f)
+                continue
+            self.forced = held + self.forced
+            return Action.use_skill(self.boss.id, f["skill"], target_ids, cast_time=f.get("cast"),
+                                    no_pushback=bool(f.get("nopush")), brace_mult=float(f.get("brace") or 1.0),
+                                    power_mult=float(f.get("mult") or 1.0))
+        self.forced = held
         # Holding a counter stance: he waits for a physical hit to punish instead of attacking normally.
         if self.boss.alive and any(s.key == self.counter_key for s in self.boss.status_effects):
             self.engine.log(f"{self.boss.name} holds his stance, waiting to counter...")
@@ -115,6 +124,25 @@ class BossRunner:
         return self._rule_action()
 
     # ------------------------------------------------------------------
+    def _party_can_react(self, cast: float) -> bool:
+        """ATB: at least half of the living heroes will have a turn before a `cast`-second wind-up lands (outside ATB: always)."""
+        alive = [h for h in self._heroes() if h.alive]
+        if not alive or not getattr(self.engine, "atb", False):
+            return True
+        quick = sum(1 for h in alive if self._eta(h) <= cast - 1.0)
+        return quick >= (len(alive) + 1) // 2
+
+    def _eta(self, h) -> float:
+        """Seconds until hero h can act (ATB); 0 outside ATB. Lets a long cast wait until someone can still answer it."""
+        e = self.engine
+        if not getattr(e, "atb", False):
+            return 0.0
+        if h.atb_phase == "ready":
+            return 0.0
+        if h.atb_phase == "casting" and h.cast:
+            return max(0.0, h.cast["left"])
+        return max(0.0, (1.0 - h.atb_gauge) * e.fill_seconds(h))
+
     def _rule_action(self) -> Optional[Action]:
         """Optional script["rules"]: an ordered list of conditional skill choices, checked on each of the boss's own turns.
         The first rule whose conditions hold becomes the boss's action; if none match, the normal AI decides.
@@ -151,7 +179,8 @@ class BossRunner:
                 pool = [h for h in heroes
                         if ("target_hp_above" not in w or h.hp / max(1, h.max_hp) > w["target_hp_above"])
                         and ("target_hp_below" not in w or h.hp / max(1, h.max_hp) < w["target_hp_below"])
-                        and ("target_lacks_status" not in w or not any(s.key == w["target_lacks_status"] for s in h.status_effects))]
+                        and ("target_lacks_status" not in w or not any(s.key == w["target_lacks_status"] for s in h.status_effects))
+                        and ("target_eta_below" not in w or self._eta(h) <= w["target_eta_below"])]
                 if not pool:
                     continue
                 pick = (min(pool, key=lambda h: h.hp) if mode == "lowest_hp" else

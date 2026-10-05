@@ -92,6 +92,14 @@ STATUS_DB["unyielding"] = StatusEffect(
 # Boss-only skills. hub_server merges these into the shared SKILLS table.
 # ----------------------------------------------------------------------
 BOSS_SKILLS: Dict[str, Skill] = {
+    # Briarmaw's signature: a long, un-delayable wind-up (the cast bar is the warning) that nearly kills anyone who is not
+    # braced. Defend before it lands. Only started when some hero can still act before it resolves (see the rule below).
+    "briarmaw_rend": Skill(
+        id="briarmaw_rend", name="Rending Strike", mp_cost=7, power=2.6, kind="physical",
+        target=TargetType.SINGLE_ENEMY, status_to_apply="def_down", status_chance=1.0,
+        cast_time=8.0, interruptible_by_damage=False, undefended_mult=2.6,
+        description="Briarmaw rears back for a killing blow. Defend before it lands, or be torn apart.",
+    ),
     # Power bumped ~20% alongside the Champion's stat rebalance above (same reasoning: this rank-1
     # gate fight was tuned before hero power-creep, and needed to catch back up).
     "arena_slam": Skill(
@@ -306,7 +314,7 @@ COLOSSEUM_CHAMPION = BossDef(
             {"id": "verdict_tell", "when": {"every_n_rounds": 3, "from": 4}, "once": False, "steps": [
                 {"announce": "THE CHAMPION RAISES HIS BLADE..."},
                 {"log": "The Champion winds up a Gladiator's Verdict -- Defend to survive it!"},
-                {"force_skill": {"skill": "gladiators_verdict", "target": "highest_hp"}},
+                {"force_skill": {"skill": "gladiators_verdict", "target": "highest_hp", "cast": 5.0, "brace": 2.0, "nopush": True}},
             ]},
             {"id": "phase2", "when": {"hp_below": 0.6}, "steps": [
                 {"shake": True},
@@ -314,7 +322,7 @@ COLOSSEUM_CHAMPION = BossDef(
                 {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}},
                 {"flash": "#ff8844"},
                 {"announce": "THE CROWD ROARS!"},
-                {"force_skill": {"skill": "arena_slam", "target": "all"}},
+                {"force_skill": {"skill": "arena_slam", "target": "all", "cast": 3.0, "brace": 1.5}},
             ]},
             {"id": "phase3", "when": {"hp_below": 0.3}, "steps": [
                 {"shake": True},
@@ -323,7 +331,7 @@ COLOSSEUM_CHAMPION = BossDef(
                 {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}},
                 {"flash": "#ffdd55"},
                 {"announce": "LAST STAND"},
-                {"force_skill": {"skill": "crowds_fury", "target": "all"}},
+                {"apply_status": {"target": "boss", "status": "haste", "duration": 5}}, {"force_skill": {"skill": "crowds_fury", "target": "all"}},
             ]},
             {"id": "last_hero", "when": {"heroes_alive_at_most": 1, "heroes_down_at_least": 1}, "steps": [
                 {"say": ("Colosseum Champion", "One left standing. Make it a good show.")},
@@ -589,7 +597,7 @@ ANCIENT_GUARDIAN = BossDef(
                 {"say": ("Ancient Guardian", "Enough. The Hollow will remember this.")},
                 {"flash": "#8899aa"},
                 {"announce": "TREMOR SLAM"},
-                {"force_skill": {"skill": "tremor_slam", "target": "all"}},
+                {"apply_status": {"target": "boss", "status": "haste", "duration": 5}}, {"force_skill": {"skill": "tremor_slam", "target": "all", "cast": 4.0, "brace": 1.8, "nopush": True}},
             ]},
         ],
         "victory": [
@@ -692,7 +700,7 @@ DROWNED_SOVEREIGN = BossDef(
                 "steps": [
                     {"announce": "THE TIDE SURGES"},
                     {"log": "Black water pours across the floor — the Sovereign winds up a crushing blow."},
-                    {"force_skill": {"skill": "arena_slam", "target": "all"}}
+                    {"force_skill": {"skill": "arena_slam", "target": "all", "cast": 3.5, "brace": 1.5}}
                 ]
             },
 
@@ -723,7 +731,7 @@ DROWNED_SOVEREIGN = BossDef(
                     {"heal_boss_pct": 0.08},
                     {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}},
                     {"announce": "THE HALL COLLAPSES"},
-                    {"force_skill": {"skill": "tremor_slam", "target": "all"}}
+                    {"apply_status": {"target": "boss", "status": "haste", "duration": 5}}, {"force_skill": {"skill": "tremor_slam", "target": "all", "cast": 4.5, "brace": 2.0, "nopush": True}}
                 ]
             }
         ],
@@ -774,7 +782,7 @@ VAULT_WARDEN = BossDef(
             {"id": "pulse", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
                 {"announce": "CORE PULSE"},
                 {"log": "The Shard flares -- the Warden channels a crushing pulse through the floor."},
-                {"force_skill": {"skill": "arena_slam", "target": "all"}},
+                {"force_skill": {"skill": "arena_slam", "target": "all", "cast": 3.5, "brace": 1.5}},
             ]},
             {"id": "overclock", "when": {"hp_below": 0.6}, "steps": [
                 {"shake": True},
@@ -788,7 +796,7 @@ VAULT_WARDEN = BossDef(
                 {"heal_boss_pct": 0.08},
                 {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}},
                 {"announce": "THE CORE DESTABILISES"},
-                {"force_skill": {"skill": "tremor_slam", "target": "all"}},
+                {"apply_status": {"target": "boss", "status": "haste", "duration": 5}}, {"force_skill": {"skill": "tremor_slam", "target": "all", "cast": 4.5, "brace": 2.0, "nopush": True}},
             ]},
         ],
         "victory": [
@@ -820,7 +828,7 @@ VAULT_SENTINEL = _guardian(
     [{"shake": True}, {"say": ("Vault Sentinel", "EAST GATE PROTOCOL ENGAGED. INTRUDERS WILL BE HELD.")}, {"announce": "THE VAULT SENTINEL ACTIVATES"}],
     [{"id": "lockdown", "when": {"every_n_rounds": 3, "from": 3}, "once": False, "steps": [
         {"announce": "LOCKDOWN"}, {"log": "The Sentinel slams its shield into the floor and the gate-lattice shudders."},
-        {"force_skill": {"skill": "ground_slam", "target": "all"}}]},
+        {"force_skill": {"skill": "ground_slam", "target": "all", "cast": 3.0, "brace": 1.5}}]},
      {"id": "bulwark", "when": {"hp_below": 0.5}, "steps": [
         {"shake": True}, {"say": ("Vault Sentinel", "SHIELD ARRAY AT FULL OUTPUT.")},
         {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}}]},
@@ -843,7 +851,7 @@ PHASE_STALKER = _guardian(
         {"force_skill": {"skill": "poison_dart", "target": "all"}}]},
      {"id": "frenzy", "when": {"hp_below": 0.55}, "steps": [
         {"shake": True}, {"say": ("Phase Stalker", "Hold still. It is easier if you hold still.")},
-        {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}}]},
+        {"apply_status": {"target": "boss", "status": "haste", "duration": 4}}, {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}}]},
      {"id": "desperate", "when": {"hp_below": 0.25}, "steps": [
         {"flash": "#2a1a55"}, {"say": ("Phase Stalker", "The rift takes me back. It takes you too.")},
         {"apply_status": {"target": "boss", "status": "atk_up", "duration": 3}},
@@ -861,14 +869,14 @@ RIFT_COLOSSUS = _guardian(
     [{"shake": True}, {"say": ("Rift Colossus", "THE CORE IS HEAVY. THE CORE IS HOT. THE CORE IS MINE.")}, {"announce": "THE RIFT COLOSSUS AWAKENS"}],
     [{"id": "meltcore", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
         {"announce": "CORE SURGE"}, {"log": "The Colossus's chest-core flares white-hot."},
-        {"force_skill": {"skill": "firestorm", "target": "all"}}]},
+        {"force_skill": {"skill": "firestorm", "target": "all", "cast": 4.0, "brace": 1.6}}]},
      {"id": "warcry", "when": {"hp_below": 0.6}, "steps": [
         {"shake": True}, {"say": ("Rift Colossus", "GRIND THEM TO SLAG.")},
         {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}}]},
      {"id": "overload", "when": {"hp_below": 0.3}, "steps": [
         {"shake": True}, {"flash": "#5a2a10"}, {"say": ("Rift Colossus", "CORE... OVERLOAD. TAKE IT ALL WITH ME.")},
         {"heal_boss_pct": 0.06}, {"announce": "THE CORE OVERLOADS"},
-        {"force_skill": {"skill": "ground_slam", "target": "all"}}]}],
+        {"apply_status": {"target": "boss", "status": "haste", "duration": 4}}, {"force_skill": {"skill": "ground_slam", "target": "all", "cast": 5.0, "brace": 2.0, "nopush": True}}]}],
     [{"say": ("Rift Colossus", "THE CORE... ENDURES. YOU DO NOT.")}],
     [{"say": ("Rift Colossus", "...CORE... COOLING. THE WAY... IS OPEN.")}],
     {"money": 720, "gems": 20, "xp": 260}, {"money": 200, "gems": 5, "xp": 75}, (230, 140, 70))
@@ -886,7 +894,7 @@ BRIARMAW = _guardian(
 
     # --- SKILL LIST ---
     [
-        "rending_strike",   # Used when player HP > 60%
+        "briarmaw_rend",    # Long wind-up, lethal unless you Defend (used when a hero can still react)
         "poison_dart",      # Used when player HP > 80% or player cured poison
         "power_strike",     # Used when player HP < 40%
         "counter_stance",   # Triggered when Briarmaw takes >15% HP in one turn
@@ -916,7 +924,7 @@ BRIARMAW = _guardian(
             "once": False,
             "steps": [
                 {"on_skill": {
-                    "rending_strike": {"vfx": "leaves_scatter", "sfx": "forest_rustle"},
+                    "briarmaw_rend": {"vfx": "leaves_scatter", "sfx": "forest_rustle"},
                     "poison_dart": {"vfx": "green_mist", "sfx": "toxin_hiss"},
                     "power_strike": {"vfx": "bark_crack", "sfx": "heavy_wood_impact"},
                     "counter_stance": {"vfx": "roots_coil", "sfx": "low_creak"},
@@ -936,7 +944,7 @@ BRIARMAW = _guardian(
             "steps": [
                 {"announce": "THE THORNS RISE"},
                 {"log": "Black brambles burst from the earth and lash across the lone challenger."},
-                {"force_skill": {"skill": "ground_slam", "target": "player"}},
+                {"force_skill": {"skill": "ground_slam", "target": "player", "cast": 3.0, "brace": 1.5}},
                 {"apply_status": {"target": "boss", "status": "def_up", "duration": 2}},   # 2 = survives the tick at the start of its own turn
                 {"cleanse_status": {"target": "boss", "status": "poison"}}
             ]
@@ -964,7 +972,7 @@ BRIARMAW = _guardian(
             "steps": [
                 {"say": ("Briarmaw", "THE WOOD... GIVES... ME... STRENGTH.")},
                 {"heal_boss_pct": 0.08},
-                {"announce": "BRIARMAW REGROWS"},
+                {"apply_status": {"target": "boss", "status": "haste", "duration": 4}}, {"announce": "BRIARMAW REGROWS"},
                 {"flag": "force_power_strike_next_turn"}
             ]
         }
@@ -994,7 +1002,7 @@ BRIARMAW.script["rules"] = [
     {"id": "root_counter", "skill": "counter_stance", "target": "self", "when": {"boss_lost_pct_above": 0.15, "boss_lacks_status": "counter"}, "cooldown": 4},
     {"id": "finish", "skill": "power_strike", "target": "lowest_hp", "when": {"target_hp_below": 0.4}},
     {"id": "toxin", "skill": "poison_dart", "target": "highest_hp", "when": {"target_hp_above": 0.8, "target_lacks_status": "poison"}},
-    {"id": "rend", "skill": "rending_strike", "target": "highest_hp", "when": {"target_hp_above": 0.6}},
+    {"id": "rend", "skill": "briarmaw_rend", "target": "highest_hp", "when": {"target_hp_above": 0.6, "target_eta_below": 3.0}, "cooldown": 2},
 ]
 
 # First-boss pointers: Kael's thoughts as the fight goes (each once, only when Kael is in the party). `if_party` / `party_has` keep
@@ -1033,14 +1041,14 @@ RIFT_HARBINGER = _guardian(
     [{"shake": True}, {"say": ("Rift Harbinger", "Three doors I opened. Three fighters I drew through. You are the first to walk back to the hand that held them.")}, {"announce": "THE RIFT HARBINGER STIRS"}],
     [{"id": "harvest", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
         {"announce": "HARVEST"}, {"log": "The Harbinger raises a hand and the air itself tears toward the weakest of you."},
-        {"force_skill": {"skill": "void_lance", "target": "lowest_hp"}}]},
+        {"force_skill": {"skill": "void_lance", "target": "lowest_hp", "cast": 3.0, "brace": 1.8, "nopush": True}}]},
      {"id": "unmake", "when": {"hp_below": 0.55}, "steps": [
         {"shake": True}, {"say": ("Rift Harbinger", "Enough. Let me show you how the doors are made.")},
         {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}}]},
      {"id": "last_door", "when": {"hp_below": 0.25}, "steps": [
         {"flash": "#1a0a3a"}, {"say": ("Rift Harbinger", "The last door opens inward. Come. Come and see.")},
         {"heal_boss_pct": 0.06}, {"announce": "THE LAST DOOR OPENS"},
-        {"force_skill": {"skill": "shadow_bolt", "target": "lowest_hp"}}]}],
+        {"apply_status": {"target": "boss", "status": "haste", "duration": 4}}, {"force_skill": {"skill": "shadow_bolt", "target": "lowest_hp", "cast": 4.0, "brace": 1.8, "nopush": True}}]}],
     [{"say": ("Rift Harbinger", "...The hand... was never mine. Find the one who... holds... the doors...")}],
     [{"say": ("Rift Harbinger", "Another one for the Reach. Sleep.")}],
     {"money": 1000, "gems": 26, "xp": 340}, {"money": 280, "gems": 7, "xp": 100}, (150, 60, 200))
@@ -1049,3 +1057,26 @@ RIFT_HARBINGER = _guardian(
 WORLD_BOSSES: Dict[str, BossDef] = {BRIARMAW.id: BRIARMAW, ANCIENT_GUARDIAN.id: ANCIENT_GUARDIAN, DROWNED_SOVEREIGN.id: DROWNED_SOVEREIGN, VAULT_WARDEN.id: VAULT_WARDEN,
                                 VAULT_SENTINEL.id: VAULT_SENTINEL, PHASE_STALKER.id: PHASE_STALKER, RIFT_COLOSSUS.id: RIFT_COLOSSUS,
                                 RIFT_HARBINGER.id: RIFT_HARBINGER}
+
+
+# Every boss fights at a SET level, whatever the party's level (Andrew: "bosses should be a set level"). This overrides
+# the old "average party level + level_offset" rule for both Colosseum rank bosses and world/dungeon bosses -- and any
+# `level` a 3D scene passes. A boss not listed here still falls back to party average + level_offset.
+# Retune by feel: just change the numbers.
+BOSS_FIXED_LEVELS: Dict[str, int] = {
+    "briarmaw_boss": 5,             # Whispering Wood
+    "ancient_guardian_boss": 8,     # island ruins cave
+    "drowned_sovereign_boss": 12,   # Hollow Cave
+    "vault_sentinel_boss": 14,      # Shard Vault, west
+    "phase_stalker_boss": 15,       # Shard Vault, east
+    "colosseum_champion_boss": 16,  # Colosseum rank 1 gate
+    "rift_colossus_boss": 17,       # Shard Vault, north
+    "vault_warden_boss": 19,        # Shard Vault, final
+    "unbroken_pair_boss": 20,       # Colosseum rank 2 gate
+    "rift_harbinger_boss": 24,      # Shattered Reach
+}
+
+
+def fixed_level_for(boss_id: str):
+    """The boss's set level, or None when it has none (then party average + level_offset applies)."""
+    return BOSS_FIXED_LEVELS.get(boss_id)

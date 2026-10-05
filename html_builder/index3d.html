@@ -75,6 +75,7 @@
         <label><input type="checkbox" id="vGrid" checked> Grid</label>
         <label><input type="checkbox" id="vRef" checked> Hero scale reference</label>
         <label><input type="checkbox" id="vLabels" checked> Labels</label>
+        <label><input type="checkbox" id="vTerrOnly"> Terrain only (hide everything else)</label>
         <label><input type="checkbox" id="vEnv" checked> Preview environment</label>
       </div>
       <h2>Layers <span class="kbd">show / lock</span></h2>
@@ -162,6 +163,17 @@ const MP = prog(`attribute vec3 a_p; attribute vec3 a_n; attribute vec2 a_t; uni
     vec3 l = u_amb + u_lcol * d; gl_FragColor = vec4(c.rgb * min(l, vec3(1.35)), c.a); }`, ["a_p", "a_n", "a_t"]);
 const FP = prog(`attribute vec3 a_p; uniform mat4 u_vp; void main(){ gl_Position = u_vp * vec4(a_p,1.0); }`,
   `precision mediump float; uniform vec4 u_c; void main(){ gl_FragColor = u_c; }`, ["a_p"]);
+
+const PP = prog(`attribute vec3 a_p; attribute vec3 a_n; uniform mat4 u_vp; varying vec3 v_n; varying vec2 v_w; void main(){ v_n = a_n; v_w = a_p.xz; gl_Position = u_vp * vec4(a_p,1.0); }`,
+  `#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+  #else
+  precision mediump float;
+  #endif
+  varying vec3 v_n; varying vec2 v_w; uniform sampler2D u_splat, u_t0, u_t1, u_t2, u_t3; uniform vec4 u_rect, u_inv; uniform vec3 u_ldir, u_lcol, u_amb;
+  void main(){ vec4 w = texture2D(u_splat, (v_w - u_rect.xy) * u_rect.zw); float tot = w.r + w.g + w.b + w.a; if (tot < 0.004) discard;
+    vec3 c = texture2D(u_t0, v_w * u_inv.x).rgb * w.r + texture2D(u_t1, v_w * u_inv.y).rgb * w.g + texture2D(u_t2, v_w * u_inv.z).rgb * w.b + texture2D(u_t3, v_w * u_inv.w).rgb * w.a;
+    c /= tot; vec3 n = normalize(v_n); float d = max(dot(n, -u_ldir), 0.0); vec3 l = u_amb + u_lcol * d; gl_FragColor = vec4(c * min(l, vec3(1.35)), min(tot, 1.0)); }`, ["a_p", "a_n"]);
 const flatBuf = gl.createBuffer();
 const white = (() => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255])); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); return t; })();
 function flat(mode, arr, col) {                      // arr: flat [x,y,z,...]
@@ -200,7 +212,7 @@ function uploadObj(o) {
   const vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW);
   let idx = o.indices, it = gl.UNSIGNED_SHORT; if (vc > 65535) { if (!idxUint) return null; it = gl.UNSIGNED_INT; } else idx = Uint16Array.from(idx);
   const ibo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
-  return { vbo, ibo, count: idx.length, it };
+  return { vbo, ibo, count: idx.length, it, d, vc };
 }
 function ensureModel(url) {
   if (modelReady.has(url)) return modelReady.get(url);
@@ -210,8 +222,8 @@ function ensureModel(url) {
         const r = await fetch(encodeURI(url)); if (!r.ok) throw new Error("HTTP " + r.status);
         const parsed = B3DMap.parse(await r.arrayBuffer()), base = new URL(encodeURI(url), location.href);
         const texs = await Promise.all(parsed.images.map((im) => makeTex(im, base).catch(() => null)));
-        const objs = parsed.objects.map((o) => { const g = uploadObj(o); return g ? { g, mat: o.material, tex: o.material.image >= 0 ? texs[o.material.image] : null } : null; }).filter(Boolean);
-        modelReady.set(url, { objs, min: parsed.bounds.min, max: parsed.bounds.max });
+        const objs = parsed.objects.map((o) => { const g = uploadObj(o); return g ? { g, mat: o.material, tex: o.material.image >= 0 ? texs[o.material.image] : null, src: o } : null; }).filter(Boolean);
+        modelReady.set(url, { objs, min: parsed.bounds.min, max: parsed.bounds.max, min0: parsed.bounds.min.slice(), max0: parsed.bounds.max.slice(), cpu: parsed.objects.map((o) => ({ p: o.positions, i: o.indices })) });   // cpu = raw triangles, for click picking
       } catch (e) { console.warn("model failed", url, e); modelReady.set(url, { objs: [], min: [-0.5, 0, -0.5], max: [0.5, 1, 0.5], failed: true }); }
       scheduleDraw();
     })());
@@ -245,6 +257,7 @@ const HUB_KNOWN = ["name", "kit", "tile", "pieces", "colliders", "npcs", "events
 const BATTLE_KNOWN = ["name", "model", "scale", "offset", "rotY", "props", "light", "fog", "sky", "cullNearCamera", "fx"];
 const HUB_ACTIONS = ["", "battle", "ladder", "challenge", "summon", "heroes", "shop", "world", "save_and_quit"];
 let scene = null, scenesList = [], npcSprites = [], modelList = [];
+let TERR = null;                                  // sculpted terrain runtime: { T (scene.extra.terrain), h, base, sc }
 let sel = null;                                   // primary selection { type, uid }
 let selSet = [];                                  // every selected item (sel is its last entry)
 let clip = null;                                  // copy/paste buffer
@@ -308,7 +321,7 @@ function serialize(s) {
 const undoS = [], redoS = [];
 const snap = () => JSON.stringify(scene);
 function checkpoint() { undoS.push(snap()); if (undoS.length > 120) undoS.shift(); redoS.length = 0; setDirty(true); }
-function restore(str) { scene = JSON.parse(str); setSel(selSet.filter((s) => getItem(s))); setDirty(true); refreshUI(); scheduleDraw(); }
+function restore(str) { scene = JSON.parse(str); terrainSync(); setSel(selSet.filter((s) => getItem(s))); setDirty(true); refreshUI(); scheduleDraw(); }
 function undo() { if (!undoS.length) return; redoS.push(snap()); restore(undoS.pop()); }
 function redo() { if (!redoS.length) return; undoS.push(snap()); restore(redoS.pop()); }
 let setDirty = function (d) { dirty = d; $("#dirty").textContent = d ? "●" : ""; document.title = (d ? "* " : "") + "2.5D Scene Editor"; };
@@ -390,10 +403,53 @@ function pickBoxes() {
   out.push({ type: "spawn", uid: 0, mn: [scene.spawn.x - 0.5, 0, scene.spawn.z - 0.5], mx: [scene.spawn.x + 0.5, 1.2, scene.spawn.z + 0.5] });
   return out;
 }
-function pick(sx, sy) {
-  const ray = rayAt(sx, sy); let best = null;
-  for (const b of pickBoxes()) { const t = rayBox(ray, b.mn, b.mx); if (t == null) continue; const score = t + (b.type === "piece" ? 0 : -1.5); if (!best || score < best.score) best = { score, type: b.type, uid: b.uid }; }
+/* Picking. Pieces are picked by their real triangles (what you see is what you click), so the big terrain / ground mesh no
+   longer swallows everything standing on it; the nearest visible surface under the cursor wins. Colliders, events, NPCs, decals
+   and the spawn are picked by their boxes. Alt+click steps through everything under the cursor, front to back (so you can reach
+   what is behind or inside something). Thin or tiny pieces that a ray can miss fall back to a forgiving box test, smallest first. */
+function rayTris(ray, p, m) {
+  if (!m || !m.cpu) return null;
+  const a = (p.rot || 0) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), k = 1 / (p.sc || 1);
+  const ox = ray.o[0] - p.x, oy = ray.o[1] - (p.y || 0), oz = ray.o[2] - p.z;
+  const O = [(c * ox - sn * oz) * k, oy * k, (sn * ox + c * oz) * k], D = [(c * ray.d[0] - sn * ray.d[2]) * k, ray.d[1] * k, (sn * ray.d[0] + c * ray.d[2]) * k];
+  let best = null;
+  for (const o of m.cpu) {
+    const P = o.p, I = o.i;
+    for (let t = 0; t + 2 < I.length; t += 3) {
+      const i0 = I[t] * 3, i1 = I[t + 1] * 3, i2 = I[t + 2] * 3;
+      const e1x = P[i1] - P[i0], e1y = P[i1 + 1] - P[i0 + 1], e1z = P[i1 + 2] - P[i0 + 2], e2x = P[i2] - P[i0], e2y = P[i2 + 1] - P[i0 + 1], e2z = P[i2 + 2] - P[i0 + 2];
+      const px = D[1] * e2z - D[2] * e2y, py = D[2] * e2x - D[0] * e2z, pz = D[0] * e2y - D[1] * e2x, det = e1x * px + e1y * py + e1z * pz;
+      if (det > -1e-12 && det < 1e-12) continue;                       // parallel (both faces count: det may be negative)
+      const inv = 1 / det, tx = O[0] - P[i0], ty = O[1] - P[i0 + 1], tz = O[2] - P[i0 + 2], u = (tx * px + ty * py + tz * pz) * inv;
+      if (u < 0 || u > 1) continue;
+      const qx = ty * e1z - tz * e1y, qy = tz * e1x - tx * e1z, qz = tx * e1y - ty * e1x, v = (D[0] * qx + D[1] * qy + D[2] * qz) * inv;
+      if (v < 0 || u + v > 1) continue;
+      const tt = (e2x * qx + e2y * qy + e2z * qz) * inv;
+      if (tt > 0.01 && (best === null || tt < best)) best = tt;
+    }
+  }
   return best;
+}
+function pickStack(sx, sy) {
+  const ray = rayAt(sx, sy), hits = [], boxHits = [];
+  for (const b of pickBoxes()) {
+    const t = rayBox(ray, b.mn, b.mx); if (t == null) continue;
+    const vol = Math.max(1e-3, (b.mx[0] - b.mn[0]) * Math.max(0.05, b.mx[1] - b.mn[1]) * (b.mx[2] - b.mn[2]));
+    if (b.type === "piece") {
+      const pc = scene.pieces.find((q) => q.uid === b.uid), m = pc && modelReady.get(pc.model);
+      const tt = pc && m && !m.failed ? rayTris(ray, pc, m) : null;
+      if (tt != null) hits.push({ score: tt, type: "piece", uid: b.uid });
+      else boxHits.push({ score: vol, type: "piece", uid: b.uid });
+    } else hits.push({ score: t + (b.type === "collider" ? 1.5 : -1.5), type: b.type, uid: b.uid });
+  }
+  hits.sort((a, b) => a.score - b.score);
+  if (!hits.some((h) => h.type === "piece")) { boxHits.sort((a, b) => a.score - b.score); return hits.concat(boxHits); }   // nothing solid hit: forgiving fallback
+  return hits;
+}
+function pick(sx, sy, cycle) {
+  const hits = pickStack(sx, sy); if (!hits.length) return null;
+  if (cycle && sel) { const i = hits.findIndex((h) => h.type === sel.type && (h.type === "spawn" || h.uid === sel.uid)); if (i >= 0) return hits[(i + 1) % hits.length]; }
+  return hits[0];
 }
 const layers = { piece: { vis: true, lock: false, label: "Pieces" }, npc: { vis: true, lock: false, label: "NPCs" }, event: { vis: true, lock: false, label: "Events" }, collider: { vis: true, lock: false, label: "Colliders" }, decal: { vis: true, lock: false, label: "Decals" } };
 let grid = 1;
@@ -423,22 +479,25 @@ function draw() {
   gl.viewport(0, 0, cv.width, cv.height); syncSkyBg(); syncFx(); const env = envPreviewOn(); gl.clearColor(env ? 0 : 0.16, env ? 0 : 0.17, env ? 0 : 0.26, env ? 0 : 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   g2.clearRect(0, 0, cam.w, cam.h);
   if (!scene) return;
+  const tOnly = $("#vTerrOnly").checked && !play, tMesh = tOnly ? (terrMeshPiece() || terrAutoMesh()) : null;
   gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.disable(gl.CULL_FACE);
   // pieces
   gl.useProgram(MP.p); gl.uniformMatrix4fv(MP.u.u_vp, false, cam.vp); gl.uniform1i(MP.u.u_tex, 0);
   const L = scene.light, ld = V.norm(L.dir || [-0.5, -1, -0.35]); gl.uniform3f(MP.u.u_ldir, ld[0], ld[1], ld[2]);
   gl.uniform3fv(MP.u.u_lcol, L.color || [1, 1, 1]); gl.uniform3fv(MP.u.u_amb, L.ambient || [0.6, 0.6, 0.6]);
   if (layers.piece.vis) for (const p of scene.pieces) {
+    if (tOnly && p !== tMesh) continue;
     const m = ensureModel(p.model);
     if (m) drawModel(m, pieceMatrix(p), [1, 1, 1, 1]);
     else flat(gl.LINES, boxEdges([p.x - .5, 0, p.z - .5], [p.x + .5, 1, p.z + .5]), [1, .6, .2, 1]);
     if (m && m.failed) flat(gl.LINES, boxEdges([p.x - .5, 0, p.z - .5], [p.x + .5, 1, p.z + .5]), [1, 0, 1, 1]);
   }
+  drawPaint();
   // ghost
   if (play) { drawPlayExtras(); $("#status").innerHTML = "<span>Playing the " + (scene.name || scene.id).replace(/</g, "") + " scene · pieces, colliders and events as currently edited (unsaved changes included)</span>"; return; }
   if (tool === "place" && curModel && hoverG && !dragState) {
     const m = ensureModel(curModel.url);
-    if (m) { gl.useProgram(MP.p); gl.uniformMatrix4fv(MP.u.u_vp, false, cam.vp); drawModel(m, pieceMatrix({ x: hoverG[0], y: 0, z: hoverG[2], rot: placeRot, sc: placeScale }), [0.8, 1, 0.8, 0.6]); }
+    if (m) { gl.useProgram(MP.p); gl.uniformMatrix4fv(MP.u.u_vp, false, cam.vp); drawModel(m, pieceMatrix({ x: hoverG[0], y: terrH(hoverG[0], hoverG[2]), z: hoverG[2], rot: placeRot, sc: placeScale }), [0.8, 1, 0.8, 0.6]); }
   }
   // grid
   if ($("#vGrid").checked) {
@@ -449,7 +508,7 @@ function draw() {
   }
   // scene guides
   gl.depthMask(false);
-  if (scene.kind === "hub") {
+  if (tOnly) { /* terrain only: no guides */ } else if (scene.kind === "hub") {
     const b = scene.bounds; flat(gl.LINES, [b.minX, .05, b.minZ, b.maxX, .05, b.minZ, b.maxX, .05, b.minZ, b.maxX, .05, b.maxZ, b.maxX, .05, b.maxZ, b.minX, .05, b.maxZ, b.minX, .05, b.maxZ, b.minX, .05, b.minZ], [.4, 1, .5, .9]);
     if (layers.collider.vis) for (const c of scene.colliders) { flat(gl.TRIANGLES, rectTris(c.x - c.w / 2, c.z - c.d / 2, c.x + c.w / 2, c.z + c.d / 2, .06), [1, .2, .2, .28]); flat(gl.LINES, boxEdges([c.x - c.w / 2, 0, c.z - c.d / 2], [c.x + c.w / 2, 1.5, c.z + c.d / 2]), [1, .35, .35, .8]); }
     if (layers.event.vis) for (const e of scene.events) { flat(gl.TRIANGLES, rectTris(e.x - e.w / 2, e.z - e.d / 2, e.x + e.w / 2, e.z + e.d / 2, .07), e.trigger === "talk" ? [.3, .7, 1, .25] : [.8, .4, 1, .28]); flat(gl.LINES, boxEdges([e.x - e.w / 2, 0, e.z - e.d / 2], [e.x + e.w / 2, .6, e.z + e.d / 2]), e.trigger === "talk" ? [.4, .8, 1, .9] : [.85, .5, 1, .9]); }
@@ -460,27 +519,29 @@ function draw() {
     flat(gl.LINES, boxEdges([-10, 0, -4], [10, 0.02, 10]), [.3, .9, 1, .9]);                          // combat field
     flat(gl.LINES, circleLines(0, 3, 8, .03), [.3, .9, 1, .35]);
   }
-  if ($("#vRef").checked) { const o = scene.kind === "hub" ? [scene.spawn.x + 1.5, scene.spawn.z] : [-12, 3], hh = scene.kind === "hub" ? (scene.playerHeight || 2.4) : 3.5; flat(gl.LINES, boxEdges([o[0] - .35, 0, o[1] - .2], [o[0] + .35, hh, o[1] + .2]), [1, 1, .4, .9]); }
+  if (!tOnly && $("#vRef").checked) { const o = scene.kind === "hub" ? [scene.spawn.x + 1.5, scene.spawn.z] : [-12, 3], hh = scene.kind === "hub" ? (scene.playerHeight || 2.4) : 3.5; flat(gl.LINES, boxEdges([o[0] - .35, 0, o[1] - .2], [o[0] + .35, hh, o[1] + .2]), [1, 1, .4, .9]); }
+  if (tool === "terrain" && terrBrush && !play) drawTerrBrush();
   if (ghostRect) { const g = ghostRect, x0 = Math.min(g.x0, g.x1), x1 = Math.max(g.x0, g.x1), z0 = Math.min(g.z0, g.z1), z1 = Math.max(g.z0, g.z1); flat(gl.TRIANGLES, rectTris(x0, z0, x1, z1, .09), [1, 1, .4, .25]); flat(gl.LINES, boxEdges([x0, .09, z0], [x1, .1, z1]), [1, 1, .4, 1]); }
   gl.depthMask(true);
   gl.disable(gl.DEPTH_TEST);
-  for (const it of selItems()) { const b = selBox(it), pr = sel && it.type === sel.type && (it.type === "spawn" || it.ref.uid === sel.uid); flat(gl.LINES, boxEdges(b.mn, b.mx), pr ? [1, .9, .2, 1] : [1, .6, .15, .95]); }
+  if (!tOnly) for (const it of selItems()) { const b = selBox(it), pr = sel && it.type === sel.type && (it.type === "spawn" || it.ref.uid === sel.uid); flat(gl.LINES, boxEdges(b.mn, b.mx), pr ? [1, .9, .2, 1] : [1, .6, .15, .95]); }
   if (typeof drawLineGhost === "function") drawLineGhost();
   gl.enable(gl.DEPTH_TEST);
   // labels
-  if ($("#vLabels").checked && scene.kind === "hub") {
+  if (!tOnly && $("#vLabels").checked && scene.kind === "hub") {
     g2.font = "11px sans-serif"; g2.textAlign = "center";
     const lab = (txt, p, col) => { const s = project(p); if (!s) return; const w = g2.measureText(txt).width + 8; g2.fillStyle = "rgba(0,0,0,.65)"; g2.fillRect(s.x - w / 2, s.y - 14, w, 16); g2.fillStyle = col; g2.fillText(txt, s.x, s.y - 2); };
     if (layers.npc.vis) for (const n of scene.npcs) lab(n.name || n.id, [n.x, (n.h || 2.4) + .3, n.z], "#9cf");
     if (layers.event.vis) for (const e of scene.events) lab("⚑ " + (e.name || e.id), [e.x, .9, e.z], "#d9a8ff");
     lab("spawn", [scene.spawn.x, (scene.playerHeight || 2.4) + .3, scene.spawn.z], "#8f8");
   }
+  if (!tOnly) drawGizmo();
   if (marq) { const x = Math.min(marq.x0, marq.x1), y = Math.min(marq.y0, marq.y1), w = Math.abs(marq.x1 - marq.x0), hh = Math.abs(marq.y1 - marq.y0); g2.fillStyle = "rgba(255,200,60,.12)"; g2.fillRect(x, y, w, hh); g2.strokeStyle = "rgba(255,210,80,.95)"; g2.setLineDash([5, 3]); g2.strokeRect(x + .5, y + .5, w, hh); g2.setLineDash([]); }
   $("#status").textContent = ""; updateStatus();
 }
 function updateStatus() {
-  const hint = { select: "Click to select · Shift-click add/remove · drag empty space or Shift-drag for a box · drag to move · Q/E rotate · Ctrl+A all · Ctrl+C/V · Del",
-    line: lineHint(), place: "Click to place · Shift+drag to fill a rectangle with tiles · Q/E rotate the ghost", collider: "Drag a rectangle on the ground", bounds: "Drag a rectangle to set the walkable bounds", npc: "Click the ground to place an NPC", event: "Click the ground to place an event trigger", decal: "Click the ground to place a decal", spawn: "Click the ground to move the player spawn" }[tool] || "";
+  const hint = { select: "Click to select (what you click is what you see; Alt+click cycles through everything under the cursor) · Shift-click add/remove · drag empty space or Shift-drag for a box · drag to move · Q/E rotate · Ctrl+A all · Ctrl+C/V · Del",
+    line: lineHint(), place: "Click to place · Shift+drag to fill a rectangle with tiles · Q/E rotate the ghost", collider: "Drag a rectangle on the ground", bounds: "Drag a rectangle to set the walkable bounds", npc: "Click the ground to place an NPC", event: "Click the ground to place an event trigger", decal: "Click the ground to place a decal", spawn: "Click the ground to move the player spawn", terrain: "Drag on the ground to sculpt · Shift inverts raise/lower · [ ] brush size · Ctrl+Z undoes a stroke" }[tool] || "";
   const hv = hoverG ? `x ${r3(hoverG[0])}  z ${r3(hoverG[2])}` : "";
   $("#status").innerHTML = `<span>${hint}</span><span>${hv}</span><span>${scene ? scene.pieces.length + " pieces" + (scene.kind === "hub" ? ` · ${scene.npcs.length} NPCs · ${scene.events.length} events · ${scene.colliders.length} colliders` : "") : ""}</span>`;
 }
@@ -492,7 +553,7 @@ function mouse(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.
 function groundPt(e, y) { const [sx, sy] = mouse(e); return onPlane(rayAt(sx, sy), y || 0); }
 function uniqueId(base, arr) { let i = 1, id; do { id = base + "_" + i++; } while (arr.some((a) => a.id === id)); return id; }
 function setTool(t) {
-  tool = t; document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === t)); ghostRect = null; if (tool !== "line" && typeof lineCancel === "function") lineCancel(); if (typeof syncLineOpts === "function") syncLineOpts(); scheduleDraw();
+  tool = t; document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === t)); ghostRect = null; if (tool !== "line" && typeof lineCancel === "function") lineCancel(); if (typeof syncLineOpts === "function") syncLineOpts(); if (typeof syncTerrOpts === "function") syncTerrOpts(); terrBrush = null; scheduleDraw();
 }
 cv.addEventListener("contextmenu", (e) => e.preventDefault());
 cv.addEventListener("pointerdown", (e) => {
@@ -502,7 +563,8 @@ cv.addEventListener("pointerdown", (e) => {
   if (play) { dragState = { mode: "pclick", x: e.clientX, y: e.clientY }; return; }
   const free = e.altKey, gp = groundPt(e, 0);
   if (tool === "select") {
-    const p = pick(sx, sy), add = e.shiftKey || e.ctrlKey || e.metaKey;
+    const gz = gizHit(sx, sy); if (gz >= 0) { gizStart(gz, sx, sy); scheduleDraw(); return; }
+    const p = pick(sx, sy, e.altKey), add = e.shiftKey || e.ctrlKey || e.metaKey;
     if (p) {
       if (add) { dragState = { mode: "marq", add: true, pk: p }; marq = { x0: sx, y0: sy, x1: sx, y1: sy }; }
       else {
@@ -517,8 +579,9 @@ cv.addEventListener("pointerdown", (e) => {
     if (!curModel) { toast("Pick a model in the palette first", "err"); return; }
     if (!gp) return;
     if (e.shiftKey) dragState = { mode: "fill", x0: snapv(gp[0], free), z0: snapv(gp[2], free) }, ghostRect = { x0: snapv(gp[0], free), z0: snapv(gp[2], free), x1: snapv(gp[0], free), z1: snapv(gp[2], free) };
-    else { checkpoint(); const p = addItem("piece", { model: curModel.url, x: r3(snapv(gp[0], free)), z: r3(snapv(gp[2], free)), y: 0, rot: placeRot, sc: placeScale }); lastScale[curModel.url] = placeScale; selectItem("piece", p.uid); refreshOutliner(); }
+    else { checkpoint(); const p = addItem("piece", { model: curModel.url, x: r3(snapv(gp[0], free)), z: r3(snapv(gp[2], free)), y: r3(terrH(snapv(gp[0], free), snapv(gp[2], free))), rot: placeRot, sc: placeScale }); lastScale[curModel.url] = placeScale; selectItem("piece", p.uid); refreshOutliner(); }
   } else if (tool === "line") { lineDown(e, gp, free);
+  } else if (tool === "terrain") { terrDown(e, sx, sy);
   } else if (tool === "collider" || tool === "bounds") {
     if (gp) { dragState = { mode: "rect", x0: snapv(gp[0], free), z0: snapv(gp[2], free) }; ghostRect = { x0: dragState.x0, z0: dragState.z0, x1: dragState.x0, z1: dragState.z0 }; }
   } else if (gp) {
@@ -538,8 +601,11 @@ cv.addEventListener("pointerdown", (e) => {
 cv.addEventListener("pointermove", (e) => {
   if (!scene) return;
   const hg = groundPt(e, 0); hoverG = hg;
+  if (tool === "terrain" && !play && !(dragState && dragState.mode !== "terr")) { const [tx, ty] = mouse(e), t = terrRay(tx, ty); terrBrush = t ? { x: t[0], z: t[2] } : null; }
+  if (tool === "select" && !play && !dragState) { const [tx, ty] = mouse(e), gz = gizHit(tx, ty); if (gz !== gizHover) { gizHover = gz; cv.style.cursor = gz >= 0 ? "grab" : ""; } }
   if (dragState) {
     const d = dragState;
+    if (d.mode === "gizmo") gizDrag(e); else
     if (d.mode === "orbit") { cam.yaw -= (e.clientX - d.x) * 0.4; cam.pitch = clamp(cam.pitch + (e.clientY - d.y) * 0.4, 5, 89.5); d.x = e.clientX; d.y = e.clientY; }
     else if (d.mode === "pan") {
       const s = cam.dist * 0.0017, rt = V.norm([cam.X[0], 0, cam.X[2]]), fw = V.norm([-cam.Z[0], 0, -cam.Z[2]]), dx = e.clientX - d.x, dy = e.clientY - d.y;
@@ -554,6 +620,8 @@ cv.addEventListener("pointermove", (e) => {
 });
 cv.addEventListener("pointerup", (e) => {
   const d = dragState; dragState = null; if (!d) return;
+  if (d.mode === "gizmo") { gizHover = -1; if (d.moved) refreshOutliner(); }
+  if (d.mode === "terr") terrEnd();
   if (d.mode === "pclick") { if (play && !play.script && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) { const g = groundPt(e, 0), b = scene.bounds; if (g) play.p.target = { x: clamp(g[0], b.minX + 1, b.maxX - 1), z: clamp(g[2], b.minZ + 1, b.maxZ - 1) }; } return; }
   if (d.mode === "move") { if (d.moved) refreshOutliner(); else if (d.grp) selectItem(d.pk.type, d.pk.uid); }
   if (d.mode === "line") lineUp(e, d);
@@ -579,7 +647,7 @@ cv.addEventListener("pointerup", (e) => {
     if (nx * nz > 150 && !confirm(`Place ${nx * nz} pieces?`)) return;
     checkpoint(); const cxm = (m.min[0] + m.max[0]) / 2 * placeScale, czm = (m.min[2] + m.max[2]) / 2 * placeScale, a = placeRot * Math.PI / 180;
     const ox = Math.cos(a) * cxm + Math.sin(a) * czm, oz = -Math.sin(a) * cxm + Math.cos(a) * czm;      // rotated centre offset
-    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) addItem("piece", { model: curModel.url, x: r3(x0 + W * (i + .5) - ox), z: r3(z0 + D * (j + .5) - oz), y: 0, rot: placeRot, sc: placeScale });
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) addItem("piece", { model: curModel.url, x: r3(x0 + W * (i + .5) - ox), z: r3(z0 + D * (j + .5) - oz), y: r3(terrH(x0 + W * (i + .5) - ox, z0 + D * (j + .5) - oz)), rot: placeRot, sc: placeScale });
     toast(`Placed ${nx * nz} pieces`, "ok"); refreshOutliner();
   }
   scheduleDraw();
@@ -598,9 +666,11 @@ window.addEventListener("keydown", (e) => {
   if (ctrl && k.toLowerCase() === "c") { e.preventDefault(); copySel(); return; }
   if (ctrl && k.toLowerCase() === "v") { e.preventDefault(); pasteClip(hoverG ? [hoverG[0], hoverG[2]] : null); return; }
   if (k === "Escape") { if (typeof lineCancel === "function" && lineActive()) lineCancel(); else if (marq) { marq = null; dragState = null; } else selectItem(null); scheduleDraw(); return; }
-  const tk = { 1: "select", 2: "place", 3: "collider", 4: "npc", 5: "event", 6: "decal", 7: "spawn", 8: "bounds", 9: "line" }[k]; if (tk) { setTool(tk); return; }
+  const tk = { 1: "select", 2: "place", 3: "collider", 4: "npc", 5: "event", 6: "decal", 7: "spawn", 8: "bounds", 9: "line", 0: "terrain" }[k]; if (tk) { setTool(tk); return; }
+  if (tool === "terrain" && (k === "[" || k === "]")) { terrOpts.radius = clamp(terrOpts.radius * (k === "]" ? 1.15 : 1 / 1.15), 1, 40); terrOpts.radius = Math.round(terrOpts.radius * 2) / 2; syncTerrOpts(); scheduleDraw(); return; }
   if (k === "Delete" || k === "Backspace") { e.preventDefault(); removeSel(); return; }
   const lk = k.toLowerCase();
+  if (lk === "y") { const c = $("#vTerrOnly"); c.checked = !c.checked; scheduleDraw(); return; }
   if (lk === "t") { cam.pitch = cam.pitch > 80 ? 45 : 89.5; scheduleDraw(); return; }
   if (multi && tool === "select" && (lk === "h" || lk === "v")) { checkpoint(); mirrorGroup(grp, lk === "h" ? "x" : "z"); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); return; }
   if (lk === "f") { if (it) { const b = multi ? selBounds(grp) : selBox(it); cam.tx = (b.mn[0] + b.mx[0]) / 2; cam.tz = (b.mn[2] + b.mx[2]) / 2; cam.dist = clamp(Math.max(b.mx[0] - b.mn[0], b.mx[2] - b.mn[2]) * 2.5 + 8, 8, 120); } else frameScene(); scheduleDraw(); return; }
@@ -620,7 +690,7 @@ function frameScene() {
   cam.tx = (mnx + mxx) / 2; cam.tz = (mnz + mxz) / 2; cam.ty = 0; cam.dist = clamp(Math.max(mxx - mnx, mxz - mnz) * 1.3 + 10, 15, 250);
 }
 /* ============================== UI: palette, layers, tools ============================== */
-const TOOLS = [["select", "Select", "1"], ["place", "Place piece", "2"], ["collider", "Collider", "3"], ["npc", "NPC", "4"], ["event", "Event", "5"], ["decal", "Decal", "6"], ["spawn", "Spawn", "7"], ["bounds", "Bounds", "8"], ["line", "Wall line", "9"]];
+const TOOLS = [["select", "Select", "1"], ["place", "Place piece", "2"], ["collider", "Collider", "3"], ["npc", "NPC", "4"], ["event", "Event", "5"], ["decal", "Decal", "6"], ["spawn", "Spawn", "7"], ["bounds", "Bounds", "8"], ["line", "Wall line", "9"], ["terrain", "Terrain", "0"]];
 function buildTools() {
   const box = $("#tools"); box.innerHTML = "";
   TOOLS.forEach(([id, label, key]) => box.append(h("button", { "data-tool": id, class: id === tool ? "on" : "", onclick: () => setTool(id) }, label, h("kbd", {}, key))));
@@ -910,6 +980,348 @@ function playKey(e) {
 }
 window.addEventListener("keyup", (e) => { if (play) play.keys[e.key.toLowerCase()] = false; });
 window.addEventListener("blur", () => { if (play) play.keys = {}; });
+
+/* ============================== terrain sculpting ==============================
+   scene.extra.terrain = { x0, z0, cell, nx, nz, scale, data: base64 int16 heights / scale,   <- what the game walks on
+                           base: the heights the ground mesh was authored with, mesh: ground piece name }
+   The ground piece's vertices are lifted by (edited - base) height, here and in the game, so hills are visible. */
+const terrOpts = { mode: "raise", radius: 8, strength: 6, soft: 0.6, height: 0, follow: true, layer: 0, pend: null };
+let terrBrush = null, terrStroke = null, terrModel = null;
+const T64 = {
+  dec(b64, sc) { const bin = atob(b64), n = bin.length >> 1, o = new Float32Array(n); for (let i = 0; i < n; i++) { let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v & 0x8000) v -= 0x10000; o[i] = v / sc; } return o; },
+  enc(hh, sc) { const u = new Uint8Array(hh.length * 2); for (let i = 0; i < hh.length; i++) { const v = Math.max(-32768, Math.min(32767, Math.round(hh[i] * sc))) & 0xffff; u[2 * i] = v & 255; u[2 * i + 1] = v >> 8; } let t = ""; for (let i = 0; i < u.length; i += 8192) t += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(t); },
+};
+function terrSample(arr, x, z) {
+  const T = TERR.T; let fx = (x - T.x0) / T.cell, fz = (z - T.z0) / T.cell;
+  fx = clamp(fx, 0, T.nx - 1.001); fz = clamp(fz, 0, T.nz - 1.001);
+  const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j, o = j * T.nx + i;
+  return (arr[o] * (1 - u) + arr[o + 1] * u) * (1 - v) + (arr[o + T.nx] * (1 - u) + arr[o + T.nx + 1] * u) * v;
+}
+const terrH = (x, z) => TERR ? terrSample(TERR.h, x, z) : 0;
+function serName(model) { let n = model; if (scene.kit && n.startsWith(scene.kit)) n = n.slice(scene.kit.length); return n.replace(/\.glb$/i, ""); }
+function terrAutoMesh() {                              // the biggest piece whose model name says "ground"
+  let best = null, ba = 0;
+  for (const p of scene.pieces) { if (!/ground|terrain|island/i.test(p.model)) continue; const m = modelReady.get(p.model); if (!m || m.failed) continue; const a = (m.max0[0] - m.min0[0]) * (m.max0[2] - m.min0[2]) * (p.sc || 1) * (p.sc || 1); if (a > ba) { ba = a; best = p; } }
+  return best;
+}
+function terrMeshPiece() {
+  if (!TERR || !scene || scene.kind !== "hub") return null;
+  return TERR.T.mesh ? (scene.pieces.find((p) => serName(p.model) === TERR.T.mesh) || null) : terrAutoMesh();
+}
+function terrainSync() {                               // rebuild the runtime from the scene (open / undo / new)
+  TERR = null; const T = scene && scene.extra && scene.extra.terrain;
+  if (T && T.data && T.nx > 1 && T.nz > 1) { const sc = T.scale || 100; TERR = { T, h: T64.dec(T.data, sc), base: T64.dec(T.base || T.data, sc), sc, paint: null }; if (T.paint && T.paint.data) paintLoad(T.paint); }
+  terrDeform(null); if (typeof syncTerrOpts === "function") syncTerrOpts();
+}
+function terrFill(e) {
+  const o = e.src, P = o.positions, N = o.normals, d = e.g.d, vc = e.g.vc;
+  for (let i = 0; i < vc; i++) { d[i * 8] = P[i * 3]; d[i * 8 + 1] = P[i * 3 + 1]; d[i * 8 + 2] = P[i * 3 + 2]; d[i * 8 + 3] = N[i * 3]; d[i * 8 + 4] = N[i * 3 + 1]; d[i * 8 + 5] = N[i * 3 + 2]; }
+  gl.bindBuffer(gl.ARRAY_BUFFER, e.g.vbo); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d);
+}
+function terrReset(m) { for (const e of m.objs) { const o = e.src; if (!o.p0) continue; o.positions.set(o.p0); o.normals.set(o.n0); terrFill(e); } m.min = m.min0.slice(); m.max = m.max0.slice(); }
+function terrDeform(box) {                             // lift the ground mesh by (edited - base); box = [x0, z0, x1, z1] limits the work to a region
+  const p = TERR ? terrMeshPiece() : null, m = p ? modelReady.get(p.model) : null;
+  if (terrModel && terrModel !== m) { terrReset(terrModel); terrModel = null; }
+  if (!m || m.failed || !m.objs.length) return;
+  terrModel = m;
+  const a = (p.rot || 0) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), sc = p.sc || 1, H = TERR.h, B = TERR.base, cell = TERR.T.cell;
+  const dl = (x, z) => terrSample(H, x, z) - terrSample(B, x, z);
+  let ymn = 1e9, ymx = -1e9;
+  for (const e of m.objs) {
+    const o = e.src; if (!o.p0) { o.p0 = o.positions.slice(); o.n0 = o.normals.slice(); }
+    const P = o.positions, P0 = o.p0, N = o.normals, N0 = o.n0, vc = e.g.vc;
+    for (let i = 0; i < vc; i++) {
+      const lx = P0[i * 3], ly = P0[i * 3 + 1], lz = P0[i * 3 + 2], wx = p.x + (c * lx + sn * lz) * sc, wz = p.z + (-sn * lx + c * lz) * sc;
+      if (!box || (wx >= box[0] && wx <= box[2] && wz >= box[1] && wz <= box[3])) {
+        P[i * 3 + 1] = ly + dl(wx, wz) / sc;
+        const gx = (dl(wx + cell, wz) - dl(wx - cell, wz)) / (2 * cell), gz = (dl(wx, wz + cell) - dl(wx, wz - cell)) / (2 * cell), n0y = N0[i * 3 + 1];
+        if ((gx || gz) && n0y > 0.2) {
+          const lgx = c * gx - sn * gz, lgz = sn * gx + c * gz, nx = N0[i * 3] - lgx * n0y, nz = N0[i * 3 + 2] - lgz * n0y, L = Math.hypot(nx, n0y, nz) || 1;
+          N[i * 3] = nx / L; N[i * 3 + 1] = n0y / L; N[i * 3 + 2] = nz / L;
+        } else { N[i * 3] = N0[i * 3]; N[i * 3 + 1] = n0y; N[i * 3 + 2] = N0[i * 3 + 2]; }
+      }
+      if (P[i * 3 + 1] < ymn) ymn = P[i * 3 + 1]; if (P[i * 3 + 1] > ymx) ymx = P[i * 3 + 1];
+    }
+    terrFill(e);
+  }
+  m.min = m.min0.slice(); m.max = m.max0.slice(); m.min[1] = Math.min(m.min0[1], ymn); m.max[1] = Math.max(m.max0[1], ymx);
+}
+function terrRay(sx, sy) {                             // mouse ray -> [x, y, z] on the terrain heights (falls back to the y=0 plane)
+  const ray = rayAt(sx, sy);
+  if (TERR) {
+    const T = TERR.T, xe = T.x0 + (T.nx - 1) * T.cell, ze = T.z0 + (T.nz - 1) * T.cell, pt = (t) => [ray.o[0] + ray.d[0] * t, ray.o[1] + ray.d[1] * t, ray.o[2] + ray.d[2] * t];
+    let prev = 0;
+    for (let t = 0.5; t < 1500; t += Math.max(0.35, t * 0.004)) {
+      const q = pt(t);
+      if (q[0] < T.x0 || q[0] > xe || q[2] < T.z0 || q[2] > ze) { prev = t; continue; }
+      if (q[1] <= terrSample(TERR.h, q[0], q[2])) {
+        let lo = prev, hi = t;
+        for (let k = 0; k < 12; k++) { const mid = (lo + hi) / 2, r = pt(mid); if (r[1] <= terrSample(TERR.h, r[0], r[2])) hi = mid; else lo = mid; }
+        const r = pt(hi); return [r[0], terrSample(TERR.h, r[0], r[2]), r[2]];
+      }
+      prev = t;
+    }
+  }
+  return onPlane(ray, 0);
+}
+function terrCreate() {                                // a flat terrain over the scene bounds (1 m cells)
+  const b = scene.bounds, x0 = Math.floor(b.minX), z0 = Math.floor(b.minZ), nx = Math.min(500, Math.ceil(b.maxX) - x0 + 1), nz = Math.min(500, Math.ceil(b.maxZ) - z0 + 1);
+  scene.extra.terrain = { x0, z0, cell: 1, nx, nz, scale: 100, data: T64.enc(new Float32Array(nx * nz), 100) };
+  terrainSync(); toast("Created a flat terrain over the scene bounds", "ok");
+}
+function terrDown(e, sx, sy) {
+  if (scene.kind !== "hub") { toast("Terrain editing is only for hub scenes", "err"); return; }
+  checkpoint();
+  if (!TERR) terrCreate();
+  const T = TERR.T; if (!T.base) T.base = T.data;
+  if (!T.mesh) { const mp = terrAutoMesh(); if (mp) T.mesh = serName(mp.model); }
+  if (isPaintMode() && !TERR.paint) paintInit();
+  const hit = terrRay(sx, sy); if (!hit) return;
+  terrBrush = { x: hit[0], z: hit[2] };
+  terrStroke = { paint: isPaintMode(), startH: Float32Array.from(TERR.h), target: terrH(hit[0], hit[2]), inv: e.shiftKey, last: performance.now(), box: null, timer: 0 };
+  dragState = { mode: "terr" };
+  terrApply(hit[0], hit[2], 0.06, terrStroke.inv);
+  terrStroke.timer = setInterval(() => { if (!terrStroke || !terrBrush) return; const n = performance.now(), dt = Math.min(0.1, (n - terrStroke.last) / 1000); terrStroke.last = n; terrApply(terrBrush.x, terrBrush.z, dt, terrStroke.inv); }, 33);
+}
+function terrApply(cx, cz, dt, inv) {
+  if (isPaintMode()) return paintApply(cx, cz, dt, (terrOpts.mode === "erase") !== !!inv);
+  const T = TERR.T, H = TERR.h, r = terrOpts.radius, inner = r * (1 - terrOpts.soft), cell = T.cell, mode = terrOpts.mode, k = terrOpts.strength * dt;
+  const i0 = Math.max(0, Math.floor((cx - r - T.x0) / cell)), i1 = Math.min(T.nx - 1, Math.ceil((cx + r - T.x0) / cell)), j0 = Math.max(0, Math.floor((cz - r - T.z0) / cell)), j1 = Math.min(T.nz - 1, Math.ceil((cz + r - T.z0) / cell));
+  if (i0 > i1 || j0 > j1) return;
+  const src = mode === "smooth" ? Float32Array.from(H) : null, target = mode === "set" ? terrOpts.height : terrStroke ? terrStroke.target : 0;
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const dd = Math.hypot(T.x0 + i * cell - cx, T.z0 + j * cell - cz); if (dd >= r) continue;
+    let w = 1; if (dd > inner) { const t = (r - dd) / Math.max(1e-6, r - inner); w = t * t * (3 - 2 * t); }
+    const o = j * T.nx + i;
+    if (mode === "raise") H[o] += k * w * (inv ? -1 : 1);
+    else if (mode === "lower") H[o] -= k * w * (inv ? -1 : 1);
+    else if (mode === "smooth") { const n = (src[Math.max(0, i - 1) + j * T.nx] + src[Math.min(T.nx - 1, i + 1) + j * T.nx] + src[i + Math.max(0, j - 1) * T.nx] + src[i + Math.min(T.nz - 1, j + 1) * T.nx]) / 4; H[o] += (n - H[o]) * Math.min(1, k * w * 0.8); }
+    else H[o] += (target - H[o]) * Math.min(1, k * w * (mode === "set" ? 1.5 : 0.8));
+    H[o] = clamp(H[o], -300, 300);
+  }
+  const pad = 2 * cell, bx = [cx - r - pad, cz - r - pad, cx + r + pad, cz + r + pad];
+  terrDeform(bx); if (TERR.paint) terrOvFill(j0, j1); scheduleDraw();
+}
+function terrEnd() {
+  const st = terrStroke; terrStroke = null; if (!st) return; clearInterval(st.timer);
+  if (st.paint) paintCommit(); else terrCommit(st.startH);
+}
+function terrCommit(startH) {                          // heights -> scene data; props ride the surface
+  TERR.T.data = T64.enc(TERR.h, TERR.sc);
+  if (terrOpts.follow && startH) {
+    const mp = terrMeshPiece(); let n = 0;
+    for (const p of scene.pieces) { if (p === mp) continue; const dy = terrSample(TERR.h, p.x, p.z) - terrSample(startH, p.x, p.z); if (Math.abs(dy) > 1e-4) { p.y = r3((p.y || 0) + dy); n++; } }
+    if (n) refreshOutliner();
+  }
+  setDirty(true); refreshInspectorValues(); syncTerrOpts(); scheduleDraw();
+}
+function terrResetAll() {
+  if (!TERR) { toast("No terrain in this scene", "err"); return; }
+  if (!confirm("Reset the terrain to its original shape?")) return;
+  checkpoint(); const H0 = Float32Array.from(TERR.h); TERR.h.set(TERR.base); terrDeform(null); if (TERR.paint) terrOvFill(0, TERR.T.nz - 1); terrCommit(H0); toast("Terrain reset", "ok");
+}
+function terrDrop() {
+  const its = selItems().filter((i) => i.type === "piece"); if (!its.length) { toast("Select some pieces first", "err"); return; }
+  checkpoint(); for (const i of its) i.ref.y = r3(terrH(i.ref.x, i.ref.z)); refreshInspectorValues(); setDirty(true); scheduleDraw();
+}
+function terrSetMesh() {
+  const it = getItem(sel); if (!it || it.type !== "piece") { toast("Select the ground piece first", "err"); return; }
+  if (!TERR) { toast("Sculpt once first (that creates the terrain), then pick the ground piece", "err"); return; }
+  checkpoint(); TERR.T.mesh = serName(it.ref.model); if (!TERR.T.base) TERR.T.base = TERR.T.data; terrDeform(null); syncTerrOpts(); scheduleDraw();
+}
+function drawTerrBrush() {
+  const cx = terrBrush.x, cz = terrBrush.z, r = terrOpts.radius, ring = (rr, y0) => { const o = []; for (let i = 0; i < 64; i++) { const a = i / 64 * 6.2832, b = (i + 1) / 64 * 6.2832, x1 = cx + Math.cos(a) * rr, z1 = cz + Math.sin(a) * rr, x2 = cx + Math.cos(b) * rr, z2 = cz + Math.sin(b) * rr; o.push(x1, terrH(x1, z1) + y0, z1, x2, terrH(x2, z2) + y0, z2); } return o; };
+  if (TERR && !isPaintMode()) {                        // the height grid under the brush
+    const T = TERR.T, i0 = Math.max(0, Math.floor((cx - r - T.x0) / T.cell)), i1 = Math.min(T.nx - 1, Math.ceil((cx + r - T.x0) / T.cell)), j0 = Math.max(0, Math.floor((cz - r - T.z0) / T.cell)), j1 = Math.min(T.nz - 1, Math.ceil((cz + r - T.z0) / T.cell)), g = [];
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const x = T.x0 + i * T.cell, z = T.z0 + j * T.cell, y = TERR.h[j * T.nx + i] + 0.06;
+      if (i < i1) g.push(x, y, z, x + T.cell, TERR.h[j * T.nx + i + 1] + 0.06, z);
+      if (j < j1) g.push(x, y, z, x, TERR.h[(j + 1) * T.nx + i] + 0.06, z + T.cell);
+    }
+    flat(gl.LINES, g, [1, 1, 1, 0.16]);
+  }
+  gl.disable(gl.DEPTH_TEST);
+  flat(gl.LINES, ring(r, 0.15), [1, .85, .3, 1]); flat(gl.LINES, ring(Math.max(0.2, r * (1 - terrOpts.soft)), 0.15), [1, .85, .3, .45]);
+  gl.enable(gl.DEPTH_TEST);
+}
+/* ---- texture painting: scene.extra.terrain.paint = { res, layers: [{url, scale}] (up to 4), data: run-length base64 of an RGBA8 splat map (R,G,B,A = weight of layers 1-4) } ---- */
+let TLIB = [];                                         // /assets/Terrain/index.json -> [{ id, name, url, scale }]
+const KEN = "/assets/3D/kenney_retro-textures-fantasy/PNG/", PAINT_DEF = [["grass_lush", KEN + "floor_ground_grass.png", 3], ["dirt_pixel", KEN + "floor_ground_dirt.png", 3], ["sand_pixel", KEN + "floor_ground_sand.png", 3], ["stone_pattern", KEN + "floor_stone_pattern.png", 3]];
+const isPaintMode = () => terrOpts.mode === "paint" || terrOpts.mode === "erase";
+async function loadTerrLib() { try { TLIB = (await getJSON("/assets/Terrain/index.json")).textures || []; } catch (e) { TLIB = []; } terrOpts.pend = null; syncTerrOpts(); }
+function terrDefaultLayers() { return PAINT_DEF.map(([id, fb, sc]) => { const t = TLIB.find((x) => x.id === id); return t ? { url: t.url, scale: t.scale || 4 } : { url: fb, scale: sc }; }); }
+const curLayers = () => TERR && TERR.paint ? TERR.paint.layers : (terrOpts.pend || (terrOpts.pend = terrDefaultLayers()));
+const RLE = {
+  enc(px) { const o = []; let i = 0; const n = px.length; while (i < n) { let c = 1; while (c < 255 && i + c * 4 < n && px[i + c * 4] === px[i] && px[i + c * 4 + 1] === px[i + 1] && px[i + c * 4 + 2] === px[i + 2] && px[i + c * 4 + 3] === px[i + 3]) c++; o.push(c, px[i], px[i + 1], px[i + 2], px[i + 3]); i += c * 4; } const u = Uint8Array.from(o); let t = ""; for (let k = 0; k < u.length; k += 8192) t += String.fromCharCode.apply(null, u.subarray(k, k + 8192)); return btoa(t); },
+  dec(b64, npx) { const bin = atob(b64), px = new Uint8Array(npx * 4); let o = 0; for (let i = 0; i + 4 < bin.length + 0 && o < px.length; i += 5) { const c = bin.charCodeAt(i), a = bin.charCodeAt(i + 1), b = bin.charCodeAt(i + 2), d = bin.charCodeAt(i + 3), e = bin.charCodeAt(i + 4); for (let k = 0; k < c && o < px.length; k++) { px[o++] = a; px[o++] = b; px[o++] = d; px[o++] = e; } } return px; },
+};
+function paintMake(layers, px, res) {
+  const T = TERR.T, w = (T.nx - 1) * res, hh = (T.nz - 1) * res;
+  const P = { res, w, h: hh, px: px || new Uint8Array(w * hh * 4), layers: layers.map((l) => ({ url: l.url, scale: l.scale })), tex: [null, null, null, null], splat: null, ov: null, ovArr: null };
+  TERR.paint = P; paintGL(P); return P;
+}
+function paintLoad(sp) { const T = TERR.T, res = sp.res || 2; paintMake(sp.layers || terrDefaultLayers(), RLE.dec(sp.data, (T.nx - 1) * res * (T.nz - 1) * res), res); }
+function paintInit() { const P = paintMake(terrOpts.pend || terrDefaultLayers(), null, 2); terrOpts.pend = null; paintCommit(); buildLayerUI(); return P; }
+function paintLayerTex(P, i) {
+  const l = P.layers[i]; if (!l) { P.tex[i] = null; return; }
+  makeTex({ uri: l.url }, location.href).then((t) => { if (TERR && TERR.paint === P) { P.tex[i] = t; scheduleDraw(); } }).catch(() => { toast("Could not load texture " + l.url, "err"); });
+}
+function paintGL(P) {
+  P.splat = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, P.splat); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, P.w, P.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, P.px);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  P.layers.forEach((l, i) => paintLayerTex(P, i));
+  const T = TERR.T, nx = T.nx, nz = T.nz, vc = nx * nz, big = vc > 65535;
+  if (big && !idxUint) { toast("Terrain too large for this GPU's 16-bit indices — paint preview disabled", "err"); return; }
+  const ni = (nx - 1) * (nz - 1) * 6, idx = big ? new Uint32Array(ni) : new Uint16Array(ni); let k = 0;
+  for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) { const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1; idx[k++] = a; idx[k++] = c; idx[k++] = b; idx[k++] = b; idx[k++] = c; idx[k++] = d; }
+  P.ovArr = new Float32Array(vc * 6); terrOvFill(0, nz - 1);
+  const vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, P.ovArr, gl.DYNAMIC_DRAW);
+  const ibo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+  P.ov = { vbo, ibo, count: ni, it: big ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT };
+}
+function terrOvFill(j0, j1) {                          // the draped paint mesh follows the sculpted heights
+  const P = TERR && TERR.paint; if (!P || !P.ovArr) return;
+  const T = TERR.T, nx = T.nx, nz = T.nz, H = TERR.h, a = P.ovArr, c = T.cell; j0 = Math.max(0, j0 - 1); j1 = Math.min(nz - 1, j1 + 1);
+  for (let j = j0; j <= j1; j++) for (let i = 0; i < nx; i++) {
+    const o = j * nx + i, hx = (H[j * nx + Math.min(nx - 1, i + 1)] - H[j * nx + Math.max(0, i - 1)]) / (2 * c), hz = (H[Math.min(nz - 1, j + 1) * nx + i] - H[Math.max(0, j - 1) * nx + i]) / (2 * c), L = Math.hypot(hx, 1, hz);
+    a[o * 6] = T.x0 + i * c; a[o * 6 + 1] = H[o] + 0.05; a[o * 6 + 2] = T.z0 + j * c; a[o * 6 + 3] = -hx / L; a[o * 6 + 4] = 1 / L; a[o * 6 + 5] = -hz / L;
+  }
+  if (P.ov) { gl.bindBuffer(gl.ARRAY_BUFFER, P.ov.vbo); gl.bufferSubData(gl.ARRAY_BUFFER, j0 * nx * 24, a.subarray(j0 * nx * 6, (j1 + 1) * nx * 6)); }
+}
+function drawPaint() {
+  const P = TERR && TERR.paint; if (!P || !P.ov || !layers.piece.vis || !scene) return;
+  const T = TERR.T, L = scene.light, ld = V.norm(L.dir || [-0.5, -1, -0.35]);
+  gl.useProgram(PP.p); gl.uniformMatrix4fv(PP.u.u_vp, false, cam.vp); gl.uniform3f(PP.u.u_ldir, ld[0], ld[1], ld[2]); gl.uniform3fv(PP.u.u_lcol, L.color || [1, 1, 1]); gl.uniform3fv(PP.u.u_amb, L.ambient || [0.6, 0.6, 0.6]);
+  gl.uniform4f(PP.u.u_rect, T.x0, T.z0, 1 / ((T.nx - 1) * T.cell), 1 / ((T.nz - 1) * T.cell));
+  const sc = (i) => 1 / Math.max(0.1, (P.layers[i] && P.layers[i].scale) || 4); gl.uniform4f(PP.u.u_inv, sc(0), sc(1), sc(2), sc(3));
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, P.splat); gl.uniform1i(PP.u.u_splat, 0);
+  for (let i = 0; i < 4; i++) { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, P.tex[i] || white); gl.uniform1i(PP.u["u_t" + i], 1 + i); }
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, P.ov.vbo); gl.enableVertexAttribArray(0); gl.enableVertexAttribArray(1); gl.disableVertexAttribArray(2);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, P.ov.ibo);
+  gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-2, -2); gl.drawElements(gl.TRIANGLES, P.ov.count, P.ov.it, 0); gl.disable(gl.POLYGON_OFFSET_FILL);
+}
+function paintApply(cx, cz, dt, erase) {
+  const P = TERR.paint; if (!P) return; const T = TERR.T, r = terrOpts.radius, inner = r * (1 - terrOpts.soft), span = T.cell / P.res, Ls = terrOpts.layer, rate = terrOpts.strength * dt * 0.2, px = P.px;
+  const x0 = Math.max(0, Math.floor((cx - r - T.x0) / span - 0.5)), x1 = Math.min(P.w - 1, Math.ceil((cx + r - T.x0) / span)), y0 = Math.max(0, Math.floor((cz - r - T.z0) / span - 0.5)), y1 = Math.min(P.h - 1, Math.ceil((cz + r - T.z0) / span));
+  if (x0 > x1 || y0 > y1) return;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const dd = Math.hypot(T.x0 + (x + 0.5) * span - cx, T.z0 + (y + 0.5) * span - cz); if (dd >= r) continue;
+    let w = 1; if (dd > inner) { const t = (r - dd) / Math.max(1e-6, r - inner); w = t * t * (3 - 2 * t); }
+    const o = (y * P.w + x) * 4, a = rate * w;
+    if (erase) { const f = Math.max(0, 1 - a * 3); for (let k = 0; k < 4; k++) px[o + k] = Math.floor(px[o + k] * f); }
+    else {
+      const v = [px[o] / 255, px[o + 1] / 255, px[o + 2] / 255, px[o + 3] / 255]; v[Ls] = Math.min(1, v[Ls] + a);
+      const tot = v[0] + v[1] + v[2] + v[3];
+      if (tot > 1) { const others = tot - v[Ls]; if (others > 1e-6) { const f = Math.max(0, 1 - v[Ls]) / others; for (let k = 0; k < 4; k++) if (k !== Ls) v[k] *= f; } }
+      for (let k = 0; k < 4; k++) px[o + k] = Math.round(v[k] * 255);
+    }
+  }
+  gl.bindTexture(gl.TEXTURE_2D, P.splat); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, y0, P.w, y1 - y0 + 1, gl.RGBA, gl.UNSIGNED_BYTE, px.subarray(y0 * P.w * 4, (y1 + 1) * P.w * 4)); scheduleDraw();
+}
+function paintCommit() { const P = TERR.paint; TERR.T.paint = { res: P.res, layers: P.layers.map((l) => ({ url: l.url, scale: l.scale })), data: RLE.enc(P.px) }; setDirty(true); scheduleDraw(); }
+function paintSetLayer(i, patch) {
+  if (TERR && TERR.paint) { checkpoint(); const P = TERR.paint, l = P.layers[i] || (P.layers[i] = { url: "", scale: 4 }), changed = patch.url && patch.url !== l.url; Object.assign(l, patch); if (changed) paintLayerTex(P, i); paintCommit(); }
+  else { const L = curLayers(); Object.assign(L[i], patch); terrOpts.pend = L; }
+  buildLayerUI(); scheduleDraw();
+}
+function paintClear() {
+  if (!TERR || !TERR.paint) { toast("Nothing painted yet", "err"); return; }
+  if (!confirm("Remove all painted texture from this scene?")) return;
+  checkpoint(); delete TERR.T.paint; TERR.paint = null; setDirty(true); buildLayerUI(); scheduleDraw();
+}
+function pickTexture(i) {
+  const card = $("#modalCard"); card.innerHTML = ""; card.style.width = "540px";
+  const list = TLIB.length ? TLIB : PAINT_DEF.map(([id, url, sc]) => ({ id, name: id, url, scale: sc })), grid = h("div", { style: "display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:60vh;overflow:auto" });
+  list.forEach((t) => grid.append(h("div", { style: "cursor:pointer;text-align:center;font-size:11px", onclick: () => { $("#modal").classList.remove("open"); card.style.width = ""; paintSetLayer(i, { url: t.url, scale: t.scale || 4 }); } }, h("img", { src: t.url, style: "width:100%;aspect-ratio:1;object-fit:cover;image-rendering:pixelated;border:1px solid #555" }), t.name)));
+  card.append(h("h3", {}, "Texture for layer " + (i + 1)), grid, h("div", { class: "hint" }, "Add your own: put an image in Assets/Terrain and list it in index.json there (it must tile seamlessly)."), h("div", { class: "row", style: "justify-content:flex-end" }, btn("Close", () => { $("#modal").classList.remove("open"); card.style.width = ""; })));
+  $("#modal").classList.add("open");
+}
+function buildLayerUI() {
+  const box = $("#terrLayers"); if (!box) return; box.innerHTML = ""; box.style.display = isPaintMode() ? "" : "none"; if (!isPaintMode()) return;
+  box.append(h("div", { class: "hint" }, "Layers (click a swatch to change its texture; the number is metres per tile). Shift = erase."));
+  curLayers().forEach((l, i) => box.append(h("div", { class: "row", style: "align-items:center;gap:6px;margin:3px 0" },
+    h("input", { type: "radio", name: "tlayer", checked: terrOpts.layer === i, onchange: () => { terrOpts.layer = i; } }),
+    h("img", { src: l.url, title: "Change texture", style: "width:34px;height:34px;object-fit:cover;image-rendering:pixelated;border:1px solid #555;cursor:pointer", onclick: () => pickTexture(i) }),
+    h("span", { style: "flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis" }, l.url.split("/").pop().replace(/\.\w+$/, "")),
+    h("input", { type: "number", step: "0.5", min: "0.5", value: l.scale, style: "width:54px", title: "metres per tile", onchange: (e) => paintSetLayer(i, { scale: clamp(parseFloat(e.target.value) || 4, 0.5, 64) }) }))));
+}
+function buildTerrOpts() {
+  const box = h("div", { id: "terrOpts", class: "opts", style: "display:none;margin-top:6px" });
+  const sl = (label, key, min, max, step) => { const out = h("span", { class: "kbd", style: "float:none", id: "tv_" + key }, String(terrOpts[key])); return h("label", {}, label + " ", h("input", { type: "range", min, max, step, value: terrOpts[key], id: "ts_" + key, style: "flex:1", oninput: (e) => { terrOpts[key] = parseFloat(e.target.value); out.textContent = String(terrOpts[key]); scheduleDraw(); } }), out); };
+  box.append(
+    h("label", {}, "Brush ", h("select", { onchange: (e) => { terrOpts.mode = e.target.value; buildLayerUI(); } }, [["raise", "Raise"], ["lower", "Lower"], ["smooth", "Smooth"], ["flatten", "Flatten (to the height you start on)"], ["set", "Set height…"], ["paint", "Paint texture"], ["erase", "Erase paint"]].map(([v, t]) => h("option", { value: v, selected: v === terrOpts.mode }, t)))),
+    sl("Radius", "radius", 1, 40, 0.5), sl("Strength", "strength", 0.5, 20, 0.5), sl("Softness", "soft", 0, 1, 0.05),
+    h("label", {}, "Height ", h("input", { type: "number", step: "0.25", value: terrOpts.height, style: "width:70px", onchange: (e) => { terrOpts.height = parseFloat(e.target.value) || 0; } }), " (Set mode)"),
+    h("div", { id: "terrLayers", style: "display:none" }),
+    h("label", {}, h("input", { type: "checkbox", checked: terrOpts.follow, onchange: (e) => { terrOpts.follow = e.target.checked; } }), "Props follow the terrain"),
+    h("div", { class: "row" }, btn("Drop selection to ground", terrDrop), btn("Reset terrain", terrResetAll), btn("Clear paint", paintClear)),
+    h("div", { class: "row" }, btn("Terrain only: on/off", () => { const c = $("#vTerrOnly"); c.checked = !c.checked; scheduleDraw(); })),
+    h("div", { class: "row" }, btn("Use selected piece as ground mesh", terrSetMesh)),
+    h("div", { class: "hint", id: "terrInfo" }, ""));
+  $("#tools").after(box);
+}
+function syncTerrOpts() {
+  const b = $("#terrOpts"); if (!b) return; b.style.display = tool === "terrain" ? "" : "none";
+  buildLayerUI(); const r = $("#ts_radius"); if (r) { r.value = terrOpts.radius; $("#tv_radius").textContent = String(terrOpts.radius); }
+  const mp = TERR ? terrMeshPiece() : null;
+  $("#terrInfo").textContent = !scene || scene.kind !== "hub" ? "Terrain is for hub scenes." : !TERR ? "This scene has no terrain yet — your first stroke creates a flat one over the bounds." : `Terrain ${TERR.T.nx}×${TERR.T.nz} (${TERR.T.cell} m cells) · ground mesh: ${mp ? serName(mp.model).split("/").pop() : "none found — hills affect walking only; select the ground piece and press the button"}`;
+}
+buildTerrOpts(); loadTerrLib();
+
+/* ============================== transform gizmo ============================== */
+const GAX = [[1, 0, 0, "#ff5a4f"], [0, 1, 0, "#5adf6a"], [0, 0, 1, "#5a9bff"]];
+let gizHover = -1;
+function gizGeom() {
+  if (play || tool !== "select" || !selSet.length || !scene || !cam.vp) return null;
+  const items = selItems(); if (!items.length) return null;
+  const b = selBounds(items), o = [(b.mn[0] + b.mx[0]) / 2, (b.mn[1] + b.mx[1]) / 2, (b.mn[2] + b.mx[2]) / 2], so = project(o); if (!so) return null;
+  const dc = Math.hypot(o[0] - cam.pos[0], o[1] - cam.pos[1], o[2] - cam.pos[2]), ppu = cam.h / (2 * Math.tan(cam.fov * Math.PI / 360) * Math.max(0.1, dc)), L = 90 / Math.max(1e-4, ppu), hasPiece = items.some((i) => i.type === "piece");
+  const axes = []; for (let i = 0; i < 3; i++) { if (i === 1 && !hasPiece) continue; const tip = project([o[0] + GAX[i][0] * L, o[1] + GAX[i][1] * L, o[2] + GAX[i][2] * L]); if (tip) axes.push({ i, tip }); }
+  return { o, so, L, axes };
+}
+function gizHit(sx, sy) {
+  const g = gizGeom(); if (!g) return -1; let best = -1, bd = 10;
+  for (const a of g.axes) {
+    const vx = a.tip.x - g.so.x, vy = a.tip.y - g.so.y, L2 = vx * vx + vy * vy || 1, t = clamp(((sx - g.so.x) * vx + (sy - g.so.y) * vy) / L2, 0, 1), d = Math.hypot(sx - (g.so.x + vx * t), sy - (g.so.y + vy * t));
+    if (t > 0.12 && d < bd) { bd = d; best = a.i; }
+  }
+  return best;
+}
+function drawGizmo() {
+  const g = gizGeom(); if (!g) return; const act = dragState && dragState.mode === "gizmo" ? dragState.axis : gizHover;
+  g2.save(); g2.lineCap = "round";
+  for (const a of g.axes) {
+    const col = a.i === act ? "#ffe14a" : GAX[a.i][3], vx = a.tip.x - g.so.x, vy = a.tip.y - g.so.y, L = Math.hypot(vx, vy) || 1, ux = vx / L, uy = vy / L;
+    g2.strokeStyle = col; g2.fillStyle = col; g2.lineWidth = a.i === act ? 4 : 3; g2.beginPath(); g2.moveTo(g.so.x, g.so.y); g2.lineTo(a.tip.x - ux * 8, a.tip.y - uy * 8); g2.stroke();
+    g2.beginPath(); g2.moveTo(a.tip.x, a.tip.y); g2.lineTo(a.tip.x - ux * 14 - uy * 6, a.tip.y - uy * 14 + ux * 6); g2.lineTo(a.tip.x - ux * 14 + uy * 6, a.tip.y - uy * 14 - ux * 6); g2.closePath(); g2.fill();
+  }
+  g2.fillStyle = "#fff"; g2.strokeStyle = "#000"; g2.lineWidth = 1; g2.beginPath(); g2.arc(g.so.x, g.so.y, 4, 0, 6.2832); g2.fill(); g2.stroke(); g2.restore();
+}
+function gizParam(sx, sy, o, dir) {                    // where along the axis line the mouse ray passes closest
+  const ray = rayAt(sx, sy), w0 = V.sub(o, ray.o), b = V.dot(dir, ray.d), d = V.dot(dir, w0), e = V.dot(ray.d, w0), den = 1 - b * b;
+  return den < 1e-4 ? null : (b * e - d) / den;
+}
+function gizStart(axis, sx, sy) {
+  const g = gizGeom(), prim = getItem(sel); if (!g || !prim) return;
+  const dir = [GAX[axis][0], GAX[axis][1], GAX[axis][2]], s0 = gizParam(sx, sy, g.o, dir); if (s0 == null) return;
+  gizHover = axis; dragState = { mode: "gizmo", axis, dir, o: g.o, s0, items: selItems(), prim, p0: [prim.ref.x, itemY(prim), prim.ref.z], moved: false };
+}
+function gizDrag(e) {
+  const d = dragState, [sx, sy] = mouse(e), s = gizParam(sx, sy, d.o, d.dir); if (s == null) return;
+  const delta = s - d.s0, free = e.altKey, items = d.items;
+  let inc;
+  if (d.axis === 0) inc = snapv(d.p0[0] + delta, free) - d.prim.ref.x;
+  else if (d.axis === 2) inc = snapv(d.p0[2] + delta, free) - d.prim.ref.z;
+  else { const st = free ? 0.01 : (grid > 0 ? Math.min(grid, 0.5) : 0.25); inc = Math.round((d.p0[1] + delta) / st) * st - itemY(d.prim); }
+  if (Math.abs(inc) < 1e-6) return;
+  if (!d.moved) { checkpoint(); d.moved = true; }
+  if (d.axis === 0) moveGroup(items, inc, 0); else if (d.axis === 2) moveGroup(items, 0, inc); else raiseGroup(items, inc);
+  refreshInspectorValues();
+}
+
 /* ============================== wall-line tool ============================== */
 const lineOpts = { mode: "line", snap: 45, flip: false, coll: false };
 let ln = null;                                   // { a:[x,z], b:[x,z] } while a line is being drawn
@@ -1214,7 +1626,7 @@ async function openScene(kind, id, force) {
     const urls = [...new Set(s.pieces.map((p) => p.model))]; let n = 0;
     $("#loading").textContent = `Loading ${urls.length} models…`;
     await Promise.all(urls.map((u) => { ensureModel(u); return modelLoading.get(u).then(() => { $("#loading").textContent = `Loading models ${++n}/${urls.length}`; }); }));
-    scene = s; setSel([]); undoS.length = 0; redoS.length = 0; setDirty(false);
+    scene = s; terrainSync(); setSel([]); undoS.length = 0; redoS.length = 0; setDirty(false);
     frameScene(); rebuildSceneSelect(kind + ":" + id); refreshUI(); setTool("select"); try { history.replaceState(null, "", "#" + kind + ":" + id); } catch (e) {}
   } catch (e) { toast("Could not open scene: " + e.message, "err"); rebuildSceneSelect(scene ? scene.kind + ":" + scene.id : ""); }
   $("#loading").style.display = "none"; scheduleDraw();
@@ -1243,7 +1655,7 @@ function newSceneDialog() {
       if (dirty && !confirm("Discard unsaved changes to the open scene?")) return;
       let s; if (copy.checked && scene && scene.kind === kind.value) { s = JSON.parse(JSON.stringify(scene)); s.id = sid; } else s = blankScene(kind.value, sid, name.value.trim() || sid);
       if (name.value.trim()) s.name = name.value.trim();
-      scene = s; setSel([]); undoS.length = 0; redoS.length = 0; scenesList.push({ id: sid, name: s.name, kind: kind.value }); rebuildSceneSelect(kind.value + ":" + sid);
+      scene = s; terrainSync(); setSel([]); undoS.length = 0; redoS.length = 0; scenesList.push({ id: sid, name: s.name, kind: kind.value }); rebuildSceneSelect(kind.value + ":" + sid);
       setDirty(true); frameScene(); refreshUI(); setTool("select"); $("#modal").classList.remove("open"); scheduleDraw(); toast("Scene created (not saved yet)", "ok");
     }, "on")));
   $("#modal").classList.add("open"); id.focus();
@@ -1257,7 +1669,7 @@ function playScene() {
 $("#btnNew").onclick = newSceneDialog; $("#btnSave").onclick = saveScene; $("#btnPlay").onclick = playScene; $("#btnWalk").onclick = () => (play ? stopPlay() : startPlay()); $("#btnUndo").onclick = undo; $("#btnRedo").onclick = redo;
 $("#sceneSel").onchange = (e) => { const [k, ...r] = e.target.value.split(":"); openScene(k, r.join(":")); };
 $("#snap").onchange = (e) => { grid = parseFloat(e.target.value) || 0; scheduleDraw(); };
-["vGrid", "vRef", "vLabels", "vEnv"].forEach((i) => $("#" + i).addEventListener("change", scheduleDraw));
+["vGrid", "vRef", "vLabels", "vEnv", "vTerrOnly"].forEach((i) => $("#" + i).addEventListener("change", scheduleDraw));
 $("#modal").addEventListener("pointerdown", (e) => { if (e.target.id === "modal") $("#modal").classList.remove("open"); });
 window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
 const _sd = setDirty; setDirty = function (d) { _sd(d); $("#btnUndo").disabled = !undoS.length; $("#btnRedo").disabled = !redoS.length; };

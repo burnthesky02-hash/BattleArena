@@ -1,0 +1,70 @@
+{
+ "textures": [
+  {
+   "id": "grass_lush",
+   "name": "Grass (lush)",
+   "url": "/assets/Terrain/grass_lush.jpg",
+   "scale": 6
+  },
+  {
+   "id": "grass_pixel",
+   "name": "Grass (retro)",
+   "url": "/assets/Terrain/grass_pixel.png",
+   "scale": 3
+  },
+  {
+   "id": "dirt_pixel",
+   "name": "Dirt (retro)",
+   "url": "/assets/Terrain/dirt_pixel.png",
+   "scale": 3
+  },
+  {
+   "id": "sand_pixel",
+   "name": "Sand (retro)",
+   "url": "/assets/Terrain/sand_pixel.png",
+   "scale": 3
+  },
+  {
+   "id": "water_pixel",
+   "name": "Shallow water (retro)",
+   "url": "/assets/Terrain/water_pixel.png",
+   "scale": 3
+  },
+  {
+   "id": "stone_pattern",
+   "name": "Stone paving (retro)",
+   "url": "/assets/Terrain/stone_pattern.png",
+   "scale": 3
+  },
+  {
+   "id": "stone_slab",
+   "name": "Stone slab (retro)",
+   "url": "/assets/Terrain/stone_slab.png",
+   "scale": 3
+  },
+  {
+   "id": "cave_rock",
+   "name": "Cave rock",
+   "url": "/assets/Terrain/cave_rock.jpg",
+   "scale": 6
+  },
+  {
+   "id": "cave_dirt",
+   "name": "Cave soil",
+   "url": "/assets/Terrain/cave_dirt.jpg",
+   "scale": 6
+  },
+  {
+   "id": "metal_grid",
+   "name": "Metal plating",
+   "url": "/assets/Terrain/metal_grid.jpg",
+   "scale": 4
+  },
+  {
+   "id": "tech_floor",
+   "name": "Tech floor",
+   "url": "/assets/Terrain/tech_floor.jpg",
+   "scale": 4
+  }
+ ]
+}

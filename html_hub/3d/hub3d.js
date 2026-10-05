@@ -14,7 +14,7 @@
   const H3 = window.Hub3D = { on: false, ready: false, failed: false };
   const BASE = "/hub3d/";
   let O = null, gl = null, canvas = null, ui = null, sceneEl = null;
-  let sprog = null, mprog = null, quadBuf = null, maxTex = 4096, idxUint = false, aniso = null;
+  let sprog = null, mprog = null, pprog = null, PU = {}, quadBuf = null, maxTex = 4096, idxUint = false, aniso = null;
   const SU = {}, MU = {}, TEX = {};
   let S = null;                                 // loaded scene: { def, items[], npcs[], sprites, colliders }
   let state = null, lastT = 0, clock = 0;
@@ -175,6 +175,66 @@ void main(){
   float a = u_mode > 1.5 ? base.a : 1.0;
   gl_FragColor = vec4(col * a, a);
 }`;
+
+  /* painted-terrain overlay: scene.terrain.paint = { res, layers: [{url, scale}], data: RLE base64 RGBA8 splat map } -> a mesh draped over the heights, blended over the ground */
+  const PVS = `
+attribute vec3 p; attribute vec3 n; uniform mat4 u_vp; varying vec3 v_n; varying vec2 v_w; varying float v_d;
+void main(){ gl_Position = u_vp * vec4(p, 1.0); v_n = n; v_w = p.xz; v_d = gl_Position.w; }`;
+  const PFS = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform sampler2D u_splat, u_t0, u_t1, u_t2, u_t3; uniform vec4 u_rect, u_inv; uniform vec3 u_ldir, u_lcol, u_amb, u_fogc; uniform vec2 u_fogr;
+varying vec3 v_n; varying vec2 v_w; varying float v_d;
+void main(){
+  vec4 w = texture2D(u_splat, (v_w - u_rect.xy) * u_rect.zw); float tot = w.r + w.g + w.b + w.a; if (tot < 0.004) discard;
+  vec3 c = texture2D(u_t0, v_w * u_inv.x).rgb * w.r + texture2D(u_t1, v_w * u_inv.y).rgb * w.g + texture2D(u_t2, v_w * u_inv.z).rgb * w.b + texture2D(u_t3, v_w * u_inv.w).rgb * w.a;
+  c /= tot; vec3 N = normalize(v_n); float ndl = max(dot(N, -u_ldir), 0.0), hemi = N.y * 0.5 + 0.5;
+  vec3 col = c * (u_amb * (0.6 + 0.4 * hemi) + u_lcol * ndl);
+  col = mix(col, u_fogc, clamp((v_d - u_fogr.x) / (u_fogr.y - u_fogr.x), 0.0, 1.0));
+  float a = min(tot, 1.0); gl_FragColor = vec4(col * a, a);
+}`;
+  function rleDecode(b64, npx) {
+    const bin = atob(b64), px = new Uint8Array(npx * 4); let o = 0;
+    for (let i = 0; i + 4 < bin.length && o < px.length; i += 5) { const c = bin.charCodeAt(i), a = bin.charCodeAt(i + 1), b = bin.charCodeAt(i + 2), d = bin.charCodeAt(i + 3), e = bin.charCodeAt(i + 4); for (let k = 0; k < c && o < px.length; k++) { px[o++] = a; px[o++] = b; px[o++] = d; px[o++] = e; } }
+    return px;
+  }
+  async function buildPaint(T, E) {
+    const sp = T.paint, res = sp.res || 2, w = (T.nx - 1) * res, hh = (T.nz - 1) * res, px = rleDecode(sp.data, w * hh), nx = T.nx, nz = T.nz, vc = nx * nz, big = vc > 65535;
+    if (big && !idxUint) return null;
+    const splat = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, splat); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, hh, 0, gl.RGBA, gl.UNSIGNED_BYTE, px); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const layers = (sp.layers || []).slice(0, 4), tex = await Promise.all([0, 1, 2, 3].map((i) => layers[i] ? meshTexture({ uri: layers[i].url }, location.href).catch(() => null) : null));
+    const H = E.h, c = T.cell, a = new Float32Array(vc * 6);
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const o = j * nx + i, hx = (H[j * nx + Math.min(nx - 1, i + 1)] - H[j * nx + Math.max(0, i - 1)]) / (2 * c), hz = (H[Math.min(nz - 1, j + 1) * nx + i] - H[Math.max(0, j - 1) * nx + i]) / (2 * c), L = Math.hypot(hx, 1, hz);
+      a[o * 6] = T.x0 + i * c; a[o * 6 + 1] = H[o] + 0.05; a[o * 6 + 2] = T.z0 + j * c; a[o * 6 + 3] = -hx / L; a[o * 6 + 4] = 1 / L; a[o * 6 + 5] = -hz / L;
+    }
+    const ni = (nx - 1) * (nz - 1) * 6, idx = big ? new Uint32Array(ni) : new Uint16Array(ni); let k = 0;
+    for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) { const q = j * nx + i, r = q + 1, t = q + nx, u = t + 1; idx[k++] = q; idx[k++] = t; idx[k++] = r; idx[k++] = r; idx[k++] = t; idx[k++] = u; }
+    const vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, a, gl.STATIC_DRAW);
+    const ibo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+    const inv = (i) => 1 / Math.max(0.1, (layers[i] && layers[i].scale) || 4);
+    return { splat, tex, inv: [inv(0), inv(1), inv(2), inv(3)], rect: [T.x0, T.z0, 1 / ((nx - 1) * c), 1 / ((nz - 1) * c)], vbo, ibo, count: ni, itype: big ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT };
+  }
+  function drawPaint() {
+    const P = S.paint; if (!P) return; const d = S.def, L = d.light || {}, F = d.fog || {};
+    const ld = V.norm(L.dir || [-0.5, -1, -0.35]), lc = L.color || [1, 0.9, 0.75], am = L.ambient || [0.55, 0.5, 0.62], fc = F.color || [0.4, 0.28, 0.4];
+    gl.useProgram(pprog); gl.uniformMatrix4fv(PU.u_vp, false, cam.vp);
+    gl.uniform3f(PU.u_ldir, ld[0], ld[1], ld[2]); gl.uniform3f(PU.u_lcol, lc[0], lc[1], lc[2]); gl.uniform3f(PU.u_amb, am[0], am[1], am[2]);
+    gl.uniform3f(PU.u_fogc, fc[0], fc[1], fc[2]); gl.uniform2f(PU.u_fogr, F.near === undefined ? 70 : F.near, F.far === undefined ? 190 : F.far);
+    gl.uniform4f(PU.u_rect, P.rect[0], P.rect[1], P.rect[2], P.rect[3]); gl.uniform4f(PU.u_inv, P.inv[0], P.inv[1], P.inv[2], P.inv[3]);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, P.splat); gl.uniform1i(PU.u_splat, 0);
+    for (let i = 0; i < 4; i++) { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, P.tex[i] || TEX.white); gl.uniform1i(PU["u_t" + i], 1 + i); }
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, P.vbo); gl.enableVertexAttribArray(0); gl.enableVertexAttribArray(1); gl.disableVertexAttribArray(2); gl.disableVertexAttribArray(3);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, P.ibo);
+    BLEND_N(); gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-2, -2); gl.drawElements(gl.TRIANGLES, P.count, P.itype, 0); gl.disable(gl.POLYGON_OFFSET_FILL);
+    useMesh();                                                  // restore the mesh program / attribute arrays for the blended pieces that follow
+  }
   function mkShader(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
   function mkProg(vs, fs, attrs) {
     const p = gl.createProgram(); gl.attachShader(p, mkShader(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mkShader(gl.FRAGMENT_SHADER, fs));
@@ -274,6 +334,36 @@ void main(){
     })();
     modelCache.set(url, pr); return pr;
   }
+
+  /* Sculpted terrain: when the scene has terrain.base + terrain.mesh, the ground piece's vertices are lifted by (data - base) so the visible
+     ground matches the heights the player walks on (the 3D editor writes these; see index3d.html). */
+  function deformGroundMesh(mdl, def) {
+    const T = def.terrain, E = decodeTerrain(T), B = decodeTerrain(Object.assign({}, T, { data: T.base })), p = def.pieces.find((q) => q[0] === T.mesh);
+    if (!E || !B || !p) return;
+    const a = (p[3] || 0) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), sc = p[5] == null ? (def.tile || 4) : p[5], cell = T.cell;
+    const samp = (F, x, z) => {
+      let fx = (x - T.x0) / cell, fz = (z - T.z0) / cell; fx = Math.max(0, Math.min(T.nx - 1.001, fx)); fz = Math.max(0, Math.min(T.nz - 1.001, fz));
+      const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j, o = j * T.nx + i;
+      return (F[o] * (1 - u) + F[o + 1] * u) * (1 - v) + (F[o + T.nx] * (1 - u) + F[o + T.nx + 1] * u) * v;
+    };
+    const dl = (x, z) => samp(E.h, x, z) - samp(B.h, x, z);
+    for (const e of mdl.gpu) {
+      const o = e.o; if (!o._p0) { o._p0 = o.positions.slice(); o._n0 = o.normals.slice(); }
+      const P = o.positions, P0 = o._p0, N = o.normals, N0 = o._n0, vc = P.length / 3; let ymn = 1e9, ymx = -1e9;
+      for (let i = 0; i < vc; i++) {
+        const lx = P0[i * 3], ly = P0[i * 3 + 1], lz = P0[i * 3 + 2], wx = p[1] + (c * lx + sn * lz) * sc, wz = p[2] + (-sn * lx + c * lz) * sc;
+        P[i * 3 + 1] = ly + dl(wx, wz) / sc;
+        const gx = (dl(wx + cell, wz) - dl(wx - cell, wz)) / (2 * cell), gz = (dl(wx, wz + cell) - dl(wx, wz - cell)) / (2 * cell), n0y = N0[i * 3 + 1];
+        if ((gx || gz) && n0y > 0.2) {
+          const lgx = c * gx - sn * gz, lgz = sn * gx + c * gz, nx = N0[i * 3] - lgx * n0y, nz = N0[i * 3 + 2] - lgz * n0y, L = Math.hypot(nx, n0y, nz) || 1;
+          N[i * 3] = nx / L; N[i * 3 + 1] = n0y / L; N[i * 3 + 2] = nz / L;
+        } else { N[i * 3] = N0[i * 3]; N[i * 3 + 1] = n0y; N[i * 3 + 2] = N0[i * 3 + 2]; }
+        if (P[i * 3 + 1] < ymn) ymn = P[i * 3 + 1]; if (P[i * 3 + 1] > ymx) ymx = P[i * 3 + 1];
+      }
+      if (o.min && o.max) { o.min[1] = ymn; o.max[1] = ymx; }
+      gl.deleteBuffer(e.g.vbo); gl.deleteBuffer(e.g.ibo); e.g = uploadObject(o);
+    }
+  }
   function trs(x, y, z, rotDeg, s) { const a = rotDeg * Math.PI / 360; return window.B3DMap.mat4TRS([x, y, z], [0, Math.sin(a), 0, Math.cos(a)], [s, s, s]); }
 
   /* ---------- scene ---------- */
@@ -322,6 +412,7 @@ void main(){
     let done = 0;
     const models = {};
     await Promise.all(names.map(async (n) => { models[n] = await loadModel(kit + n + ".glb"); onProgress && onProgress(++done / (names.length + 1)); }));
+    if (def.terrain && def.terrain.base && def.terrain.mesh && models[def.terrain.mesh]) { try { deformGroundMesh(models[def.terrain.mesh], def); } catch (err) { console.warn("terrain mesh", err); } }
     const T = def.tile || 4, items = [], cleared = getCleared();
     for (const p of def.pieces) {
       let ins = null;                                   // "I:x0,z0,x1,z1" = hidden while the player stands inside that rectangle (roofs of enterable buildings)
@@ -367,7 +458,8 @@ void main(){
     const colliders = (def.colliders || []).filter((c) => visible(c, cleared)).map((c) => ({ minX: c.x - c.w / 2, maxX: c.x + c.w / 2, minZ: c.z - c.d / 2, maxZ: c.z + c.d / 2 }));
     const events = (def.events || []).filter((e) => visible(e, cleared)).map((e) => Object.assign({ w: 3, d: 3, trigger: "touch", inside: false, done: false }, e));
     const skyInfo = await buildSky(def.sky);
-    return { name, def, skyInfo, items, npcs, events, sheets, stex, colliders, terrain: decodeTerrain(def.terrain), bounds: def.bounds || { minX: -24, maxX: 24, minZ: -16, maxZ: 16 },
+    let paint = null; if (def.terrain && def.terrain.paint && def.terrain.paint.data) { try { paint = await buildPaint(def.terrain, decodeTerrain(def.terrain)); } catch (err) { console.warn("terrain paint", err); } }
+    return { name, def, skyInfo, paint, items, npcs, events, sheets, stex, colliders, terrain: decodeTerrain(def.terrain), bounds: def.bounds || { minX: -24, maxX: 24, minZ: -16, maxZ: 16 },
       player: { x: def.spawn ? def.spawn.x : 0, z: def.spawn ? def.spawn.z : 8, face: "south", moving: false, t: 0, target: null, wantNpc: null, h: def.playerHeight || 2.3 } };
   }
 
@@ -397,6 +489,7 @@ void main(){
       gl.drawElements(gl.TRIANGLES, g.count, g.itype, 0);
     };
     BLEND_N(); opaque.forEach(draw);
+    if (S.paint) { drawPaint(); gl.uniform1i(MU.u_tex, 0); }
     if (blend.length) { gl.depthMask(false); blend.forEach(draw); }
     useSprite(); gl.uniformMatrix4fv(SU.u_vp, false, cam.vp);
   }
@@ -635,8 +728,11 @@ void main(){
     if (n.actions && n.actions.length) { if (O && O.sfx && O.SFX) O.sfx(O.SFX.confirm); runActions(n); return; }
     if (!n.action) return;
     if (O && O.sfx && O.SFX) O.sfx(O.SFX.confirm);
-    savePos(); O.activate(n.action);
+    setVendor(n); savePos(); O.activate(n.action);
   }
+  /* Which shop / blacksmith the player is talking to ("<scene>/<npc id>", see data/vendors.py). The /shop and /heroes pages read
+     it from sessionStorage and pass it to the server, so each vendor sells its own stock and each smith has its own upgrade cap. */
+  function setVendor(n) { try { if (n && (n.action === "shop" || n.action === "heroes")) sessionStorage.setItem("h3dVendor", (S && S.name || "") + "/" + n.id); else sessionStorage.removeItem("h3dVendor"); } catch (e) {} }
   /* ---------- scene events (made in /builder3d): trigger zones + NPC scripts ----------
      An event or NPC owns `actions`: [{type:"say",who,text} | {type:"warp",scene,x,z} | {type:"hub",action}], run in order.
      "say" waits for E / Enter / Space / a click; "warp" loads another scene; "hub" presses one of the hub's own controls. */
@@ -772,7 +868,7 @@ void main(){
         script.waiting = true; showSay(a.who === null ? "" : (a.who || (script.owner.name || "")), a.text || "", a.portrait || (script.owner && script.owner.portrait));
         return;
       }
-      if (a.type === "hub") { if (a.action && O) { savePos(); O.activate(a.action); } continue; }
+      if (a.type === "hub") { if (a.action && O) { setVendor(null); savePos(); O.activate(a.action); } continue; }
       if (a.type === "warp") { endScript(true); switchScene(a.scene, a.x, a.z); return; }
       if (a.type === "tp") { const pl = S.player; pl.x = a.x; pl.z = a.z; pl.target = null; pl.wantNpc = null; primeEvents(); cam.tx = pl.x; cam.tz = pl.z + 1.5; updateCamera(0.016, true); if (a.fade !== false) flashOff(); continue; }   // same-scene teleport (fades the flash back out)
       if (a.type === "battle") { script.toBattle = true; endScript(true); startBattle(a); return; }
@@ -809,9 +905,9 @@ void main(){
   const visible = (o, c) => (!o.hideIf || !has(c, o.hideIf)) && (!o.showIf || has(c, o.showIf));
   function say(who, text) { script = { owner: { name: who }, queue: [{ type: "say", who, text }], waiting: false }; stepScript(); }
   async function startBattle(a) {
-    if (!(state && ((state.story_party || state.party) || []).length)) { setFade(0, 0.4); say("", "You have no story heroes to fight with."); return; }
+    if (!(state && ((state.story_party || state.party) || []).length)) { endAmbush(); setFade(0, 0.4); say("", "You have no story heroes to fight with."); return; }
     try { await fetch("/api/world/hub_battle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ boss_id: a.boss || "", level: Array.isArray(a.level) ? 0 : (a.level || 0), level_min: Array.isArray(a.level) ? a.level[0] : (a.level_min || 0), level_max: Array.isArray(a.level) ? a.level[1] : (a.level_max || 0), pool: a.pool || [], level_rel: a.level_rel || null, elite: a.elite || 0 }) }); }
-    catch (e) { setFade(0, 0.4); say("", "The battle server could not be reached."); return; }
+    catch (e) { endAmbush(); setFade(0, 0.4); say("", "The battle server could not be reached."); return; }
     savePos();
     location.href = "/battle?return=hub3d&scene=" + encodeURIComponent(S.name || "olympus") + (a.key ? "&key=" + encodeURIComponent(a.key) : "") + (S.def && S.def.restart ? "&restart=" + encodeURIComponent(S.def.restart) : "");
   }
@@ -981,20 +1077,35 @@ void main(){
   /* Random encounters: scene.encounters = {rate, level:[lo,hi], pool:[enemy ids], zones:[{x,z,w,d}]}. Walking inside a zone
      counts distance; every ~rate units an ambush starts a wild fight at a level rolled from the range. */
   function encounterStep(dist) {
-    const enc = S.def && S.def.encounters; if (!enc || script || S.switching || modalOpen() || !(state && ((state.story_party || state.party) || []).length)) return;
+    const enc = S.def && S.def.encounters; if (!enc || S.encGo || script || S.switching || modalOpen() || !(state && ((state.story_party || state.party) || []).length)) return;
     const p = S.player, zs = enc.zones;
     let zone = null;
     if (zs && zs.length) { zone = zs.find((z) => Math.abs(p.x - z.x) <= z.w / 2 && Math.abs(p.z - z.z) <= z.d / 2); if (!zone) return; }
     if (zone && zone.safe) return;                                                                          // zone.safe: no ambushes here (camps)
-    const rate = (zone && zone.rate) || enc.rate || 100;
+    const rate = ((zone && zone.rate) || enc.rate || 100) * ENC_RATE_SCALE;
     if (S.encNext == null) S.encNext = rate * (0.8 + Math.random() * 0.8);
     S.encDist = (S.encDist || 0) + dist;
     if (S.encDist < S.encNext) return;
     S.encDist = 0; S.encNext = rate * (0.6 + Math.random() * 0.8); p.target = null; p.wantNpc = null;
     for (const k in keys) keys[k] = false;
     const lv = enc.level || [1, 1], zlv = zone && zone.level, rel = (zone && zone.level_rel) || enc.level_rel || null;   // a zone may set an absolute level range [lo, hi]
-    script = { owner: { name: "" }, queue: [{ type: "say", who: "", text: enc.text || "Something stirs in the dark... monsters attack!" }, { type: "battle", key: "", boss: "", level: zlv || (rel ? 0 : lv), level_rel: zlv ? null : rel, pool: (zone && zone.pool) || enc.pool || [] }], waiting: false };
-    stepScript();
+    // No prompt: an alarm sound, a flash and a fade to black, then straight into the fight.
+    S.encGo = true;
+    if (O && O.sfx) O.sfx(ENC_SFX, 0.9);
+    ambushTransition();
+    const lvl = zlv || (rel ? 0 : lv), lrel = zlv ? null : rel, pool = (zone && zone.pool) || enc.pool || [];
+    setTimeout(() => startBattle({ type: "battle", key: "", boss: "", level: lvl, level_rel: lrel, pool }), 950);
+  }
+  function endAmbush() { const f = document.getElementById("h3d-ambush"); if (f) f.remove(); if (S) S.encGo = false; }
+  const ENC_SFX = "/assets/SFX/10_Battle_SFX/55_Encounter_02.wav";
+  const ENC_RATE_SCALE = 0.7;                                   // < 1 = more frequent ambushes (distance between fights is rate x this)
+  function ambushTransition() {
+    let f = document.getElementById("h3d-ambush");
+    if (!f) { f = document.createElement("div"); f.id = "h3d-ambush"; f.style.cssText = "position:fixed;inset:0;z-index:90;pointer-events:all;opacity:0;background:#000"; document.body.appendChild(f); }
+    f.style.transition = "none"; f.style.background = "#fff"; f.style.opacity = "0"; void f.offsetWidth;
+    f.style.transition = "opacity 0.12s ease-out"; f.style.opacity = "0.9";                               // quick white flash...
+    setTimeout(() => { f.style.transition = "background 0.25s linear"; f.style.background = "#000"; }, 140);
+    setTimeout(() => { f.style.transition = "opacity 0.55s linear"; f.style.opacity = "1"; }, 200);       // ...then to black
   }
   function advanceScript() { if (script && script.waiting && !script.lock) { script.waiting = false; if (O && O.sfx && O.SFX) O.sfx(O.SFX.confirm); stepScript(); } }
   function primeEvents() { const p = S.player; for (const e of (S.events || [])) e.inside = Math.abs(p.x - e.x) <= e.w / 2 && Math.abs(p.z - e.z) <= e.d / 2; }
@@ -1388,9 +1499,10 @@ void main(){
       canvas = document.createElement("canvas"); canvas.id = "h3d-canvas"; canvas.tabIndex = -1;
       gl = canvas.getContext("webgl", { antialias: true, alpha: false, premultipliedAlpha: false });
       if (!gl) throw new Error("WebGL unavailable");
-      sprog = mkProg(SVS, SFS, ["a"]); mprog = mkProg(MVS, MFS, ["p", "n", "t", "c"]);
+      sprog = mkProg(SVS, SFS, ["a"]); mprog = mkProg(MVS, MFS, ["p", "n", "t", "c"]); pprog = mkProg(PVS, PFS, ["p", "n"]);
       ["u_vp", "u_o", "u_r", "u_u", "u_size", "u_anchor", "u_tex", "u_rect", "u_flip", "u_tint", "u_fogc", "u_fogr", "u_fogd"].forEach((n) => { SU[n] = gl.getUniformLocation(sprog, n); });
       ["u_vp", "u_model", "u_tex", "u_color", "u_emis", "u_cut", "u_unlit", "u_mode", "u_ldir", "u_lcol", "u_amb", "u_fogc", "u_fogr"].forEach((n) => { MU[n] = gl.getUniformLocation(mprog, n); });
+      ["u_vp", "u_splat", "u_t0", "u_t1", "u_t2", "u_t3", "u_rect", "u_inv", "u_ldir", "u_lcol", "u_amb", "u_fogc", "u_fogr"].forEach((n) => { PU[n] = gl.getUniformLocation(pprog, n); });
       quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
       gl.enable(gl.BLEND); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.activeTexture(gl.TEXTURE0);
       gl.useProgram(sprog); gl.uniform1i(SU.u_tex, 0);
