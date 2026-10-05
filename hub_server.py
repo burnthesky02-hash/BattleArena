@@ -118,6 +118,7 @@ from engine.battle import BattleEngine
 from engine import formulas
 from engine.combatant import Combatant
 from data.bosses import BOSSES, BOSS_SKILLS, WORLD_BOSSES
+ALL_BOSSES = {**BOSSES, **WORLD_BOSSES}    # the battle debug menu offers rank bosses and story (world) bosses
 from data.leveling import apply_growth, TALENT_POINT_INTERVAL
 from engine.skills import MAX_SKILL_RANK, power_at_rank, mp_cost_at_rank, status_duration_bonus_at_rank
 from game.boss_script import BossRunner
@@ -2069,7 +2070,7 @@ def _serialize_boss_option(b) -> dict:
     base, growth = _stat_block(b.base_stats), _stat_block(b.growth)
     base["max_hp"] = round(base["max_hp"] * b.hp_mult)      # fold the HP multiplier in so the menu's
     growth["max_hp"] = round(growth["max_hp"] * b.hp_mult)  # base + growth*(level-1) matches the fight
-    return {"id": b.id, "name": b.name, "boss": True, "base": base, "growth": growth,
+    return {"id": b.id, "name": b.name, "boss": True, "story": b.id in WORLD_BOSSES and b.id not in BOSSES, "base": base, "growth": growth,
             "skills": _skill_names(b.skill_ids), "rewards_first": b.rewards_first, "rewards_repeat": b.rewards_repeat}
 
 
@@ -2082,7 +2083,7 @@ def _serialize_debug_options() -> dict:
                     "base": _stat_block(CLASS_ARCHETYPES[h.class_id].base_stats),
                     "growth": _stat_block(CLASS_ARCHETYPES[h.class_id].growth),
                     "skills": _skill_names(skill_ids_for(h.name, h.class_id))} for h in RECRUITABLE_ROSTER],
-        "bosses": [_serialize_boss_option(b) for b in BOSSES.values()],
+        "bosses": [_serialize_boss_option(b) for b in ALL_BOSSES.values()],
         "monster_scale": MONSTER_STAT_SCALE,
         "scaled_stats": list(SCALED_ENEMY_STATS),
         "size_scale": {"up_hp": SIZE_UP_HP, "up_other": SIZE_UP_OTHER, "down_hp": SIZE_DOWN_HP, "down_other": SIZE_DOWN_OTHER},
@@ -2203,7 +2204,7 @@ def _validate_debug_setup(msg: dict):
             enemies.append({"kind": "monster", "id": eid, "level": _clamp_level(e.get("level"))})
         elif kind == "hero" and eid in by_name:
             enemies.append({"kind": "hero", "id": eid, "level": _clamp_level(e.get("level"))})
-        elif kind == "boss" and eid in BOSSES:
+        elif kind == "boss" and eid in ALL_BOSSES:
             enemies.append({"kind": "boss", "id": eid, "level": _clamp_level(e.get("level"))})
     bosses = [e for e in enemies if e["kind"] == "boss"]
     if bosses:
@@ -2251,7 +2252,7 @@ def _build_debug_battle(cfg: dict):
         party.append(PlayerCharacter(name=h.name, class_id=h.class_id, level=e["level"], rarity=h.rarity))
     if cfg["enemies"][0]["kind"] == "boss":
         e = cfg["enemies"][0]
-        return party, _build_boss_setup(BOSSES[e["id"]], party, e["level"])
+        return party, _build_boss_setup(ALL_BOSSES[e["id"]], party, e["level"])
     enemies, ids, recruits = [], [], []
     for e in cfg["enemies"]:
         if e["kind"] == "monster":

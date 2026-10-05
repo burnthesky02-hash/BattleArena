@@ -614,58 +614,139 @@ ANCIENT_GUARDIAN = BossDef(
 DROWNED_SOVEREIGN = BossDef(
     id="drowned_sovereign_boss",
     name="Drowned Sovereign",
-    sprite={"file": "Bosses/DrownedSovereign/Drowned_Sovereign.png", "scale": 1.6, "native_left": False, "idle_only": True, "static": True},
-    base_stats=Stats(max_hp=190, max_mp=120, atk=25, def_=22, mag=12, res=18, spd=10, luk=10),   # balance pass 2026-10-03: was atk 27 / mag 14 / hp_mult 3.0 (unwinnable solo)
+
+    sprite={
+        "file": "Bosses/DrownedSovereign/Drowned_Sovereign.png",
+        "scale": 1.6,
+        "native_left": False,
+        "idle_only": True,
+        "static": True
+    },
+
+    # --- BASE STATS ---
+    base_stats=Stats(max_hp=190, max_mp=120, atk=25, def_=22, mag=12, res=18, spd=10, luk=10),
     growth=Stats(max_hp=18, max_mp=0, atk=2, def_=2, mag=1, res=2, spd=1, luk=0),
+
     hp_mult=2.5,
     level_offset=2,
-    skill_ids=["power_strike", "sunder", "tremor_slam", "arena_slam"],
+
+    # --- SKILLS ---
+    skill_ids=[
+        "power_strike",   # Finisher on weakest hero (usually healer)
+        "sunder",         # Break the frontline (melee fighter)
+        "tremor_slam",    # Collapse phase AoE
+        "arena_slam"      # Tide cycle AoE
+    ],
+
+    # --- PERSONA ---
     persona=(
         "The long-dead king of the island, bound to his flooded throne room: grave, courtly, bitterly "
-        "proud. Opens with Sunder on the hardest-hitting hero, Power Strike on whoever is weakest, and "
-        "Arena Slam when several heroes are healthy. Raises Counter Stance when wounded and, near the "
-        "end, brings the whole sunken hall down with Tremor Slam."
+        "proud. He breaks the frontline with Sunder, punishes the weak with Power Strike, and unleashes "
+        "the tide itself when the hall stirs. When wounded, he raises his royal guard, and near the end, "
+        "brings the whole sunken hall down with Tremor Slam."
     ),
+
+    # --- SCRIPT ---
     script={
+
+        # ---------------------------------------------------------
+        # INTRO
+        # ---------------------------------------------------------
         "intro": [
             {"shake": True},
             {"say": ("Drowned Sovereign", "Who wakes the king beneath the tide?")},
             {"say": ("Drowned Sovereign", "Kneel, or sink with the rest of my court.")},
-            {"announce": "THE DROWNED SOVEREIGN RISES"},
+            {"announce": "THE DROWNED SOVEREIGN RISES"}
         ],
+
+        # ---------------------------------------------------------
+        # TRIGGERS
+        # ---------------------------------------------------------
         "triggers": [
-            {"id": "tide_tell", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
-                {"announce": "THE TIDE SURGES"},
-                {"log": "Black water pours across the floor -- the Sovereign winds up a crushing blow."},
-                {"force_skill": {"skill": "arena_slam", "target": "all"}},
-            ]},
-            {"id": "ward", "when": {"hp_below": 0.6}, "steps": [
-                {"shake": True},
-                {"say": ("Drowned Sovereign", "My crown has outlived a hundred challengers.")},
-                {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}},
-                {"force_skill": {"skill": "counter_stance", "target": "all"}},
-            ]},
-            {"id": "last_stand", "when": {"hp_below": 0.3}, "steps": [
-                {"shake": True},
-                {"flash": "#223a55"},
-                {"say": ("Drowned Sovereign", "Then let the sea take the hall -- and you with it!")},
-                {"heal_boss_pct": 0.08},
-                {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}},
-                {"announce": "THE HALL COLLAPSES"},
-                {"force_skill": {"skill": "tremor_slam", "target": "all"}},
-            ]},
+
+            # -----------------------------------------------------
+            # TIDE ECHO — Passive environmental reaction
+            # -----------------------------------------------------
+            {
+                "id": "tide_echo",
+                "when": {"always": True},
+                "once": False,
+                "steps": [
+                    {"on_skill": {
+                        "sunder":       {"vfx": "water_ripple", "sfx": "surge_low"},
+                        "power_strike": {"vfx": "pillar_groan", "sfx": "stone_shift"},
+                        "arena_slam":   {"vfx": "wave_crash", "sfx": "heavy_surge"},
+                        "tremor_slam":  {"vfx": "ceiling_crack", "sfx": "deep_rumble"},
+                        "counter_stance": {"vfx": "water_shield", "sfx": "royal_echo"}
+                    }}
+                ]
+            },
+
+            # -----------------------------------------------------
+            # TIDE SURGE — Arena Slam every 4 rounds
+            # -----------------------------------------------------
+            {
+                "id": "tide_surge",
+                "when": {"every_n_rounds": 4, "from": 3},
+                "once": False,
+                "steps": [
+                    {"announce": "THE TIDE SURGES"},
+                    {"log": "Black water pours across the floor — the Sovereign winds up a crushing blow."},
+                    {"force_skill": {"skill": "arena_slam", "target": "all"}}
+                ]
+            },
+
+            # -----------------------------------------------------
+            # ROYAL WARD — HP < 60% → ATK Up + Counter Stance
+            # -----------------------------------------------------
+            {
+                "id": "royal_ward",
+                "when": {"hp_below": 0.6},
+                "steps": [
+                    {"shake": True},
+                    {"say": ("Drowned Sovereign", "My crown has outlived a hundred challengers.")},
+                    {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}},
+                    {"force_skill": {"skill": "counter_stance", "target": "all"}}
+                ]
+            },
+
+            # -----------------------------------------------------
+            # LAST STAND — HP < 30% → Heal + DEF Up + Tremor Slam
+            # -----------------------------------------------------
+            {
+                "id": "last_stand",
+                "when": {"hp_below": 0.3},
+                "steps": [
+                    {"shake": True},
+                    {"flash": "#223a55"},
+                    {"say": ("Drowned Sovereign", "Then let the sea take the hall — and you with it!")},
+                    {"heal_boss_pct": 0.08},
+                    {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}},
+                    {"announce": "THE HALL COLLAPSES"},
+                    {"force_skill": {"skill": "tremor_slam", "target": "all"}}
+                ]
+            }
         ],
+
+        # ---------------------------------------------------------
+        # VICTORY / DEFEAT
+        # ---------------------------------------------------------
         "victory": [
-            {"say": ("Drowned Sovereign", "...The tide... lets me go. Take the crown, hero.")},
+            {"say": ("Drowned Sovereign", "...The tide... lets me go. Take the crown, hero.")}
         ],
+
         "defeat": [
-            {"say": ("Drowned Sovereign", "The sea keeps what it takes.")},
-        ],
+            {"say": ("Drowned Sovereign", "The sea keeps what it takes.")}
+        ]
     },
+
+    # --- REWARDS ---
     rewards_first={"money": 900, "gems": 30, "xp": 260},
     rewards_repeat={"money": 220, "gems": 6, "xp": 70},
-    sprite_color=(70, 110, 150),
+
+    sprite_color=(70, 110, 150)
 )
+
 
 
 VAULT_WARDEN = BossDef(
@@ -796,23 +877,148 @@ RIFT_COLOSSUS = _guardian(
 
 BRIARMAW = _guardian(
     "briarmaw_boss", "Briarmaw", "Bosses/Briarmaw/Briarmaw.png", 1.6,
+
+    # --- BASE STATS ---
     Stats(max_hp=150, max_mp=90, atk=21, def_=17, mag=10, res=13, spd=11, luk=8),
-    Stats(max_hp=15, max_mp=0, atk=2, def_=2, mag=1, res=1, spd=1, luk=0), 2.3, 1,
-    ["rending_strike", "poison_dart", "power_strike", "counter_stance", "ground_slam"],
-    "The awakened heart of the Whispering Wood: slow to anger, brutal once roused. Rending Strike on the weakest hero, Poison Dart on the healthiest, Power Strike to finish the wounded, Counter Stance when hurt, and Ground Slam when the thorns rise.",
-    [{"shake": True}, {"say": ("Briarmaw", "...ROOTS... REMEMBER... EVERY FOOTSTEP...")}, {"announce": "BRIARMAW AWAKENS"}],
-    [{"id": "thorns", "when": {"every_n_rounds": 3, "from": 3}, "once": False, "steps": [
-        {"announce": "THE THORNS RISE"}, {"log": "Black brambles burst from the earth and lash across the whole party."},
-        {"force_skill": {"skill": "ground_slam", "target": "all"}}]},
-     {"id": "bark", "when": {"hp_below": 0.5}, "steps": [
-        {"shake": True}, {"say": ("Briarmaw", "BARK... THICKENS. YOU... CANNOT... CUT THE OAK.")},
-        {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}}]},
-     {"id": "regrow", "when": {"hp_below": 0.25}, "steps": [
-        {"say": ("Briarmaw", "THE WOOD... GIVES... ME... STRENGTH.")}, {"heal_boss_pct": 0.08},
-        {"announce": "BRIARMAW REGROWS"}]}],
-    [{"say": ("Briarmaw", "...THE SONG... IS OVER. LEAVE... THE SEEDLINGS... ALONE.")}],
-    [{"say": ("Briarmaw", "...ROOT... AND... LEAF... REMAIN. YOU... DO NOT.")}],
-    {"money": 700, "gems": 18, "xp": 220}, {"money": 180, "gems": 4, "xp": 60}, (80, 170, 90))
+    Stats(max_hp=15, max_mp=0, atk=2, def_=2, mag=1, res=1, spd=1, luk=0),
+
+    2.3, 1,
+
+    # --- SKILL LIST ---
+    [
+        "rending_strike",   # Used when player HP > 60%
+        "poison_dart",      # Used when player HP > 80% or player cured poison
+        "power_strike",     # Used when player HP < 40%
+        "counter_stance",   # Triggered when Briarmaw takes >15% HP in one turn
+        "ground_slam"       # Every 3 rounds (thorns rise)
+    ],
+
+    # --- LORE ---
+    "The awakened heart of the Whispering Wood: slow to anger, brutal once roused. "
+    "It punishes recklessness, adapts to healing, and unleashes the forest’s wrath "
+    "in predictable cycles. The ground itself reacts to its every move.",
+
+    # --- INTRO EVENTS ---
+    [
+        {"shake": True},
+        {"say": ("Briarmaw", "...ROOTS... REMEMBER... EVERY FOOTSTEP...")},
+        {"announce": "BRIARMAW AWAKENS"}
+    ],
+
+    # --- BEHAVIOR EVENTS ---
+    [
+        # ---------------------------------------------------------
+        # ROOT PULSE — Passive environmental reaction
+        # ---------------------------------------------------------
+        {
+            "id": "root_pulse",
+            "when": {"always": True},
+            "once": False,
+            "steps": [
+                {"on_skill": {
+                    "rending_strike": {"vfx": "leaves_scatter", "sfx": "forest_rustle"},
+                    "poison_dart": {"vfx": "green_mist", "sfx": "toxin_hiss"},
+                    "power_strike": {"vfx": "bark_crack", "sfx": "heavy_wood_impact"},
+                    "counter_stance": {"vfx": "roots_coil", "sfx": "low_creak"},
+                    "ground_slam": {"vfx": "earth_shake", "sfx": "deep_thud"},
+                    "regrow": {"vfx": "forest_glow", "sfx": "soft_pulse"}
+                }}
+            ]
+        },
+
+        # ---------------------------------------------------------
+        # THORNS RISE — Every 3 rounds → Ground Slam
+        # ---------------------------------------------------------
+        {
+            "id": "thorns",
+            "when": {"every_n_rounds": 3, "from": 3},
+            "once": False,
+            "steps": [
+                {"announce": "THE THORNS RISE"},
+                {"log": "Black brambles burst from the earth and lash across the lone challenger."},
+                {"force_skill": {"skill": "ground_slam", "target": "player"}},
+                {"apply_status": {"target": "boss", "status": "def_up", "duration": 2}},   # 2 = survives the tick at the start of its own turn
+                {"cleanse_status": {"target": "boss", "status": "poison"}}
+            ]
+        },
+
+        # ---------------------------------------------------------
+        # BARK THICKENS — HP < 50%
+        # ---------------------------------------------------------
+        {
+            "id": "bark",
+            "when": {"hp_below": 0.5},
+            "steps": [
+                {"shake": True},
+                {"say": ("Briarmaw", "BARK... THICKENS. YOU... CANNOT... CUT THE OAK.")},
+                {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}}
+            ]
+        },
+
+        # ---------------------------------------------------------
+        # REGROW — HP < 25%
+        # ---------------------------------------------------------
+        {
+            "id": "regrow",
+            "when": {"hp_below": 0.25},
+            "steps": [
+                {"say": ("Briarmaw", "THE WOOD... GIVES... ME... STRENGTH.")},
+                {"heal_boss_pct": 0.08},
+                {"announce": "BRIARMAW REGROWS"},
+                {"flag": "force_power_strike_next_turn"}
+            ]
+        }
+    ],
+
+    # --- DEFEAT EVENTS ---
+    [
+        {"say": ("Briarmaw", "...THE SONG... IS OVER. LEAVE... THE SEEDLINGS... ALONE.")}
+    ],
+
+    # --- VICTORY EVENTS ---
+    [
+        {"say": ("Briarmaw", "...ROOT... AND... LEAF... REMAIN. YOU... DO NOT.")}
+    ],
+
+    # --- REWARDS ---
+    {"money": 700, "gems": 18, "xp": 220},
+    {"money": 180, "gems": 4, "xp": 60},
+
+    (80, 170, 90)
+)
+
+# Briarmaw's skill choices (the comments on its skill list above), as rules the BossRunner checks on each of its turns
+# (game/boss_script.py _rule_action); anything not matched here falls back to the normal AI. Thorns / Bark / Regrow stay as triggers.
+BRIARMAW.script["rules"] = [
+    {"id": "regrow_strike", "skill": "power_strike", "target": "lowest_hp", "when": {"flag": "force_power_strike_next_turn"}, "clear_flag": True},
+    {"id": "root_counter", "skill": "counter_stance", "target": "self", "when": {"boss_lost_pct_above": 0.15, "boss_lacks_status": "counter"}, "cooldown": 4},
+    {"id": "finish", "skill": "power_strike", "target": "lowest_hp", "when": {"target_hp_below": 0.4}},
+    {"id": "toxin", "skill": "poison_dart", "target": "highest_hp", "when": {"target_hp_above": 0.8, "target_lacks_status": "poison"}},
+    {"id": "rend", "skill": "rending_strike", "target": "highest_hp", "when": {"target_hp_above": 0.6}},
+]
+
+# First-boss pointers: Kael's thoughts as the fight goes (each once, only when Kael is in the party). `if_party` / `party_has` keep
+# them out of fights without him; the triggers are checked after every action (game/boss_script.py).
+BRIARMAW.script["intro"] = list(BRIARMAW.script["intro"]) + [
+    {"say": ("Kael", "(A guardian this size won't fall to one lucky swing. Watch what it does each round, and keep my HP up.)"), "if_party": "Kael"}]
+_K = lambda text: [{"say": ("Kael", "(" + text + ")")}]
+BRIARMAW.script["triggers"] = list(BRIARMAW.script["triggers"]) + [
+    {"id": "tip_poison", "when": {"any_hero_has_status": "poison", "party_has": "Kael"}, "steps": _K(
+        "Poison. It eats a little HP at the start of every turn until it wears off. Nothing to cure it, so I have to out-heal it.")},
+    {"id": "tip_thorns", "when": {"every_n_rounds": 3, "from": 3, "party_has": "Kael"}, "steps": _K(
+        "The ground itself is lashing out! Every third round the thorns rise and I can't dodge them. Best to heal up before they land.")},
+    {"id": "teach_counter", "when": {"round_at_least": 4}, "steps": [{"force_skill": {"skill": "counter_stance", "target": "all"}}]},
+    {"id": "tip_counter", "when": {"boss_has_status": "counter", "party_has": "Kael"}, "steps": _K(
+        "He's bracing, roots coiling around him. If I swing now he'll throw the hit right back. Better to Defend and wait it out.")},
+    {"id": "tip_countered", "when": {"flag": "countered", "party_has": "Kael"}, "steps": _K(
+        "Argh! I walked right into that. Next time I wait until the stance drops before I attack.")},
+    {"id": "tip_low_hp", "when": {"any_hero_hp_below": 0.4, "party_has": "Kael"}, "steps": _K(
+        "I'm in trouble. He goes for the kill when I'm low. Potion first, then back to the fight.")},
+    {"id": "tip_bark", "when": {"hp_below": 0.5, "party_has": "Kael"}, "steps": _K(
+        "His bark is thickening. My hits will land softer for a while, but he's hurting. Keep at it.")},
+    {"id": "tip_regrow", "when": {"hp_below": 0.25, "party_has": "Kael"}, "steps": _K(
+        "He's healing himself! Don't let up. Finish it before he can regrow.")},
+]
 
 # ======================================================================
 # THE RIFT HARBINGER -- chapter 4 boss (the Shattered Reach, html_hub/3d/make_reach.py). The thing that

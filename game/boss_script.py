@@ -40,6 +40,11 @@ class BossRunner:
         self.fired: set = set()
         self.forced: List[dict] = []      # queued {"skill", "target"} scripted actions
         self._last_periodic_round = {}    # trigger id -> last round it fired (for every_n_rounds)
+        self.flags: set = set()           # script flags ({"flag": name} steps), read by rules
+        self.on_skill: dict = {}          # skill id -> {"vfx", "sfx"} cosmetics registered by an {"on_skill": {...}} step
+        self._hp_seen = boss.hp           # boss HP at its previous decision (for boss_lost_pct_above)
+        self._rule_last: dict = {}        # rule id -> round it last fired (for cooldown)
+        boss.unlimited_mp = True          # scripted bosses never run dry: forced moves and rules must always be castable
 
     # ------------------------------------------------------------------
     def on_start(self) -> None:
@@ -63,6 +68,8 @@ class BossRunner:
     def after_action(self, action=None, boss_hp_before=None, **_kw) -> None:
         if action is not None and boss_hp_before is not None:
             self._maybe_counter(action, boss_hp_before)
+        if action is not None and action.actor_id == self.boss.id and getattr(action, "skill_id", None) in self.on_skill:
+            self._skill_fx(self.on_skill[action.skill_id])
         self._check_triggers()
 
     def _maybe_counter(self, action, boss_hp_before) -> None:
@@ -84,6 +91,7 @@ class BossRunner:
         res = formulas.physical_damage(b, actor, 1.2)
         dealt = actor.take_damage(res.amount)
         e.log(f"{b.name} counters {actor.name} for {dealt} damage!{' Critical!' if res.crit else ''}")
+        self.flags.add("countered")
         if hasattr(e, "_damage"):
             e._damage[b.id] = e._damage.get(b.id, 0) + dealt
         if not actor.alive:
@@ -102,8 +110,67 @@ class BossRunner:
         # Holding a counter stance: he waits for a physical hit to punish instead of attacking normally.
         if self.boss.alive and any(s.key == self.counter_key for s in self.boss.status_effects):
             self.engine.log(f"{self.boss.name} holds his stance, waiting to counter...")
+            self._hp_seen = self.boss.hp
             return Action.defend(self.boss.id)
+        return self._rule_action()
+
+    # ------------------------------------------------------------------
+    def _rule_action(self) -> Optional[Action]:
+        """Optional script["rules"]: an ordered list of conditional skill choices, checked on each of the boss's own turns.
+        The first rule whose conditions hold becomes the boss's action; if none match, the normal AI decides.
+          {"id", "skill", "target": "self"|"lowest_hp"|"highest_hp"|"random", "cooldown": rounds, "clear_flag": bool,
+           "when": {"flag", "boss_lost_pct_above" (share of max HP lost since its last turn), "boss_hp_below", "boss_lacks_status",
+                    "round_at_least", "target_hp_above", "target_hp_below" (hero HP fraction), "target_lacks_status"}}"""
+        rules = self.script.get("rules")
+        b, e = self.boss, self.engine
+        if not rules or not b.alive:
+            return None
+        lost = max(0, self._hp_seen - b.hp) / max(1, b.max_hp)
+        self._hp_seen = b.hp
+        heroes = [h for h in self._heroes() if h.alive]
+        if not heroes:
+            return None
+        for rule in rules:
+            rid, w = rule.get("id", rule["skill"]), rule.get("when", {})
+            if e.round_number - self._rule_last.get(rid, -999) < rule.get("cooldown", 0):
+                continue
+            if "flag" in w and w["flag"] not in self.flags:
+                continue
+            if "boss_lost_pct_above" in w and lost < w["boss_lost_pct_above"]:
+                continue
+            if "boss_hp_below" in w and b.hp / max(1, b.max_hp) > w["boss_hp_below"]:
+                continue
+            if "boss_lacks_status" in w and any(s.key == w["boss_lacks_status"] for s in b.status_effects):
+                continue
+            if "round_at_least" in w and e.round_number < w["round_at_least"]:
+                continue
+            mode = rule.get("target", "random")
+            if mode == "self":
+                ids = []
+            else:
+                pool = [h for h in heroes
+                        if ("target_hp_above" not in w or h.hp / max(1, h.max_hp) > w["target_hp_above"])
+                        and ("target_hp_below" not in w or h.hp / max(1, h.max_hp) < w["target_hp_below"])
+                        and ("target_lacks_status" not in w or not any(s.key == w["target_lacks_status"] for s in h.status_effects))]
+                if not pool:
+                    continue
+                pick = (min(pool, key=lambda h: h.hp) if mode == "lowest_hp" else
+                        max(pool, key=lambda h: h.hp) if mode == "highest_hp" else random.choice(pool))
+                ids = [pick.id]
+            if rule.get("clear_flag") and "flag" in w:
+                self.flags.discard(w["flag"])
+            self._rule_last[rid] = e.round_number
+            return Action.use_skill(b.id, rule["skill"], ids)
         return None
+
+    _VFX = {"earth_shake": ("shake", None), "bark_crack": ("shake", None), "heavy_wood_impact": ("shake", None), "deep_thud": ("shake", None),
+            "green_mist": ("flash", "#1c4a26"), "leaves_scatter": ("flash", "#25552a"), "roots_coil": ("flash", "#3a2a12"), "forest_glow": ("flash", "#2f7a3a")}
+
+    def _skill_fx(self, cfg: dict) -> None:
+        kind = self._VFX.get(cfg.get("vfx"))
+        if kind is None:
+            return
+        self.emit({"type": "fx", "kind": kind[0], **({"color": kind[1]} if kind[1] else {})})
 
     # ------------------------------------------------------------------
     def _heroes(self):
@@ -120,6 +187,16 @@ class BossRunner:
         if "heroes_down_at_least" in when and (len(heroes) - len(alive)) < when["heroes_down_at_least"]:
             return False
         if "heroes_alive_at_most" in when and len(alive) > when["heroes_alive_at_most"]:
+            return False
+        if "party_has" in when and not any(h.name == when["party_has"] for h in alive):
+            return False
+        if "boss_has_status" in when and not any(st.key == when["boss_has_status"] for st in self.boss.status_effects):
+            return False
+        if "any_hero_has_status" in when and not any(st.key == when["any_hero_has_status"] for h in alive for st in h.status_effects):
+            return False
+        if "any_hero_hp_below" in when and not any(h.hp / max(1, h.max_hp) < when["any_hero_hp_below"] for h in alive):
+            return False
+        if "flag" in when and when["flag"] not in self.flags:
             return False
         if "every_n_rounds" in when:
             n, start = when["every_n_rounds"], when.get("from", when["every_n_rounds"])
@@ -155,6 +232,8 @@ class BossRunner:
             return [min(alive, key=lambda h: h.hp).id]
         if mode == "all":
             return []          # the skill's own target type decides (ALL_ENEMIES / SELF)
+        if mode == "player":
+            return [random.choice(alive).id]   # "the challenger": any hero (the only one in a solo fight)
         return [random.choice(alive).id]
 
     def _play(self, steps: list) -> None:
@@ -168,6 +247,8 @@ class BossRunner:
                 self.wait_for_dialogue()
 
         for step in steps:
+            if "if_party" in step and not any(h.name == step["if_party"] and h.alive for h in self._heroes()):
+                continue        # e.g. a line only Kael speaks: skipped when he is not in the fight
             if "say" in step:
                 s = step["say"]
                 line = {"speaker": s[0], "text": s[1]}
@@ -203,4 +284,15 @@ class BossRunner:
                 self.refresh_state()
             elif "force_skill" in step:
                 self.forced.append(dict(step["force_skill"]))
+            elif "cleanse_status" in step:
+                c = step["cleanse_status"]
+                targets = [self.boss] if c.get("target", "boss") == "boss" else [h for h in self._heroes() if h.alive]
+                for t in targets:
+                    if t.remove_status(c["status"]):
+                        self.engine.log(f"{t.name} is cleansed of {c['status'].replace('_', ' ')}.")
+                self.refresh_state()
+            elif "flag" in step:
+                self.flags.add(step["flag"])
+            elif "on_skill" in step:
+                self.on_skill.update(step["on_skill"])
         flush()

@@ -101,7 +101,11 @@ class Combatant:
     def revive(self, hp_amount: int) -> None:
         self.hp = min(self.max_hp, max(1, hp_amount))
 
+    unlimited_mp = False      # scripted bosses: MP is never spent (their script, not a mana pool, limits them)
+
     def spend_mp(self, amount: int) -> bool:
+        if self.unlimited_mp:
+            return True
         if self.mp < amount:
             return False
         self.mp -= amount

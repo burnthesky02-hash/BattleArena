@@ -97,12 +97,14 @@
       var o = document.createElement("option"); o.value = "hero::" + h.name;
       o.textContent = "Rival " + h.name + " - " + h.class_name + " (" + h.rarity + ")"; g2.appendChild(o);
     });
-    var g0 = document.createElement("optgroup"); g0.label = "Bosses (fight alone, scripted)";
+    var g0 = document.createElement("optgroup"); g0.label = "Ladder bosses (fight alone, scripted)";
+    var gs = document.createElement("optgroup"); gs.label = "Story bosses (fight alone, scripted)";
     (opts.bosses || []).forEach(function (b) {
-      var o = document.createElement("option"); o.value = "boss::" + b.id; o.textContent = b.name + " (boss)"; g0.appendChild(o);
+      var o = document.createElement("option"); o.value = "boss::" + b.id; o.textContent = b.name + " (boss)"; (b.story ? gs : g0).appendChild(o);
     });
     if (!opts.bosses) setStatus("The running hub_server.py is out of date (no boss data) - stop it and start it again.");
     if (g0.children.length) es.appendChild(g0);
+    if (gs.children.length) es.appendChild(gs);
     es.appendChild(g1); es.appendChild(g2);
   }
 
