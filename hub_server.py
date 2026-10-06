@@ -2381,11 +2381,18 @@ def _build_boss_setup(bdef, party_pcs, level: int, equipment_db=None, legacy_db=
     boss = Combatant(name=bdef.name, is_enemy=True, base_stats=stats, skill_ids=list(bdef.skill_ids),
                      resistances=dict(bdef.resistances), persona=bdef.persona, sprite_color=bdef.sprite_color,
                      formation="front", is_melee=True)
+    enemies, ids, levels = [boss], [bdef.id], {boss.id: level}
+    for eid, elv in (getattr(bdef, "escorts", None) or []):     # plain monsters fighting beside the boss (e.g. Skraag's skirmishers)
+        esc = build_enemy_combatant(eid, elv)
+        enemies.append(esc); ids.append(eid); levels[esc.id] = elv
+    if len(enemies) > 1:
+        apply_squad_formations(enemies)
+        boss.formation = "front"
     setup = BattleSetup(
-        difficulty="normal", enemy_level=level, enemy_ids=[bdef.id],
-        party=[c.build_combatant(equipment_db, legacy_db) for c in party_pcs], enemies=[boss], enemy_hero_recruits=[None],
+        difficulty="normal", enemy_level=level, enemy_ids=ids,
+        party=[c.build_combatant(equipment_db, legacy_db) for c in party_pcs], enemies=enemies, enemy_hero_recruits=[None] * len(enemies),
     )
-    setup._enemy_levels = {boss.id: level}
+    setup._enemy_levels = levels
     setup._boss_def = bdef
     return setup
 

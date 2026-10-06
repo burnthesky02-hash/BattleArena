@@ -14668,14 +14668,7 @@
     {
      "type": "battle",
      "key": "fq_chief",
-     "pool": [
-      "goblin_skirmisher",
-      "bandit_rogue"
-     ],
-     "level": [
-      4,
-      5
-     ]
+     "boss": "skraag_boss"
     }
    ]
   },

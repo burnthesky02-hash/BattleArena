@@ -254,6 +254,7 @@ class BossDef:
     members: List["BossMember"] = field(default_factory=list)
     runner: str = "single"       # "single" -> game/boss_script.BossRunner, "twins" -> game/twins_fight.TwinsRunner
     portrait: str = ""           # path under data/ of the full-body card art (the hub's "next challenger" spot)
+    escorts: List[tuple] = field(default_factory=list)   # [(enemy archetype id, level), ...] regular monsters fighting beside a single boss
 
 
 @dataclass
@@ -1029,6 +1030,37 @@ BRIARMAW.script["triggers"] = list(BRIARMAW.script["triggers"]) + [
 ]
 
 # ======================================================================
+# CHIEFTAIN SKRAAG -- mini boss of the goblin camp in the Whispering Wood (html_hub/3d/forest.json, NPC "skraag").
+# A level-2 brute with two level-1 Goblin Skirmishers at his side ("escorts": plain monsters built by hub_server's
+# _build_boss_setup). Light script: a war-cry buff, a telegraphed Bone Smash you can Defend against, a rage phase.
+# ======================================================================
+SKRAAG = _guardian(
+    "skraag_boss", "Chieftain Skraag", "Bosses/Skraag/gen-31b029ed-6c8d-40a7-b315-9c4f53079aeb.png", 1.5,
+    Stats(max_hp=85, max_mp=80, atk=17, def_=10, mag=4, res=7, spd=9, luk=8),
+    Stats(max_hp=12, max_mp=0, atk=2, def_=1, mag=0, res=1, spd=1, luk=0), 2.0, 0,
+    ["power_strike", "crushing_blow", "reckless_swing", "warcry"],
+    "A loud, greedy goblin chieftain who hits like a cart. Power Strike on the weakest hero, Reckless Swing once he is hurt, a roaring Warcry to start, and a slow Bone Smash he telegraphs to crush whoever does not Defend.",
+    [{"shake": True}, {"say": ("Chieftain Skraag", "Skraag is BIGGEST! Skraag takes your shiny sticks, and your shiny Seal!")},
+     {"announce": "CHIEFTAIN SKRAAG"}],
+    [{"id": "war_cry", "when": {"round_at_least": 2}, "steps": [
+        {"announce": "WAR CRY"}, {"say": ("Chieftain Skraag", "Faster, boys! Skraag wants SHINIES!")},
+        {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}}]},
+     {"id": "bone_smash", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
+        {"announce": "BONE SMASH"}, {"log": "Skraag hoists his bone club high over his head..."},
+        {"force_skill": {"skill": "crushing_blow", "target": "highest_hp", "cast": 2.5, "brace": 1.2}}]},
+     {"id": "tip_smash", "when": {"every_n_rounds": 4, "from": 3, "party_has": "Kael"}, "steps": [
+        {"say": ("Kael", "(He's winding up a big one! Defend now or it'll flatten somebody!)")}]},
+     {"id": "rage", "when": {"hp_below": 0.5}, "steps": [
+        {"shake": True}, {"say": ("Chieftain Skraag", "Ow! Skraag is MAD now!")},
+        {"apply_status": {"target": "boss", "status": "atk_up", "duration": 5}}]},
+     {"id": "tip_rage", "when": {"hp_below": 0.5, "party_has": "Kael"}, "steps": [
+        {"say": ("Kael", "(He's wounded and angry. Keep hitting, and don't let anyone drop low.)")}]}],
+    [{"say": ("Chieftain Skraag", "Skraag... smash... Two-legs... too sharp...")}],
+    [{"say": ("Chieftain Skraag", "Hee hee! Nobody beats Skraag! Not ever!")}],
+    {"money": 120, "gems": 3, "xp": 45}, {"money": 40, "gems": 1, "xp": 15}, (70, 150, 60))
+SKRAAG.escorts = [("goblin_skirmisher", 1), ("goblin_skirmisher", 1)]
+
+# ======================================================================
 # THE RIFT HARBINGER -- chapter 4 boss (the Shattered Reach, html_hub/3d/make_reach.py). The thing that
 # has been dragging fighters through the doors. Uses the Null Reaper's static art until it gets its own.
 # ======================================================================
@@ -1056,7 +1088,7 @@ RIFT_HARBINGER = _guardian(
 
 WORLD_BOSSES: Dict[str, BossDef] = {BRIARMAW.id: BRIARMAW, ANCIENT_GUARDIAN.id: ANCIENT_GUARDIAN, DROWNED_SOVEREIGN.id: DROWNED_SOVEREIGN, VAULT_WARDEN.id: VAULT_WARDEN,
                                 VAULT_SENTINEL.id: VAULT_SENTINEL, PHASE_STALKER.id: PHASE_STALKER, RIFT_COLOSSUS.id: RIFT_COLOSSUS,
-                                RIFT_HARBINGER.id: RIFT_HARBINGER}
+                                RIFT_HARBINGER.id: RIFT_HARBINGER, SKRAAG.id: SKRAAG}
 
 
 # Every boss fights at a SET level, whatever the party's level (Andrew: "bosses should be a set level"). This overrides
@@ -1064,6 +1096,7 @@ WORLD_BOSSES: Dict[str, BossDef] = {BRIARMAW.id: BRIARMAW, ANCIENT_GUARDIAN.id: 
 # `level` a 3D scene passes. A boss not listed here still falls back to party average + level_offset.
 # Retune by feel: just change the numbers.
 BOSS_FIXED_LEVELS: Dict[str, int] = {
+    "skraag_boss": 2,               # goblin camp, Whispering Wood (with two level-1 skirmishers)
     "briarmaw_boss": 5,             # Whispering Wood
     "ancient_guardian_boss": 8,     # island ruins cave
     "drowned_sovereign_boss": 12,   # Hollow Cave
