@@ -55,7 +55,7 @@ def save_game(state: PlayerState, path: str = SAVE_PATH) -> None:
              "equipped_legacies": list(c.equipped_legacies),
              "wounded_runs_remaining": c.wounded_runs_remaining,
              "formation": c.formation,
-             "hp": c.hp, "mp": c.mp}
+             "hp": c.hp, "mp": c.mp, "away": bool(c.away)}
             for c in state.characters
         ],
         "active_party": list(state.active_party),
@@ -153,7 +153,9 @@ def load_game(path: str = SAVE_PATH) -> PlayerState:
                          # hp/mp are new as of the in-game menu pass (HP/MP now carry over between fights
                          # outside the Colosseum) -- an old save has neither, and None means "full".
                          hp=(None if c.get("hp") is None else int(c["hp"])),
-                         mp=(None if c.get("mp") is None else int(c["mp"])))
+                         mp=(None if c.get("mp") is None else int(c["mp"])),
+                         # away is new as of the Sera infirmary story beat -- an old save has no such key: nobody is away.
+                         away=bool(c.get("away", False)))
         for c in data.get("characters", [])
     ]
     if migrating:

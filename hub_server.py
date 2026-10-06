@@ -1177,18 +1177,22 @@ class Handler(BaseHTTPRequestHandler):
         maps_dir = BATTLE_HTML_DIR / "maps"
         if name == "index.json":
             ids = {}
+            scenes = {}
             if maps_dir.is_dir():
                 for p in sorted(maps_dir.iterdir()):
                     if p.suffix.lower() in (".json", ".glb") and p.name != "index.json":
                         ids.setdefault(p.stem, p.stem.replace("_", " ").replace("-", " ").title())
                 for p in maps_dir.glob("*.json"):
                     try:
-                        label = json.loads(p.read_text(encoding="utf-8")).get("name")
+                        mj = json.loads(p.read_text(encoding="utf-8"))
+                        label = mj.get("name")
                         if label and p.stem in ids:
                             ids[p.stem] = label
+                        if p.stem in ids and isinstance(mj.get("scenes"), list):
+                            scenes[p.stem] = [s for s in mj["scenes"] if isinstance(s, str)]
                     except (OSError, ValueError):
                         pass
-            self._send_json(200, {"maps": [{"id": k, "name": v} for k, v in ids.items()]})
+            self._send_json(200, {"maps": [dict({"id": k, "name": v}, **({"scenes": scenes[k]} if k in scenes else {})) for k, v in ids.items()]})
             return
         safe = Path(name).name                      # no sub-folders, no ..
         path = maps_dir / safe
@@ -1462,6 +1466,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_hub_battle()
         elif self.path == "/api/story/recruit":
             self._handle_story_recruit()
+        elif self.path == "/api/story/away":
+            self._handle_story_away()
         elif self.path == "/api/story/chest":
             self._handle_story_chest()
         elif self.path == "/api/story/pass_time":
@@ -1904,6 +1910,22 @@ class Handler(BaseHTTPRequestHandler):
             _ensure_story_split(player_state)
             save_system.save_game(player_state)
         self._send_json(200, {"ok": True, "message": f"{h.name} joins your party!", "joined": True})
+
+    def _handle_story_away(self) -> None:
+        """Takes a story hero out of the story party (away=true: Sera carried to the Colosseum infirmary) or brings them back
+        (away=false). They stay in the roster with their level and gear; only party.story_party_characters skips them.
+        Kael can never be sent away. Body {name, away}."""
+        body = self._read_json_body()
+        name, away = str(body.get("name") or ""), bool(body.get("away", True))
+        with _state_lock:
+            c = next((c for c in player_state.characters if c.name == name), None)
+            if c is None or c.name == DEFAULT_STARTER_NAME or not c.is_story:
+                self._send_json(200, {"ok": False, "message": ""})
+                return
+            c.away = away
+            _ensure_story_split(player_state)
+            save_system.save_game(player_state)
+        self._send_json(200, {"ok": True, "message": f"{name} is back in your party!" if not away else "", "away": away})
 
     def _handle_story_chest(self) -> None:
         """A treasure chest in a 3D scene (Shard Vault). Body: {loot: {gold, gems, shards, tickets:{common|premium:n}, items:{id:n}, equipment:[ids]}}.

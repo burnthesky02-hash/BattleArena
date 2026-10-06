@@ -128,5 +128,6 @@ d = dict(name="Olympus Colosseum", kit="", tile=4, pieces=P, colliders=COL, npcs
                           dict(url=LYR + "clouds_puffy.webp", y=.34, height=.32, drift=.004, alpha=1, tint=[1, 1, 1], parallax=.2),
                           dict(url=LYR + "ridges_far.webp", y=.88, height=.3, parallax=.15, tint=[.78, .86, .98])]),
          light=dict(dir=[-0.4, -1, -0.35], color=[0.95, 0.9, 0.8], ambient=[0.62, 0.63, 0.7]), fog=dict(color=[0.78, 0.88, 0.97], near=80, far=230))
+import story_pit; story_pit.apply_olympus(d)         # Sera in the infirmary, exit gate waits for her (Oct 6)
 os.makedirs(OUT, exist_ok=True); json.dump(d, open(os.path.join(OUT, "olympus.json"), "w"), separators=(",", ":"))
 print("pieces", len(P), "colliders", len(COL))

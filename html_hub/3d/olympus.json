@@ -1,1 +1,2519 @@
-{"name":"Olympus Colosseum","kit":"","tile":4,"pieces":[["/assets/3D/GodCity/SM_ground_20x20",-40,-30,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",-40,-10,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",-40,10,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",-40,30,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",-40,50,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",-20,-30,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",-20,-10,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",-20,10,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",-20,30,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",-20,50,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",0,-30,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",0,-10,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",0,10,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",0,30,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",0,50,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",20,-30,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",20,-10,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",20,10,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",20,30,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",20,50,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",40,-30,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",40,-10,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",40,10,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",40,30,0,-0.5,1],["/assets/3D/GodCity/SM_ground_20x20",40,50,0,-0.5,1],["/assets/3D/GodCity/SM_amphitheatre",0,-52,90,0,1.7],["/assets/3D/GodCity/SM_Garden_huge",0,-92,0,0,0.6],["/assets/3D/GodCity/SM_bridge_prefab",0,-112,0,0,0.6],["/assets/3D/GodCity/SM_fire_tower_03",-30,-22,0,0,0.13],["/assets/3D/GodCity/SM_fire_tower_03",-46,-40,0,0,0.15],["/assets/3D/GodCity/SM_fire_tower_04",-26,30,0,0,0.26],["/assets/3D/GodCity/SM_circular_terrace",-52,-4,0,0,0.3],["/assets/3D/GodCity/SM_temple_roof_prefab_01",-36,2,90,0,0.5],["/assets/3D/GodCity/SM_fire_tower_03",30,-22,0,0,0.13],["/assets/3D/GodCity/SM_fire_tower_03",46,-40,0,0,0.15],["/assets/3D/GodCity/SM_fire_tower_04",26,30,0,0,0.26],["/assets/3D/GodCity/SM_circular_terrace",52,-4,0,0,0.3],["/assets/3D/GodCity/SM_temple_roof_prefab_01",36,2,90,0,0.5],["/assets/3D/GodCity/SM_mountain",0,-260,0,-4,0.2],["/assets/3D/GodCity/SM_mountain",-200,-230,0,-4,0.16],["/assets/3D/GodCity/SM_mountain",200,-240,0,-4,0.16],["/assets/3D/GodCity/SM_wall_10x20",-9,-10.6,90,0,0.5],["/assets/3D/GodCity/SM_wall_10x13",-17.25,-10.6,90,0,0.5],["/assets/3D/GodCity/SM_wall_10x20",-19.9,-5.6,0,0,0.5],["/assets/3D/GodCity/SM_wall_10x20",-19.9,4.4,0,0,0.5],["/assets/3D/GodCity/SM_wall_10x13",-19.9,11.65,0,0,0.5],["/assets/3D/GodCity/SM_wall_10x13",-19.9,18.15,0,0,0.5],["/assets/3D/GodCity/SM_temple_column",-19.9,-10.6,0,0,0.7],["/assets/3D/GodCity/SM_temple_column",-19.9,20.6,0,0,0.55],["/assets/3D/GodCity/SM_fabric_decoration_03",-18.5,-3.5,-90,0.6,0.27],["/assets/3D/GodCity/SM_fabric_decoration_03",-18.5,3.5,-90,0.6,0.27],["/assets/3D/GodCity/SM_fabric_decoration_03",-18.5,10.5,-90,0.6,0.27],["/assets/3D/GodCity/SM_fabric_decoration_03",-6.5,-9.8,0,0.6,0.27],["/assets/3D/GodCity/SM_fabric_decoration_03",-11.0,-9.8,0,0.6,0.27],["/assets/3D/GodCity/SM_fabric_decoration_03",-15.5,-9.8,0,0.6,0.27],["/assets/3D/GodCity/SM_Brasero_02",-17.6,-8.6,0,0,0.14],["/assets/3D/GodCity/SM_Brasero_02",-17.6,16.0,0,0,0.14],["/assets/3D/GodCity/SM_temple_roof_prefab_01",-9,-12.8,0,6.52,0.34],["/assets/3D/GodCity/SM_wall_10x20",9,-10.6,90,0,0.5],["/assets/3D/GodCity/SM_wall_10x13",17.25,-10.6,90,0,0.5],["/assets/3D/GodCity/SM_wall_10x20",19.9,-5.6,180,0,0.5],["/assets/3D/GodCity/SM_wall_10x20",19.9,4.4,180,0,0.5],["/assets/3D/GodCity/SM_wall_10x13",19.9,11.65,180,0,0.5],["/assets/3D/GodCity/SM_wall_10x13",19.9,18.15,180,0,0.5],["/assets/3D/GodCity/SM_temple_column",19.9,-10.6,0,0,0.7],["/assets/3D/GodCity/SM_temple_column",19.9,20.6,0,0,0.55],["/assets/3D/GodCity/SM_fabric_decoration_03",18.5,-3.5,90,0.6,0.27],["/assets/3D/GodCity/SM_fabric_decoration_03",18.5,3.5,90,0.6,0.27],["/assets/3D/GodCity/SM_fabric_decoration_03",18.5,10.5,90,0.6,0.27],["/assets/3D/GodCity/SM_fabric_decoration_03",6.5,-9.8,0,0.6,0.27],["/assets/3D/GodCity/SM_fabric_decoration_03",11.0,-9.8,0,0.6,0.27],["/assets/3D/GodCity/SM_fabric_decoration_03",15.5,-9.8,0,0.6,0.27],["/assets/3D/GodCity/SM_Brasero_02",17.6,-8.6,0,0,0.14],["/assets/3D/GodCity/SM_Brasero_02",17.6,16.0,0,0,0.14],["/assets/3D/GodCity/SM_temple_roof_prefab_01",9,-12.8,0,6.52,0.34],["/assets/3D/GodCity/SM_temple_column",-4.7,-10.0,0,0,0.62],["/assets/3D/GodCity/SM_fabric_decoration_02",-2.4,-9.8,0,3.4,0.26],["/assets/3D/GodCity/SM_vase_01",-6.4,-8.4,0,0,2.2],["/assets/3D/GodCity/SM_temple_column",4.7,-10.0,0,0,0.62],["/assets/3D/GodCity/SM_fabric_decoration_02",2.4,-9.8,0,3.4,0.26],["/assets/3D/GodCity/SM_vase_01",6.4,-8.4,0,0,2.2],["/assets/3D/GodCity/SM_beam_02",0,-10.0,90,7.7,2.0],["/assets/3D/GodCity/SM_temple_column",-8.0,-8.2,0,0,0.5],["/assets/3D/GodCity/SM_temple_column_02",-13.5,-8.2,0,0,0.5],["/assets/3D/GodCity/SM_beam_02",-10.75,-8.2,90,6.17,1.1],["/assets/3D/GodCity/SM_temple_column",8.0,-8.2,0,0,0.5],["/assets/3D/GodCity/SM_temple_column_02",13.5,-8.2,0,0,0.5],["/assets/3D/GodCity/SM_beam_02",10.75,-8.2,90,6.17,1.1],["/assets/3D/GodCity/SM_carpet_thin",0,-1.2,90,0.05,0.55],["/assets/3D/GodCity/SM_carpet_thin",0,8.5,90,0.05,0.55],["/assets/3D/GodCity/SM_carpet_square",0,3.2,0,0.05,1.05],["/assets/3D/GodCity/SM_temple_column_02",3.041,6.241,0,0,0.25],["/assets/3D/GodCity/SM_temple_column_02",-3.041,6.241,0,0,0.25],["/assets/3D/GodCity/SM_temple_column_02",-3.041,0.159,0,0,0.25],["/assets/3D/GodCity/SM_temple_column_02",3.041,0.159,0,0,0.25],["/assets/3D/GodCity/SM_market_tent_02",13,4.2,90,0,0.9],["/assets/3D/GodCity/SM_table_02",13,6.6,90,0,1.2],["/assets/3D/GodCity/SM_crate_01",10.8,7.4,20,0,1.6],["/assets/3D/GodCity/SM_basket_01",15.3,7.6,0,0,1.6],["/assets/3D/GodCity/SM_Apple_crate",16.2,6.2,90,0,1.7],["/assets/3D/GodCity/SM_construction_block_01",-16.4,-6.6,-90,0,0.55],["/assets/3D/GodCity/SM_crate_01",-16.4,-5.2,0,0,1.7],["/assets/3D/GodCity/SM_merchandise_bag_01",-14.9,-6.9,0,0,2.2],["/assets/3D/GodCity/SM_construction_block_01",16.4,-6.6,90,0,0.55],["/assets/3D/GodCity/SM_crate_01",16.4,-5.2,0,0,1.7],["/assets/3D/GodCity/SM_merchandise_bag_01",14.9,-6.9,0,0,2.2],["/assets/3D/GodCity/SM_railing_02",-14.2,13.4,90,0,1.0],["/assets/3D/GodCity/SM_railing_02",-11.0,13.4,90,0,1.0],["/assets/3D/GodCity/SM_temple_column",-17.2,10.6,0,0,0.3],["/assets/3D/GodCity/SM_temple_column",17.0,12.6,0,0,0.3],["/assets/3D/GodCity/SM_vase_06",-8.6,12.6,0,0,2.2],["/assets/3D/GodCity/SM_vase_03",8.8,12.0,0,0,2.2],["/assets/3D/GodCity/SM_vase_07",-17.6,3.4,0,0,2.2]],"colliders":[{"x":-19.9,"z":-10.6,"w":2,"d":2},{"x":19.9,"z":-10.6,"w":2,"d":2},{"x":-4.7,"z":-10.0,"w":1.8,"d":1.8},{"x":4.7,"z":-10.0,"w":1.8,"d":1.8},{"x":-8.0,"z":-8.2,"w":1.4,"d":1.4},{"x":-13.5,"z":-8.2,"w":1.4,"d":1.4},{"x":8.0,"z":-8.2,"w":1.4,"d":1.4},{"x":13.5,"z":-8.2,"w":1.4,"d":1.4},{"x":3.0405591591021546,"z":6.240559159102155,"w":0.9,"d":0.9},{"x":-3.040559159102154,"z":6.240559159102155,"w":0.9,"d":0.9},{"x":-3.040559159102155,"z":0.15944084089784605,"w":0.9,"d":0.9},{"x":3.0405591591021537,"z":0.15944084089784516,"w":0.9,"d":0.9},{"x":13,"z":6.2,"w":5.8,"d":2.6},{"x":-15.9,"z":-6.0,"w":3.6,"d":3.0},{"x":15.9,"z":-6.0,"w":3.6,"d":3.0},{"x":-12.7,"z":13.4,"w":5,"d":1},{"x":-17.2,"z":10.6,"w":1.2,"d":1.2},{"x":17.0,"z":12.6,"w":1.2,"d":1.2}],"npcs":[{"id":"boss","name":"Gate Warden","title":"Colosseum Gate","sprite":"Draven","x":0,"z":-6.4,"h":2.5,"action":"challenge","reach":5.2,"radius":1.3},{"id":"battle","name":"Draven","title":"Battlemaster","sprite":"Draven","x":-9.5,"z":-1.5,"h":2.4,"action":"battle"},{"id":"ladder","name":"Kael","title":"Rank Keeper","sprite":"Kael","x":9.5,"z":-1.5,"h":2.4,"action":"ladder"},{"id":"summon","name":"Sera","title":"Summoner","sprite":"Sera","x":0,"z":3.2,"h":2.4,"action":"summon","reach":5.0},{"id":"heroes","name":"Lyra","title":"Trainer","sprite":"Lyra","x":-11.5,"z":8.5,"h":2.4,"action":"heroes"},{"id":"shop","name":"Rook","title":"Shopkeeper","sprite":"Rook","x":13,"z":7.2,"h":2.4,"action":"shop"},{"id":"world","name":"Yulia","title":"Scout","sprite":"Yulia","x":17.2,"z":15,"h":2.4,"action":"world"},{"id":"save","name":"Scribe","title":"Records","sprite":"Kael","x":-17.2,"z":15,"h":2.3,"action":"save_and_quit","tint":[0.75,0.88,1.15,1]},{"id":"st_b1","name":"Masked Raider","title":"Hostile","sprite":"Draven","x":-5,"z":9,"h":2.4,"tint":[0.5,0.45,0.8,1],"hideIf":"st_b1","showIf":"st_siege","reach":5.0,"actions":[{"type":"say","who":"Masked Raider","text":"Found you. The portal is not done with you, islander."},{"type":"battle","key":"st_b1","boss":"","level_rel":[0,2],"pool":["dark_cultist","cursed_knight","bandit_rogue"]}]},{"id":"st_b2","name":"Masked Raider","title":"Hostile","sprite":"Kael","x":5,"z":9,"h":2.4,"tint":[0.5,0.45,0.8,1],"hideIf":"st_b2","showIf":"st_b1","reach":5.0,"actions":[{"type":"say","who":"Masked Raider","text":"Cut down one of us and two more take his place."},{"type":"battle","key":"st_b2","boss":"","level_rel":[0,2],"pool":["dark_cultist","cursed_knight","bandit_rogue"]}]},{"id":"st_b3","name":"Hooded Leader","title":"Hostile","sprite":"Rook","x":0,"z":6.5,"h":2.6,"tint":[0.55,0.3,0.9,1],"hideIf":"st_b3","showIf":"st_b2","reach":5.0,"actions":[{"type":"say","who":"Hooded Leader","text":"You grew strong in the Pit. Good. The Arena sings louder for it."},{"type":"say","who":"Hooded Leader","text":"Come. See what we serve: the One before the many, and the many returning to One."},{"type":"battle","key":"st_b3","boss":"","level_rel":[1,3],"pool":["cursed_knight","dark_cultist","abyssal_horror"]}]}],"decals":[{"type":"glyph","x":0,"z":3.2,"r":3.4,"color":[0.6,0.4,1,1],"spin":14},{"type":"glow","x":0,"z":-6,"r":6,"color":[1,0.8,0.45,1]},{"type":"glow","x":13,"z":6,"r":5,"color":[1,0.75,0.4,1]},{"type":"glow","x":-9.5,"z":-1.5,"r":4,"color":[1,0.4,0.3,1]},{"type":"glow","x":9.5,"z":-1.5,"r":4,"color":[0.5,0.8,1,1]},{"type":"glow","x":-11.5,"z":8.5,"r":4,"color":[0.5,1,0.6,1]},{"type":"glow","x":-17.6,"z":-8.6,"r":4,"color":[1,0.7,0.35,1]},{"type":"glow","x":-17.6,"z":16.0,"r":4,"color":[1,0.7,0.35,1]},{"type":"glow","x":17.6,"z":-8.6,"r":4,"color":[1,0.7,0.35,1]},{"type":"glow","x":17.6,"z":16.0,"r":4,"color":[1,0.7,0.35,1]}],"events":[{"id":"exit_outside","name":"Colosseum exit","x":0,"z":15.6,"w":10,"d":1.6,"trigger":"touch","once":false,"actions":[{"type":"say","who":"","text":"Smoke and masked raiders fill the gate. You cannot leave until the Colosseum is defended!","if":"st_siege","unless":"st_space"},{"type":"say","who":"","text":"You step toward the gate and a horn sounds from the stands. Smoke pours across the sands. Raiders in violet masks storm the walls!","if":"st_free","unless":"st_siege"},{"type":"say","who":"Gate Warden","text":"The same masks that burned the island! To arms, hero. This is your home too now.","if":"st_free","unless":"st_siege"},{"type":"flag","key":"st_siege","if":"st_free","unless":"st_siege"},{"type":"warp","scene":"outside","x":0,"z":-9.5,"unless":"st_free"}]}],"story":true,"autorun":[{"if":"st_b3","unless":"st_space","actions":[{"type":"say","who":"","text":"The Hooded Leader staggers back, laughing under the mask."},{"type":"say","who":"Hooded Leader","text":"Did you think the Arena was the end of it? You are only the key. The door has been waiting for you, and so has the One who sent me."},{"type":"say","who":"","text":"The air above the sands tears like cloth. A whirl of violet light drags at your feet, colder than before, and the Colosseum falls away..."},{"type":"flash"},{"type":"flag","key":"st_space"},{"type":"warp","scene":"asteroid","x":0,"z":6}]},{"if":"st_free","unless":"st_arrived","actions":[{"type":"say","who":"","text":"Sunlight hits you like a wave. The sand is hot, the stands are roaring, and for the first time in a long while nobody holds your chain."},{"type":"say","who":"Gate Warden","text":"Free, are you? The Pit does not often give back what it takes."},{"type":"say","who":"Gate Warden","text":"The Colosseum is yours to walk. Heal up, gear up, fight if you like. When you are ready to go home, the main gate is to the south."},{"type":"flag","key":"st_arrived"}]}],"bounds":{"minX":-18.2,"maxX":18.2,"minZ":-7.4,"maxZ":16.4},"spawn":{"x":0,"z":11},"playerHeight":2.4,"sky":{"type":"layers","base":{"type":"gradient","stops":[[0,"#3f86d6"],[0.4,"#7fb6ec"],[0.75,"#cfe6f8"],[1,"#fff6e0"]]},"layers":[{"url":"/assets/Backgrounds/layers/clouds_wisps.webp","y":0.18,"height":0.22,"drift":0.007,"alpha":0.9,"tint":[1,1,1]},{"url":"/assets/Backgrounds/layers/clouds_puffy.webp","y":0.34,"height":0.32,"drift":0.004,"alpha":1,"tint":[1,1,1],"parallax":0.2},{"url":"/assets/Backgrounds/layers/ridges_far.webp","y":0.88,"height":0.3,"parallax":0.15,"tint":[0.78,0.86,0.98]}]},"light":{"dir":[-0.4,-1,-0.35],"color":[0.95,0.9,0.8],"ambient":[0.62,0.63,0.7]},"fog":{"color":[0.78,0.88,0.97],"near":80,"far":230}}
+{
+ "story": true,
+ "autorun": [
+  {
+   "if": "st_b3",
+   "unless": "st_space",
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "The Hooded Leader staggers back, laughing under the mask."
+    },
+    {
+     "type": "say",
+     "who": "Hooded Leader",
+     "text": "Did you think the Arena was the end of it? You are only the key. The door has been waiting for you, and so has the One who sent me."
+    },
+    {
+     "type": "say",
+     "who": "",
+     "text": "The air above the sands tears like cloth. A whirl of violet light drags at your feet, colder than before, and the Colosseum falls away..."
+    },
+    {
+     "type": "flash"
+    },
+    {
+     "type": "flag",
+     "key": "st_space"
+    },
+    {
+     "type": "warp",
+     "scene": "asteroid",
+     "x": 0,
+     "z": 6
+    }
+   ]
+  },
+  {
+   "if": "st_free",
+   "unless": "st_arrived",
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "Sunlight hits you like a wave. The sand is hot, the stands are roaring, and for the first time in a long while nobody holds your chain."
+    },
+    {
+     "type": "say",
+     "who": "Gate Warden",
+     "text": "Free, are you? The Pit does not often give back what it takes."
+    },
+    {
+     "type": "say",
+     "who": "Gate Warden",
+     "text": "The Colosseum is yours to walk. Heal up, gear up, fight if you like. When you are ready to go home, the main gate is to the south."
+    },
+    {
+     "type": "say",
+     "who": "Kael",
+     "text": "Sera is somewhere in this place. The infirmary, the Overseer said. First thing I do is find her.",
+     "if": "st_hurt"
+    },
+    {
+     "type": "flag",
+     "key": "st_arrived"
+    }
+   ]
+  }
+ ],
+ "name": "Olympus Colosseum",
+ "kit": "",
+ "tile": 4,
+ "pieces": [
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   -40,
+   -30,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   -40,
+   -10,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   -40,
+   10,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   -40,
+   30,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   -40,
+   50,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   -20,
+   -30,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   -20,
+   -10,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   -20,
+   10,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   -20,
+   30,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   -20,
+   50,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   0,
+   -30,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   0,
+   -10,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   0,
+   10,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   0,
+   30,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   0,
+   50,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   20,
+   -30,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   20,
+   -10,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   20,
+   10,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   20,
+   30,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   20,
+   50,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   40,
+   -30,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   40,
+   -10,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   40,
+   10,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   40,
+   30,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_ground_20x20",
+   40,
+   50,
+   0,
+   -0.5,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_amphitheatre",
+   0,
+   -52,
+   90,
+   0,
+   1.7
+  ],
+  [
+   "/assets/3D/GodCity/SM_Garden_huge",
+   0,
+   -92,
+   0,
+   0,
+   0.6
+  ],
+  [
+   "/assets/3D/GodCity/SM_bridge_prefab",
+   0,
+   -112,
+   0,
+   0,
+   0.6
+  ],
+  [
+   "/assets/3D/GodCity/SM_fire_tower_03",
+   -30,
+   -22,
+   0,
+   0,
+   0.13
+  ],
+  [
+   "/assets/3D/GodCity/SM_fire_tower_03",
+   -46,
+   -40,
+   0,
+   0,
+   0.15
+  ],
+  [
+   "/assets/3D/GodCity/SM_fire_tower_04",
+   -26,
+   30,
+   0,
+   0,
+   0.26
+  ],
+  [
+   "/assets/3D/GodCity/SM_circular_terrace",
+   -52,
+   -4,
+   0,
+   0,
+   0.3
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_roof_prefab_01",
+   -36,
+   2,
+   90,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_fire_tower_03",
+   30,
+   -22,
+   0,
+   0,
+   0.13
+  ],
+  [
+   "/assets/3D/GodCity/SM_fire_tower_03",
+   46,
+   -40,
+   0,
+   0,
+   0.15
+  ],
+  [
+   "/assets/3D/GodCity/SM_fire_tower_04",
+   26,
+   30,
+   0,
+   0,
+   0.26
+  ],
+  [
+   "/assets/3D/GodCity/SM_circular_terrace",
+   52,
+   -4,
+   0,
+   0,
+   0.3
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_roof_prefab_01",
+   36,
+   2,
+   90,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_mountain",
+   0,
+   -260,
+   0,
+   -4,
+   0.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_mountain",
+   -200,
+   -230,
+   0,
+   -4,
+   0.16
+  ],
+  [
+   "/assets/3D/GodCity/SM_mountain",
+   200,
+   -240,
+   0,
+   -4,
+   0.16
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x20",
+   -9,
+   -10.6,
+   90,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   -17.25,
+   -10.6,
+   90,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x20",
+   -19.9,
+   -5.6,
+   0,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x20",
+   -19.9,
+   4.4,
+   0,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   -19.9,
+   11.65,
+   0,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   -19.9,
+   18.15,
+   0,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   -19.9,
+   -10.6,
+   0,
+   0,
+   0.7
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   -19.9,
+   20.6,
+   0,
+   0,
+   0.55
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   -18.5,
+   -3.5,
+   -90,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   -18.5,
+   3.5,
+   -90,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   -18.5,
+   10.5,
+   -90,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   -6.5,
+   -9.8,
+   0,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   -11,
+   -9.8,
+   0,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   -15.5,
+   -9.8,
+   0,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_Brasero_02",
+   -17.6,
+   -8.6,
+   0,
+   0,
+   0.14
+  ],
+  [
+   "/assets/3D/GodCity/SM_Brasero_02",
+   -17.6,
+   16,
+   0,
+   0,
+   0.14
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_roof_prefab_01",
+   -9,
+   -12.8,
+   0,
+   6.52,
+   0.34
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x20",
+   9,
+   -10.6,
+   90,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   17.25,
+   -10.6,
+   90,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   19.9,
+   -10.6,
+   0,
+   0,
+   0.7
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   18.5,
+   -3.5,
+   90,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   18.5,
+   3.5,
+   90,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   18.5,
+   10.5,
+   90,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   6.5,
+   -9.8,
+   0,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   11,
+   -9.8,
+   0,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_03",
+   15.5,
+   -9.8,
+   0,
+   0.6,
+   0.27
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_roof_prefab_01",
+   9,
+   -12.8,
+   0,
+   6.52,
+   0.34
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   -4.7,
+   -10,
+   0,
+   0,
+   0.62
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_02",
+   -2.4,
+   -9.8,
+   0,
+   3.4,
+   0.26
+  ],
+  [
+   "/assets/3D/GodCity/SM_vase_01",
+   -6.4,
+   -8.4,
+   0,
+   0,
+   2.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   4.7,
+   -10,
+   0,
+   0,
+   0.62
+  ],
+  [
+   "/assets/3D/GodCity/SM_fabric_decoration_02",
+   2.4,
+   -9.8,
+   0,
+   3.4,
+   0.26
+  ],
+  [
+   "/assets/3D/GodCity/SM_vase_01",
+   6.4,
+   -8.4,
+   0,
+   0,
+   2.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   0,
+   -10,
+   90,
+   7.7,
+   2
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   -8,
+   -8.2,
+   0,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column_02",
+   -13.5,
+   -8.2,
+   0,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   -10.75,
+   -8.2,
+   90,
+   6.17,
+   1.1
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   8,
+   -8.2,
+   0,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column_02",
+   13.5,
+   -8.2,
+   0,
+   0,
+   0.5
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   10.75,
+   -8.2,
+   90,
+   6.17,
+   1.1
+  ],
+  [
+   "/assets/3D/GodCity/SM_carpet_thin",
+   0,
+   -1.2,
+   90,
+   0.05,
+   0.55
+  ],
+  [
+   "/assets/3D/GodCity/SM_carpet_thin",
+   0,
+   8.5,
+   90,
+   0.05,
+   0.55
+  ],
+  [
+   "/assets/3D/GodCity/SM_carpet_square",
+   0,
+   3.2,
+   0,
+   0.05,
+   1.05
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column_02",
+   -3.041,
+   6.241,
+   0,
+   0,
+   0.25
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column_02",
+   -3.041,
+   0.159,
+   0,
+   0,
+   0.25
+  ],
+  [
+   "/assets/3D/GodCity/SM_construction_block_01",
+   -16.4,
+   -6.6,
+   -90,
+   0,
+   0.55
+  ],
+  [
+   "/assets/3D/GodCity/SM_crate_01",
+   -16.4,
+   -5.2,
+   0,
+   0,
+   1.7
+  ],
+  [
+   "/assets/3D/GodCity/SM_merchandise_bag_01",
+   -14.9,
+   -6.9,
+   0,
+   0,
+   2.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_construction_block_01",
+   16.4,
+   -6.6,
+   90,
+   0,
+   0.55
+  ],
+  [
+   "/assets/3D/GodCity/SM_merchandise_bag_01",
+   14.9,
+   -6.9,
+   0,
+   0,
+   2.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_railing_02",
+   -14.2,
+   13.4,
+   90,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_railing_02",
+   -11,
+   13.4,
+   90,
+   0,
+   1
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   -17.2,
+   10.6,
+   0,
+   0,
+   0.3
+  ],
+  [
+   "/assets/3D/GodCity/SM_vase_06",
+   -8.6,
+   12.6,
+   0,
+   0,
+   2.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_vase_03",
+   8.8,
+   12,
+   0,
+   0,
+   2.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_vase_07",
+   -17.6,
+   3.4,
+   0,
+   0,
+   2.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   17.4,
+   25,
+   180,
+   0,
+   [
+    0.4,
+    0.45,
+    0.615
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   22,
+   28.6,
+   90,
+   0,
+   [
+    0.4,
+    0.45,
+    0.646
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   22,
+   21.4,
+   90,
+   0,
+   [
+    0.4,
+    0.45,
+    0.646
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   26.6,
+   27.8,
+   180,
+   0,
+   [
+    0.4,
+    0.45,
+    0.185
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   26.6,
+   22.2,
+   180,
+   0,
+   [
+    0.4,
+    0.45,
+    0.185
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   26.6,
+   25,
+   180,
+   3.5,
+   [
+    0.4,
+    0.1,
+    0.246
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   16.95,
+   25,
+   180,
+   4.3,
+   [
+    1.8,
+    1.8,
+    1.8
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   22,
+   29.05,
+   90,
+   4.3,
+   [
+    1.8,
+    1.8,
+    2.2
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   27.05,
+   25,
+   180,
+   4.3,
+   [
+    1.8,
+    1.8,
+    1.8
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   22,
+   20.95,
+   90,
+   4.3,
+   [
+    1.8,
+    1.8,
+    2.2
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   17,
+   29,
+   90,
+   0,
+   0.345
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   27,
+   29,
+   90,
+   0,
+   0.345
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   17,
+   21,
+   90,
+   0,
+   0.345
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   27,
+   21,
+   90,
+   0,
+   0.345
+  ],
+  [
+   "/assets/3D/GodCity/SM_Brasero_02",
+   28.6,
+   29.349,
+   90,
+   0,
+   0.09
+  ],
+  [
+   "/assets/3D/GodCity/SM_Brasero_02",
+   28.6,
+   20.651,
+   90,
+   0,
+   0.09
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_roof_prefab_02",
+   22,
+   25,
+   180,
+   4.9,
+   [
+    0.285,
+    0.252,
+    0.369
+   ],
+   "I:17.8,21.8,26.2,28.2"
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   13.4,
+   17,
+   180,
+   0,
+   [
+    0.4,
+    0.8,
+    0.615
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   18,
+   20.6,
+   90,
+   0,
+   [
+    0.4,
+    0.8,
+    0.646
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   18,
+   13.4,
+   90,
+   0,
+   [
+    0.4,
+    0.8,
+    0.646
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   22.6,
+   19.8,
+   180,
+   0,
+   [
+    0.4,
+    0.8,
+    0.185
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   22.6,
+   14.2,
+   180,
+   0,
+   [
+    0.4,
+    0.8,
+    0.185
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   22.6,
+   17,
+   180,
+   3.8,
+   [
+    0.4,
+    0.42,
+    0.246
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   12.95,
+   17,
+   180,
+   7.8,
+   [
+    1.8,
+    1.8,
+    1.8
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   18,
+   21.05,
+   90,
+   7.8,
+   [
+    1.8,
+    1.8,
+    2.2
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   23.05,
+   17,
+   180,
+   7.8,
+   [
+    1.8,
+    1.8,
+    1.8
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   18,
+   12.95,
+   90,
+   7.8,
+   [
+    1.8,
+    1.8,
+    2.2
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   13,
+   21,
+   90,
+   0,
+   0.613
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   23,
+   21,
+   90,
+   0,
+   0.613
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   13,
+   13,
+   90,
+   0,
+   0.613
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   23,
+   13,
+   90,
+   0,
+   0.613
+  ],
+  [
+   "/assets/3D/GodCity/SM_Brasero_02",
+   24.6,
+   21.698,
+   90,
+   0,
+   0.09
+  ],
+  [
+   "/assets/3D/GodCity/SM_Brasero_02",
+   24.6,
+   12.302,
+   90,
+   0,
+   0.09
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_roof_prefab_02",
+   18,
+   17,
+   180,
+   8.4,
+   [
+    0.285,
+    0.252,
+    0.369
+   ],
+   "I:13.8,13.8,22.2,20.2"
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   14.4,
+   8,
+   180,
+   0,
+   [
+    0.4,
+    0.6,
+    0.615
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   19,
+   11.6,
+   90,
+   0,
+   [
+    0.4,
+    0.6,
+    0.646
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   19,
+   4.4,
+   90,
+   0,
+   [
+    0.4,
+    0.6,
+    0.646
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   23.6,
+   10.8,
+   180,
+   0,
+   [
+    0.4,
+    0.6,
+    0.185
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   23.6,
+   5.2,
+   180,
+   0,
+   [
+    0.4,
+    0.6,
+    0.185
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   23.6,
+   8,
+   180,
+   3.8,
+   [
+    0.4,
+    0.22,
+    0.246
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   13.95,
+   8,
+   180,
+   5.8,
+   [
+    1.8,
+    1.8,
+    1.8
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   19,
+   12.05,
+   90,
+   5.8,
+   [
+    1.8,
+    1.8,
+    2.2
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   24.05,
+   8,
+   180,
+   5.8,
+   [
+    1.8,
+    1.8,
+    1.8
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   19,
+   3.95,
+   90,
+   5.8,
+   [
+    1.8,
+    1.8,
+    2.2
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   14,
+   12,
+   90,
+   0,
+   0.46
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   24,
+   12,
+   90,
+   0,
+   0.46
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   14,
+   4,
+   90,
+   0,
+   0.46
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   24,
+   4,
+   90,
+   0,
+   0.46
+  ],
+  [
+   "/assets/3D/GodCity/SM_Brasero_02",
+   25.6,
+   12.498,
+   90,
+   0,
+   0.09
+  ],
+  [
+   "/assets/3D/GodCity/SM_Brasero_02",
+   25.6,
+   3.502,
+   90,
+   0,
+   0.09
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   19,
+   8,
+   90,
+   6.4,
+   [
+    4.6,
+    0.05,
+    0.862
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   12.4,
+   -2,
+   180,
+   0,
+   [
+    0.4,
+    0.45,
+    0.923
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   24,
+   3.6,
+   90,
+   0,
+   [
+    0.4,
+    0.45,
+    1.723
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   24,
+   -7.6,
+   90,
+   0,
+   [
+    0.4,
+    0.45,
+    1.723
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_wall_10x13",
+   35.6,
+   -2,
+   180,
+   0,
+   [
+    0.4,
+    0.45,
+    0.923
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   11.95,
+   -2,
+   180,
+   4.3,
+   [
+    1.8,
+    1.8,
+    2.6
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   24,
+   4.05,
+   90,
+   4.3,
+   [
+    1.8,
+    1.8,
+    5
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   36.05,
+   -2,
+   180,
+   4.3,
+   [
+    1.8,
+    1.8,
+    2.6
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_beam_02",
+   24,
+   -8.05,
+   90,
+   4.3,
+   [
+    1.8,
+    1.8,
+    5
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   12,
+   4,
+   90,
+   0,
+   0.345
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   36,
+   4,
+   90,
+   0,
+   0.345
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   12,
+   -8,
+   90,
+   0,
+   0.345
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_column",
+   36,
+   -8,
+   90,
+   0,
+   0.345
+  ],
+  [
+   "/assets/3D/GodCity/SM_temple_roof_prefab_01",
+   24,
+   -2,
+   180,
+   4.9,
+   [
+    0.628,
+    0.3,
+    0.523
+   ]
+  ],
+  [
+   "/assets/3D/GodCity/SM_vase_01",
+   -16.6,
+   1.0,
+   0,
+   0,
+   2.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_vase_01",
+   -16.6,
+   5.4,
+   0,
+   0,
+   2.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_carpet_square",
+   -14.6,
+   3.2,
+   0,
+   0.05,
+   1.05
+  ],
+  [
+   "/assets/3D/GodCity/SM_vase_01",
+   -16.6,
+   1.0,
+   0,
+   0,
+   2.2
+  ],
+  [
+   "/assets/3D/GodCity/SM_vase_01",
+   -16.6,
+   5.4,
+   0,
+   0,
+   2.2
+  ]
+ ],
+ "colliders": [
+  {
+   "x": -19.9,
+   "z": -10.6,
+   "w": 2,
+   "d": 2
+  },
+  {
+   "x": 19.9,
+   "z": -10.6,
+   "w": 2,
+   "d": 2
+  },
+  {
+   "x": -4.7,
+   "z": -10,
+   "w": 1.8,
+   "d": 1.8
+  },
+  {
+   "x": 4.7,
+   "z": -10,
+   "w": 1.8,
+   "d": 1.8
+  },
+  {
+   "x": -8,
+   "z": -8.2,
+   "w": 1.4,
+   "d": 1.4
+  },
+  {
+   "x": -13.5,
+   "z": -8.2,
+   "w": 1.4,
+   "d": 1.4
+  },
+  {
+   "x": 8,
+   "z": -8.2,
+   "w": 1.4,
+   "d": 1.4
+  },
+  {
+   "x": 13.5,
+   "z": -8.2,
+   "w": 1.4,
+   "d": 1.4
+  },
+  {
+   "x": 3.041,
+   "z": 6.241,
+   "w": 0.9,
+   "d": 0.9
+  },
+  {
+   "x": -3.041,
+   "z": 6.241,
+   "w": 0.9,
+   "d": 0.9
+  },
+  {
+   "x": -3.041,
+   "z": 0.159,
+   "w": 0.9,
+   "d": 0.9
+  },
+  {
+   "x": 3.041,
+   "z": 0.159,
+   "w": 0.9,
+   "d": 0.9
+  },
+  {
+   "x": -15.9,
+   "z": -6,
+   "w": 3.6,
+   "d": 3
+  },
+  {
+   "x": -12.7,
+   "z": 13.4,
+   "w": 5,
+   "d": 1
+  },
+  {
+   "x": -17.2,
+   "z": 10.6,
+   "w": 1.2,
+   "d": 1.2
+  },
+  {
+   "x": 17.4,
+   "z": 25,
+   "w": 0.8,
+   "d": 8
+  },
+  {
+   "x": 22,
+   "z": 28.6,
+   "w": 8.4,
+   "d": 0.8
+  },
+  {
+   "x": 22,
+   "z": 21.4,
+   "w": 8.4,
+   "d": 0.8
+  },
+  {
+   "x": 26.6,
+   "z": 27.8,
+   "w": 0.8,
+   "d": 2.4
+  },
+  {
+   "x": 26.6,
+   "z": 22.2,
+   "w": 0.8,
+   "d": 2.4
+  },
+  {
+   "x": 28.6,
+   "z": 29.349,
+   "w": 0.8,
+   "d": 0.8
+  },
+  {
+   "x": 28.6,
+   "z": 20.651,
+   "w": 0.8,
+   "d": 0.8
+  },
+  {
+   "x": 13.4,
+   "z": 17,
+   "w": 0.8,
+   "d": 8
+  },
+  {
+   "x": 18,
+   "z": 20.6,
+   "w": 8.4,
+   "d": 0.8
+  },
+  {
+   "x": 18,
+   "z": 13.4,
+   "w": 8.4,
+   "d": 0.8
+  },
+  {
+   "x": 22.6,
+   "z": 19.8,
+   "w": 0.8,
+   "d": 2.4
+  },
+  {
+   "x": 22.6,
+   "z": 14.2,
+   "w": 0.8,
+   "d": 2.4
+  },
+  {
+   "x": 24.6,
+   "z": 21.698,
+   "w": 0.8,
+   "d": 0.8
+  },
+  {
+   "x": 24.6,
+   "z": 12.302,
+   "w": 0.8,
+   "d": 0.8
+  },
+  {
+   "x": 14.4,
+   "z": 8,
+   "w": 0.8,
+   "d": 8
+  },
+  {
+   "x": 19,
+   "z": 11.6,
+   "w": 8.4,
+   "d": 0.8
+  },
+  {
+   "x": 19,
+   "z": 4.4,
+   "w": 8.4,
+   "d": 0.8
+  },
+  {
+   "x": 23.6,
+   "z": 10.8,
+   "w": 0.8,
+   "d": 2.4
+  },
+  {
+   "x": 23.6,
+   "z": 5.2,
+   "w": 0.8,
+   "d": 2.4
+  },
+  {
+   "x": 25.6,
+   "z": 12.498,
+   "w": 0.8,
+   "d": 0.8
+  },
+  {
+   "x": 25.6,
+   "z": 3.502,
+   "w": 0.8,
+   "d": 0.8
+  },
+  {
+   "x": 12.4,
+   "z": -2,
+   "w": 0.8,
+   "d": 12
+  },
+  {
+   "x": 24,
+   "z": 3.6,
+   "w": 22.4,
+   "d": 0.8
+  },
+  {
+   "x": 24,
+   "z": -7.6,
+   "w": 22.4,
+   "d": 0.8
+  },
+  {
+   "x": 35.6,
+   "z": -2,
+   "w": 0.8,
+   "d": 12
+  }
+ ],
+ "npcs": [
+  {
+   "id": "boss",
+   "name": "Gate Warden",
+   "title": "Colosseum Gate",
+   "sprite": "Draven",
+   "x": 0,
+   "z": -6.4,
+   "h": 2.5,
+   "action": "challenge",
+   "reach": 5.2,
+   "radius": 1.3
+  },
+  {
+   "id": "battle",
+   "name": "Draven",
+   "title": "Battlemaster",
+   "sprite": "Draven",
+   "x": -9.5,
+   "z": -1.5,
+   "h": 2.4,
+   "action": "battle"
+  },
+  {
+   "id": "ladder",
+   "name": "Kael",
+   "title": "Rank Keeper",
+   "sprite": "Kael",
+   "x": 9.5,
+   "z": -1.5,
+   "h": 2.4,
+   "action": "ladder"
+  },
+  {
+   "id": "summon",
+   "name": "Ilya",
+   "title": "Summoner",
+   "sprite": "Sera",
+   "x": 0,
+   "z": 3.2,
+   "h": 2.4,
+   "action": "summon",
+   "reach": 5
+  },
+  {
+   "id": "heroes",
+   "name": "Lyra",
+   "title": "Trainer",
+   "sprite": "Lyra",
+   "x": -11.5,
+   "z": 8.5,
+   "h": 2.4,
+   "action": "heroes"
+  },
+  {
+   "id": "shop",
+   "name": "Rook",
+   "title": "Shopkeeper",
+   "sprite": "Rook",
+   "x": 14,
+   "z": -2,
+   "h": 2.4,
+   "action": "shop"
+  },
+  {
+   "id": "world",
+   "name": "Yulia",
+   "title": "Scout",
+   "sprite": "Yulia",
+   "x": 7,
+   "z": 11,
+   "h": 2.4,
+   "action": "world"
+  },
+  {
+   "id": "save",
+   "name": "Scribe",
+   "title": "Records",
+   "sprite": "Kael",
+   "x": -17.2,
+   "z": 15,
+   "h": 2.3,
+   "action": "save_and_quit",
+   "tint": [
+    0.75,
+    0.88,
+    1.15,
+    1
+   ]
+  },
+  {
+   "id": "st_b1",
+   "name": "Masked Raider",
+   "title": "Hostile",
+   "sprite": "Draven",
+   "x": -5,
+   "z": 9,
+   "h": 2.4,
+   "tint": [
+    0.5,
+    0.45,
+    0.8,
+    1
+   ],
+   "hideIf": "st_b1",
+   "showIf": "st_siege",
+   "reach": 5,
+   "actions": [
+    {
+     "type": "say",
+     "who": "Masked Raider",
+     "text": "Found you. The door is not done with you, islander."
+    },
+    {
+     "type": "battle",
+     "key": "st_b1",
+     "boss": "",
+     "level_rel": [
+      0,
+      2
+     ],
+     "pool": [
+      "dark_cultist",
+      "cursed_knight",
+      "bandit_rogue"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b2",
+   "name": "Masked Raider",
+   "title": "Hostile",
+   "sprite": "Kael",
+   "x": 5,
+   "z": 9,
+   "h": 2.4,
+   "tint": [
+    0.5,
+    0.45,
+    0.8,
+    1
+   ],
+   "hideIf": "st_b2",
+   "showIf": "st_b1",
+   "reach": 5,
+   "actions": [
+    {
+     "type": "say",
+     "who": "Masked Raider",
+     "text": "Cut down one of us and two more take his place."
+    },
+    {
+     "type": "battle",
+     "key": "st_b2",
+     "boss": "",
+     "level_rel": [
+      0,
+      2
+     ],
+     "pool": [
+      "dark_cultist",
+      "cursed_knight",
+      "bandit_rogue"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b3",
+   "name": "Hooded Leader",
+   "title": "Hostile",
+   "sprite": "Rook",
+   "x": 0,
+   "z": 6.5,
+   "h": 2.6,
+   "tint": [
+    0.55,
+    0.3,
+    0.9,
+    1
+   ],
+   "hideIf": "st_b3",
+   "showIf": "st_b2",
+   "reach": 5,
+   "actions": [
+    {
+     "type": "say",
+     "who": "Hooded Leader",
+     "text": "You grew strong in the Pit. Good. The Arena sings louder for it."
+    },
+    {
+     "type": "say",
+     "who": "Hooded Leader",
+     "text": "Come. See what we serve: the One before the many, and the many returning to One."
+    },
+    {
+     "type": "battle",
+     "key": "st_b3",
+     "boss": "",
+     "level_rel": [
+      1,
+      3
+     ],
+     "pool": [
+      "cursed_knight",
+      "dark_cultist",
+      "abyssal_horror"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sera_infirmary",
+   "name": "Sera",
+   "title": "Infirmary healer",
+   "sprite": "Sera",
+   "x": -14.6,
+   "z": 3.2,
+   "h": 2.4,
+   "tint": [
+    1,
+    1.05,
+    1.15,
+    1
+   ],
+   "showIf": "st_hurt,st_free",
+   "hideIf": "st_sera_back",
+   "reach": 4.6,
+   "actions": [
+    {
+     "type": "say",
+     "who": "Sera",
+     "text": "Kael! You are on your feet! They told me the Pit never gives anyone back."
+    },
+    {
+     "type": "say",
+     "who": "Kael",
+     "text": "It gave me a collar, and then a crowd that liked the show. I am free, for now. Are you all right? Where have they had you?"
+    },
+    {
+     "type": "say",
+     "who": "Sera",
+     "text": "Stitching up Captain Varro's drowned men, mostly. The infirmary ran out of chapel hands years ago, so they kept me because I was useful. It was an honest sort of captivity."
+    },
+    {
+     "type": "say",
+     "who": "Sera",
+     "text": "I never meant to stay. Whatever was singing in that water, I felt it too, and I would like to know what it was. Let me walk with you again."
+    },
+    {
+     "type": "say",
+     "who": "Kael",
+     "text": "I would like that. I do not know where this road goes from here, but I would rather not walk it alone."
+    },
+    {
+     "type": "say",
+     "who": null,
+     "text": "Sera takes up her staff and falls in beside you once more."
+    },
+    {
+     "type": "flag",
+     "key": "st_sera_back"
+    },
+    {
+     "type": "away",
+     "name": "Sera",
+     "away": false
+    }
+   ]
+  }
+ ],
+ "events": [
+  {
+   "id": "exit_outside",
+   "name": "Colosseum exit",
+   "x": 0,
+   "z": 15.6,
+   "w": 10,
+   "d": 1.6,
+   "trigger": "touch",
+   "once": false,
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "Smoke and masked raiders fill the gate. You cannot leave until the Colosseum is defended!",
+     "if": "st_siege",
+     "unless": "st_space"
+    },
+    {
+     "type": "say",
+     "who": "",
+     "text": "You step toward the gate and a horn sounds from the stands. Smoke pours across the sands. Raiders in violet masks storm the walls!",
+     "if": "st_free",
+     "unless": "st_siege"
+    },
+    {
+     "type": "say",
+     "who": "Gate Warden",
+     "text": "Violet masks! Raiders at the gate! To arms, hero. This is your home too now.",
+     "if": "st_free",
+     "unless": "st_siege"
+    },
+    {
+     "type": "flag",
+     "key": "st_siege",
+     "if": "st_free",
+     "unless": "st_siege"
+    },
+    {
+     "type": "warp",
+     "scene": "outside",
+     "x": 0,
+     "z": -9.5,
+     "unless": "st_free"
+    }
+   ],
+   "showIf": "!st_hurt"
+  },
+  {
+   "id": "exit_outside_b",
+   "name": "Colosseum exit",
+   "x": 0,
+   "z": 15.6,
+   "w": 10,
+   "d": 1.6,
+   "trigger": "touch",
+   "once": false,
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "Smoke and masked raiders fill the gate. You cannot leave until the Colosseum is defended!",
+     "if": "st_siege",
+     "unless": "st_space"
+    },
+    {
+     "type": "say",
+     "who": "",
+     "text": "You step toward the gate and a horn sounds from the stands. Smoke pours across the sands. Raiders in violet masks storm the walls!",
+     "if": "st_free",
+     "unless": "st_siege"
+    },
+    {
+     "type": "say",
+     "who": "Gate Warden",
+     "text": "Violet masks! Raiders at the gate! To arms, hero. This is your home too now.",
+     "if": "st_free",
+     "unless": "st_siege"
+    },
+    {
+     "type": "flag",
+     "key": "st_siege",
+     "if": "st_free",
+     "unless": "st_siege"
+    },
+    {
+     "type": "warp",
+     "scene": "outside",
+     "x": 0,
+     "z": -9.5,
+     "unless": "st_free"
+    }
+   ],
+   "showIf": "st_hurt,st_sera_back"
+  },
+  {
+   "id": "exit_wait",
+   "name": "Colosseum exit",
+   "x": 0,
+   "z": 15.6,
+   "w": 10,
+   "d": 1.6,
+   "trigger": "touch",
+   "once": false,
+   "showIf": "st_hurt,!st_sera_back",
+   "actions": [
+    {
+     "type": "say",
+     "who": null,
+     "text": "You stop at the gate. You are not leaving without Sera. She is still in the infirmary, on the west side of the concourse."
+    },
+    {
+     "type": "tp",
+     "x": 0,
+     "z": 12.2,
+     "fade": false
+    }
+   ]
+  }
+ ],
+ "decals": [
+  {
+   "type": "glyph",
+   "x": 0,
+   "z": 3.2,
+   "r": 3.4,
+   "color": [
+    0.6,
+    0.4,
+    1,
+    1
+   ],
+   "spin": 14
+  },
+  {
+   "type": "glow",
+   "x": 0,
+   "z": -6,
+   "r": 6,
+   "color": [
+    1,
+    0.8,
+    0.45,
+    1
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 13,
+   "z": 6,
+   "r": 5,
+   "color": [
+    1,
+    0.75,
+    0.4,
+    1
+   ]
+  },
+  {
+   "type": "glow",
+   "x": -9.5,
+   "z": -1.5,
+   "r": 4,
+   "color": [
+    1,
+    0.4,
+    0.3,
+    1
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 9.5,
+   "z": -1.5,
+   "r": 4,
+   "color": [
+    0.5,
+    0.8,
+    1,
+    1
+   ]
+  },
+  {
+   "type": "glow",
+   "x": -11.5,
+   "z": 8.5,
+   "r": 4,
+   "color": [
+    0.5,
+    1,
+    0.6,
+    1
+   ]
+  },
+  {
+   "type": "glow",
+   "x": -17.6,
+   "z": -8.6,
+   "r": 4,
+   "color": [
+    1,
+    0.7,
+    0.35,
+    1
+   ]
+  },
+  {
+   "type": "glow",
+   "x": -17.6,
+   "z": 16,
+   "r": 4,
+   "color": [
+    1,
+    0.7,
+    0.35,
+    1
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 17.6,
+   "z": 16,
+   "r": 4,
+   "color": [
+    1,
+    0.7,
+    0.35,
+    1
+   ]
+  },
+  {
+   "type": "glow",
+   "x": 28.6,
+   "z": 29.349,
+   "r": 3,
+   "color": [
+    1,
+    0.85,
+    0.5,
+    1
+   ],
+   "spin": 0
+  },
+  {
+   "type": "glow",
+   "x": 28.6,
+   "z": 20.651,
+   "r": 3,
+   "color": [
+    1,
+    0.85,
+    0.5,
+    1
+   ],
+   "spin": 0
+  },
+  {
+   "type": "glow",
+   "x": 24.6,
+   "z": 21.698,
+   "r": 3,
+   "color": [
+    1,
+    0.85,
+    0.5,
+    1
+   ],
+   "spin": 0
+  },
+  {
+   "type": "glow",
+   "x": 24.6,
+   "z": 12.302,
+   "r": 3,
+   "color": [
+    1,
+    0.85,
+    0.5,
+    1
+   ],
+   "spin": 0
+  },
+  {
+   "type": "glow",
+   "x": 25.6,
+   "z": 12.498,
+   "r": 3,
+   "color": [
+    1,
+    0.85,
+    0.5,
+    1
+   ],
+   "spin": 0
+  },
+  {
+   "type": "glow",
+   "x": 25.6,
+   "z": 3.502,
+   "r": 3,
+   "color": [
+    1,
+    0.85,
+    0.5,
+    1
+   ],
+   "spin": 0
+  },
+  {
+   "type": "glow",
+   "x": -14.6,
+   "z": 3.2,
+   "r": 3.6,
+   "color": [
+    0.55,
+    1,
+    0.8,
+    0.9
+   ]
+  }
+ ],
+ "spawn": {
+  "x": 0,
+  "z": 11
+ },
+ "bounds": {
+  "minX": -18.2,
+  "maxX": 18.2,
+  "minZ": -7.4,
+  "maxZ": 16.4
+ },
+ "playerHeight": 2.4,
+ "light": {
+  "dir": [
+   -0.4,
+   -1,
+   -0.35
+  ],
+  "color": [
+   0.95,
+   0.9,
+   0.8
+  ],
+  "ambient": [
+   0.62,
+   0.63,
+   0.7
+  ]
+ },
+ "fog": {
+  "color": [
+   0.78,
+   0.88,
+   0.97
+  ],
+  "near": 80,
+  "far": 230
+ },
+ "sky": {
+  "type": "layers",
+  "base": {
+   "type": "gradient",
+   "stops": [
+    [
+     0,
+     "#3f86d6"
+    ],
+    [
+     0.4,
+     "#7fb6ec"
+    ],
+    [
+     0.75,
+     "#cfe6f8"
+    ],
+    [
+     1,
+     "#fff6e0"
+    ]
+   ]
+  },
+  "layers": [
+   {
+    "url": "/assets/Backgrounds/layers/clouds_wisps.webp",
+    "y": 0.18,
+    "height": 0.22,
+    "drift": 0.007,
+    "alpha": 0.9,
+    "tint": [
+     1,
+     1,
+     1
+    ]
+   },
+   {
+    "url": "/assets/Backgrounds/layers/clouds_puffy.webp",
+    "y": 0.34,
+    "height": 0.32,
+    "drift": 0.004,
+    "alpha": 1,
+    "tint": [
+     1,
+     1,
+     1
+    ],
+    "parallax": 0.2
+   },
+   {
+    "url": "/assets/Backgrounds/layers/ridges_far.webp",
+    "y": 0.88,
+    "height": 0.3,
+    "parallax": 0.15,
+    "tint": [
+     0.78,
+     0.86,
+     0.98
+    ]
+   }
+  ]
+ },
+ "objectives": [
+  {
+   "if": "st_siege",
+   "unless": "st_space",
+   "text": "Defend the Colosseum!"
+  },
+  {
+   "if": "st_free,st_hurt",
+   "unless": "st_sera_back",
+   "text": "Find Sera in the Colosseum infirmary, on the west side of the concourse"
+  }
+ ]
+}

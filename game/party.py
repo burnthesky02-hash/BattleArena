@@ -49,8 +49,9 @@ def story_heroes(player_state: PlayerState) -> List[PlayerCharacter]:
 
 def story_party_characters(player_state: PlayerState) -> List[PlayerCharacter]:
     """Who fights outside the Colosseum (3D story scenes, dungeons, world bosses): the story heroes,
-    up to MAX_PARTY_SIZE, in the order they joined (Kael first). Never wounded."""
-    return story_heroes(player_state)[:MAX_PARTY_SIZE]
+    up to MAX_PARTY_SIZE, in the order they joined (Kael first). Never wounded. A hero marked `away`
+    (recovering in the infirmary, see PlayerCharacter.away) sits out until the story brings them back."""
+    return [c for c in story_heroes(player_state) if not c.away][:MAX_PARTY_SIZE]
 
 
 def active_party_characters(player_state: PlayerState) -> List[PlayerCharacter]:

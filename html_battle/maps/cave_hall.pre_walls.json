@@ -1,0 +1,1182 @@
+{
+ "scenes": [
+  "dungeon"
+ ],
+ "name": "Hollow Cave Hall",
+ "light": {
+  "dir": [
+   -0.35,
+   -1,
+   -0.25
+  ],
+  "color": [
+   0.78,
+   0.86,
+   1
+  ],
+  "ambient": [
+   0.58,
+   0.62,
+   0.78
+  ]
+ },
+ "fog": {
+  "color": [
+   0.05,
+   0.075,
+   0.13
+  ],
+  "near": 38,
+  "far": 105
+ },
+ "sky": {
+  "type": "gradient",
+  "stops": [
+   [
+    0,
+    "#05070d"
+   ],
+   [
+    1,
+    "#0d1420"
+   ]
+  ]
+ },
+ "cullNearCamera": 8,
+ "fx": [
+  {
+   "type": "dust",
+   "amount": 0.25
+  }
+ ],
+ "model": "cave_hall_ground.glb",
+ "offset": [
+  0,
+  0,
+  0
+ ],
+ "rotY": 0,
+ "scale": 1,
+ "props": [
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -17,
+    0,
+    -28
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -14.22,
+    0,
+    -12.91
+   ],
+   "rotY": 270,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -10.27,
+    0,
+    -13.06
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -6.01,
+    0,
+    -12.29
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -2.61,
+    0,
+    -12.39
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    2.5,
+    0,
+    -12.47
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    6.65,
+    0,
+    -12.19
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    10,
+    0,
+    -11.93
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    14.97,
+    0,
+    -12.52
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    18.97,
+    0,
+    -12.82
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -21.47,
+    0,
+    -17.44
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -16.44,
+    0,
+    -17.29
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -11.99,
+    0,
+    -17.55
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -7.91,
+    0,
+    -17.35
+   ],
+   "rotY": 270,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -3.42,
+    0,
+    -16.81
+   ],
+   "rotY": 270,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    0.49,
+    0,
+    -17.05
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    5.56,
+    0,
+    -17.29
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    9.97,
+    0,
+    -16.82
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    14.3,
+    0,
+    -16.63
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    18.81,
+    0,
+    -17.29
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -15.32,
+    0,
+    -9.88
+   ],
+   "rotY": 270,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -15.74,
+    0,
+    -6.3
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -15.3,
+    0,
+    -1.83
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -15.1,
+    0,
+    2.11
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -14.91,
+    0,
+    6.38
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -15.56,
+    0,
+    10.88
+   ],
+   "rotY": 270,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -15.55,
+    0,
+    15.06
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -19.45,
+    0,
+    -11.7
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -19.92,
+    0,
+    -7.8
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -20.11,
+    0,
+    -3.53
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -20.01,
+    0,
+    1.07
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -19.65,
+    0,
+    4.77
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -19.87,
+    0,
+    9.27
+   ],
+   "rotY": 270,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -20.02,
+    0,
+    14.12
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -19.73,
+    0,
+    17.92
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    15.32,
+    0,
+    -9.61
+   ],
+   "rotY": 270,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    15.95,
+    0,
+    -5.86
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    15.95,
+    0,
+    -1.64
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    16.02,
+    0,
+    1.87
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    15.72,
+    0,
+    6.41
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    15.02,
+    0,
+    10.63
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    15.94,
+    0,
+    14.79
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    20.17,
+    0,
+    -12.25
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    19.4,
+    0,
+    -7.69
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    19.49,
+    0,
+    -3.86
+   ],
+   "rotY": 270,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    20.07,
+    0,
+    1.28
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    19.7,
+    0,
+    5
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    20.13,
+    0,
+    9.16
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    20.3,
+    0,
+    13.99
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    20.36,
+    0,
+    17.92
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -19.2,
+    0,
+    19.97
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -14.58,
+    0,
+    19.15
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -9.81,
+    0,
+    19.1
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -6.08,
+    0,
+    19.58
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -1.15,
+    0,
+    19.92
+   ],
+   "rotY": 90,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    3.18,
+    0,
+    19.01
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    7.9,
+    0,
+    19.37
+   ],
+   "rotY": 270,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    11.57,
+    0,
+    19.93
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    16.17,
+    0,
+    18.97
+   ],
+   "rotY": 0,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -12.97,
+    0,
+    -6.7
+   ],
+   "rotY": 176.7,
+   "scale": 1.022
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -6,
+    0,
+    -9
+   ],
+   "rotY": 240.6,
+   "scale": 1.496
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -3,
+    0,
+    -12
+   ],
+   "rotY": 124.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -1,
+    0,
+    -12
+   ],
+   "rotY": 126.1,
+   "scale": 1.344
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -1,
+    -0.5,
+    -7
+   ],
+   "rotY": 0.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -4,
+    -1,
+    -7
+   ],
+   "rotY": 190.3,
+   "scale": 1.669
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -5,
+    -1,
+    -7
+   ],
+   "rotY": 244.6,
+   "scale": 1.137
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -6,
+    0,
+    -7
+   ],
+   "rotY": 188.4,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -5,
+    0,
+    -11
+   ],
+   "rotY": -7.2,
+   "scale": 1.533
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -6,
+    0,
+    -10
+   ],
+   "rotY": 71.5,
+   "scale": 1.42
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_green.glb",
+   "pos": [
+    -13,
+    0,
+    -9
+   ],
+   "rotY": 56.6,
+   "scale": 1.488
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_violet.glb",
+   "pos": [
+    -9.5,
+    0,
+    -10.5
+   ],
+   "rotY": 66.8,
+   "scale": 1.715
+  },
+  {
+   "model": "/assets/3D/Dungeon/SM_dg_brazier.glb",
+   "pos": [
+    -6.5,
+    0,
+    -10.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_flame_gold.glb",
+   "pos": [
+    -6.5,
+    1.55,
+    -10.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_water.glb",
+   "pos": [
+    -3.2,
+    0.03,
+    -9
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_water.glb",
+   "pos": [
+    0.8,
+    0.03,
+    -9
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_water.glb",
+   "pos": [
+    4.8,
+    0.03,
+    -9
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -8,
+    0,
+    -20
+   ],
+   "rotY": 270,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -19,
+    0,
+    -17
+   ],
+   "rotY": 300,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -29,
+    0,
+    -5
+   ],
+   "rotY": 345,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -27,
+    0,
+    12
+   ],
+   "rotY": 15,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -15,
+    0,
+    22
+   ],
+   "rotY": 60,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -4,
+    0,
+    25
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    4.998,
+    0,
+    -12.001
+   ],
+   "rotY": 10.3,
+   "scale": 1.669
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    0,
+    -0.5,
+    -7
+   ],
+   "rotY": 180.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    20.997,
+    0,
+    -7.002
+   ],
+   "rotY": 180,
+   "scale": null
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    6.999,
+    0,
+    -12.001
+   ],
+   "rotY": 64.6,
+   "scale": 1.137
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    8,
+    0,
+    -9
+   ],
+   "rotY": 60.6,
+   "scale": 1.496
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    1,
+    0,
+    -12
+   ],
+   "rotY": 304.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    7,
+    -0.5,
+    -7
+   ],
+   "rotY": 306.1,
+   "scale": 1.344
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    4,
+    -0.5,
+    -11
+   ],
+   "rotY": 304.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    1,
+    -0.5,
+    -7
+   ],
+   "rotY": 0.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    2,
+    -0.5,
+    -7
+   ],
+   "rotY": 180.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    3,
+    -0.5,
+    -7
+   ],
+   "rotY": 0.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    4,
+    -0.5,
+    -7
+   ],
+   "rotY": 180.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    5,
+    -1,
+    -7
+   ],
+   "rotY": 190.3,
+   "scale": 1.669
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    5,
+    -0.5,
+    -12
+   ],
+   "rotY": 304.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    2,
+    -0.5,
+    -12
+   ],
+   "rotY": 304.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -5,
+    0,
+    -12
+   ],
+   "rotY": 126.1,
+   "scale": 1.344
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -3,
+    -1,
+    -7
+   ],
+   "rotY": 188.4,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -2,
+    -1,
+    -7
+   ],
+   "rotY": 0.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -29,
+    0,
+    3
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -24,
+    0,
+    -12
+   ],
+   "rotY": 315,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -20,
+    0,
+    20
+   ],
+   "rotY": 60,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    11.333,
+    0,
+    24.999
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    21,
+    0,
+    22
+   ],
+   "rotY": 120,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    27,
+    0,
+    16.999
+   ],
+   "rotY": 135,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    32.335,
+    0,
+    2.001
+   ],
+   "rotY": 180,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    31.335,
+    0,
+    7.999
+   ],
+   "rotY": 165,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    30.335,
+    0,
+    -7.001
+   ],
+   "rotY": 195,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    18.335,
+    0,
+    -17.001
+   ],
+   "rotY": 240,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    7.334,
+    0,
+    -20
+   ],
+   "rotY": 270,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    26,
+    0,
+    -11
+   ],
+   "rotY": 225,
+   "scale": 1
+  }
+ ]
+}

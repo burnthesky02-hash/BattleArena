@@ -509,7 +509,11 @@ function playTrack(m) {
 async function startBattleMusic(isBoss) {
   let m = null;
   try {
-    const q = new URLSearchParams(location.search); let id = q.get("map"); if (!id) { try { id = localStorage.getItem("battleMap"); } catch (e) {} }
+    const q = new URLSearchParams(location.search); let id = q.get("map");
+    if (!id && q.get("scene")) {      // same rule as battle3d.js: the scene's own arena (a map whose `scenes` lists it) wins over the saved pick
+      try { const ix = await (await fetch("/battle/maps/index.json", { cache: "no-store" })).json(); const sm = (ix.maps || []).find((m) => Array.isArray(m.scenes) && m.scenes.includes(q.get("scene"))); if (sm) id = sm.id; } catch (e) {}
+    }
+    if (!id) { try { id = localStorage.getItem("battleMap"); } catch (e) {} }
     if (id && id !== "painted") { const def = await (await fetch("/battle/maps/" + encodeURIComponent(id) + ".json")).json(); m = (isBoss && def.bossMusic) || def.music || null; }
   } catch (e) {}
   if (!playTrack(m)) playMusic(isBoss ? MUSIC.boss : MUSIC.battle);

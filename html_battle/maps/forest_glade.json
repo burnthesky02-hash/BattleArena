@@ -1,0 +1,1450 @@
+{
+ "name": "Whispering Wood Glade",
+ "model": "forest_glade_ground.glb",
+ "scale": 1,
+ "offset": [
+  0,
+  0,
+  0
+ ],
+ "rotY": 0,
+ "props": [
+  {
+   "model": "/assets/3D/Stylized/Tree_03.glb",
+   "pos": [
+    -21.92,
+    0.0,
+    10.04
+   ],
+   "rotY": 64.2,
+   "scale": 1.227
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_02.glb",
+   "pos": [
+    -23.89,
+    0.0,
+    5.56
+   ],
+   "rotY": 112.8,
+   "scale": 1.048
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_06.glb",
+   "pos": [
+    -23.89,
+    0.0,
+    0.15
+   ],
+   "rotY": 119.4,
+   "scale": 1.022
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_02.glb",
+   "pos": [
+    -21.98,
+    0.0,
+    -5.33
+   ],
+   "rotY": 66.1,
+   "scale": 1.03
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_03.glb",
+   "pos": [
+    -17.67,
+    0.0,
+    -10.74
+   ],
+   "rotY": 306.5,
+   "scale": 0.876
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_03.glb",
+   "pos": [
+    -13.8,
+    0.0,
+    -13.59
+   ],
+   "rotY": 111.1,
+   "scale": 0.944
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_06.glb",
+   "pos": [
+    -7.81,
+    0.0,
+    -17.15
+   ],
+   "rotY": 296.4,
+   "scale": 0.974
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_06.glb",
+   "pos": [
+    -3.37,
+    0.0,
+    -17.62
+   ],
+   "rotY": 2.7,
+   "scale": 1.161
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_06.glb",
+   "pos": [
+    2.84,
+    0.0,
+    -16.37
+   ],
+   "rotY": 53.8,
+   "scale": 1.193
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_06.glb",
+   "pos": [
+    9.13,
+    0.0,
+    -14.28
+   ],
+   "rotY": -10.1,
+   "scale": 1.113
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_06.glb",
+   "pos": [
+    14.15,
+    0.0,
+    -12.4
+   ],
+   "rotY": 292.1,
+   "scale": 1.188
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_02.glb",
+   "pos": [
+    19.68,
+    0.0,
+    -8.5
+   ],
+   "rotY": 310.6,
+   "scale": 0.91
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_03.glb",
+   "pos": [
+    21.11,
+    0.0,
+    -4.77
+   ],
+   "rotY": -7.9,
+   "scale": 1.135
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_06.glb",
+   "pos": [
+    23.57,
+    0.0,
+    0.43
+   ],
+   "rotY": -7.5,
+   "scale": 1.165
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_03.glb",
+   "pos": [
+    23.97,
+    0.0,
+    6.04
+   ],
+   "rotY": 177.2,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/Stylized/Tree_06.glb",
+   "pos": [
+    21.75,
+    0.0,
+    10.19
+   ],
+   "rotY": 191.1,
+   "scale": 1.212
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    -25.13,
+    0.0,
+    6.07
+   ],
+   "rotY": 246.9,
+   "scale": 2.549
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    -24.71,
+    0.0,
+    3.18
+   ],
+   "rotY": 295.5,
+   "scale": 3.66
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    -26.4,
+    0.0,
+    -3.84
+   ],
+   "rotY": 248.5,
+   "scale": 4.298
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    -23.55,
+    0.0,
+    -5.9
+   ],
+   "rotY": 177.2,
+   "scale": 3.513
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    -23.91,
+    0.0,
+    -11.27
+   ],
+   "rotY": 299.8,
+   "scale": 4.095
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    -17.49,
+    0.0,
+    -17.21
+   ],
+   "rotY": 122.5,
+   "scale": 3.641
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    -15.39,
+    0.0,
+    -18.52
+   ],
+   "rotY": 176.2,
+   "scale": 4.374
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    -7.69,
+    0.0,
+    -18.73
+   ],
+   "rotY": 294.2,
+   "scale": 4.229
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    -1.83,
+    0.0,
+    -19.23
+   ],
+   "rotY": 4.8,
+   "scale": 3.791
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    3.51,
+    0.0,
+    -19.3
+   ],
+   "rotY": 312.0,
+   "scale": 3.188
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    6.67,
+    0.0,
+    -21.49
+   ],
+   "rotY": 111.3,
+   "scale": 2.538
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    12.35,
+    0.0,
+    -17.82
+   ],
+   "rotY": 114.3,
+   "scale": 3.25
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    16.15,
+    0.0,
+    -16.71
+   ],
+   "rotY": 183.9,
+   "scale": 4.151
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    22.05,
+    0.0,
+    -10.69
+   ],
+   "rotY": 3.1,
+   "scale": 4.143
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    26.61,
+    0.0,
+    -6.75
+   ],
+   "rotY": 125.6,
+   "scale": 4.27
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    27.36,
+    0.0,
+    -2.53
+   ],
+   "rotY": 112.8,
+   "scale": 3.651
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    26.69,
+    0.0,
+    1.51
+   ],
+   "rotY": 118.4,
+   "scale": 4.35
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    26.7,
+    0.0,
+    7.29
+   ],
+   "rotY": 113.3,
+   "scale": 4.012
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    -16.28,
+    0.0,
+    4.12
+   ],
+   "rotY": 10.4,
+   "scale": 2.567
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    -15.21,
+    0.0,
+    -0.21
+   ],
+   "rotY": 295.6,
+   "scale": 1.812
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    -15.34,
+    0.0,
+    -3.73
+   ],
+   "rotY": 305.3,
+   "scale": 1.475
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    -11.52,
+    0.0,
+    -6.98
+   ],
+   "rotY": 52.7,
+   "scale": 2.169
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    -6.65,
+    0.0,
+    -9.02
+   ],
+   "rotY": 62.8,
+   "scale": 2.43
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    -1.93,
+    0.0,
+    -11.01
+   ],
+   "rotY": 296.8,
+   "scale": 2.21
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    1.99,
+    0.0,
+    -11.77
+   ],
+   "rotY": 119.7,
+   "scale": 1.472
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    6.62,
+    0.0,
+    -9.99
+   ],
+   "rotY": 179.4,
+   "scale": 2.151
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    11.34,
+    0.0,
+    -7.1
+   ],
+   "rotY": 249.1,
+   "scale": 2.312
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    15.33,
+    0.0,
+    -2.96
+   ],
+   "rotY": 118.0,
+   "scale": 1.478
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-large.glb",
+   "pos": [
+    15.67,
+    0.0,
+    0.94
+   ],
+   "rotY": 8.7,
+   "scale": 1.822
+  },
+  {
+   "model": "/assets/3D/kenney_retro-fantasy-kit/Models/GLB format/tree-shrub.glb",
+   "pos": [
+    17.06,
+    0.0,
+    4.48
+   ],
+   "rotY": 297.1,
+   "scale": 2.249
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_02.glb",
+   "pos": [
+    -19.76,
+    0.0,
+    5.87
+   ],
+   "rotY": 57.2,
+   "scale": 0.936
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_02.glb",
+   "pos": [
+    3.76,
+    0.0,
+    -11.82
+   ],
+   "rotY": 186.9,
+   "scale": 0.914
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_02.glb",
+   "pos": [
+    -5.14,
+    0.0,
+    -11.24
+   ],
+   "rotY": 230.9,
+   "scale": 1.31
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_01.glb",
+   "pos": [
+    -12.39,
+    0.0,
+    -3.53
+   ],
+   "rotY": -1.3,
+   "scale": 1.289
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_03.glb",
+   "pos": [
+    -2.45,
+    0.0,
+    -10.8
+   ],
+   "rotY": 125.7,
+   "scale": 1.456
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_01.glb",
+   "pos": [
+    -18.04,
+    0.0,
+    9.64
+   ],
+   "rotY": 2.6,
+   "scale": 1.167
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_02.glb",
+   "pos": [
+    -14.14,
+    0.0,
+    3.16
+   ],
+   "rotY": 239.3,
+   "scale": 1.338
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_02.glb",
+   "pos": [
+    -15.36,
+    0.0,
+    3.01
+   ],
+   "rotY": 9.9,
+   "scale": 1.579
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_03.glb",
+   "pos": [
+    -3.34,
+    0.0,
+    -11.49
+   ],
+   "rotY": 292.4,
+   "scale": 1.414
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_01.glb",
+   "pos": [
+    -15.41,
+    0.0,
+    6.16
+   ],
+   "rotY": 122.2,
+   "scale": 1.05
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_01.glb",
+   "pos": [
+    7.33,
+    0.0,
+    -8.57
+   ],
+   "rotY": 235.3,
+   "scale": 1.255
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_02.glb",
+   "pos": [
+    14.75,
+    0.0,
+    4.91
+   ],
+   "rotY": 173.2,
+   "scale": 1.433
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_03.glb",
+   "pos": [
+    13.95,
+    0.0,
+    4.41
+   ],
+   "rotY": 177.3,
+   "scale": 1.099
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_03.glb",
+   "pos": [
+    17.18,
+    0.0,
+    0.74
+   ],
+   "rotY": 288.2,
+   "scale": 0.946
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_03.glb",
+   "pos": [
+    13.62,
+    0.0,
+    8.48
+   ],
+   "rotY": 182.6,
+   "scale": 0.993
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_02.glb",
+   "pos": [
+    6.24,
+    0.0,
+    -8.75
+   ],
+   "rotY": 11.0,
+   "scale": 1.53
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_01.glb",
+   "pos": [
+    -9.29,
+    0.0,
+    -5.91
+   ],
+   "rotY": 56.7,
+   "scale": 1.595
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_02.glb",
+   "pos": [
+    19.76,
+    0.0,
+    -6.91
+   ],
+   "rotY": 10.7,
+   "scale": 1.148
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_01.glb",
+   "pos": [
+    10.86,
+    0.0,
+    12.9
+   ],
+   "rotY": -3.4,
+   "scale": 1.533
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_03.glb",
+   "pos": [
+    10.94,
+    0.0,
+    -5.4
+   ],
+   "rotY": 306.5,
+   "scale": 1.41
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_03.glb",
+   "pos": [
+    17.08,
+    0.0,
+    4.44
+   ],
+   "rotY": 11.1,
+   "scale": 1.291
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_Plant_03.glb",
+   "pos": [
+    19.89,
+    0.0,
+    5.46
+   ],
+   "rotY": -10.8,
+   "scale": 1.158
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -12.36,
+    0.0,
+    2.76
+   ],
+   "rotY": 2.9,
+   "scale": 1.896
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    17.05,
+    0.0,
+    -1.57
+   ],
+   "rotY": 175.7,
+   "scale": 1.727
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    0.51,
+    0.0,
+    12.5
+   ],
+   "rotY": -9.2,
+   "scale": 2.395
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -14.28,
+    0.0,
+    -9.74
+   ],
+   "rotY": 127.1,
+   "scale": 2.538
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -7.99,
+    0.0,
+    14.96
+   ],
+   "rotY": 309.3,
+   "scale": 1.778
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -11.2,
+    0.0,
+    5.41
+   ],
+   "rotY": 48.7,
+   "scale": 1.972
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -10.8,
+    0.0,
+    14.26
+   ],
+   "rotY": 246.6,
+   "scale": 1.786
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -13.75,
+    0.0,
+    -8.68
+   ],
+   "rotY": 251.0,
+   "scale": 2.207
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -12.66,
+    0.0,
+    -3.08
+   ],
+   "rotY": 6.8,
+   "scale": 1.927
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -15.73,
+    0.0,
+    -6.19
+   ],
+   "rotY": 185.9,
+   "scale": 1.905
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    3.78,
+    0.0,
+    16.91
+   ],
+   "rotY": 169.3,
+   "scale": 2.691
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    6.65,
+    0.0,
+    13.19
+   ],
+   "rotY": 6.6,
+   "scale": 1.805
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -16.91,
+    0.0,
+    -3.46
+   ],
+   "rotY": 114.8,
+   "scale": 2.159
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -14.46,
+    0.0,
+    6.58
+   ],
+   "rotY": 188.5,
+   "scale": 2.708
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -1.94,
+    0.0,
+    14.9
+   ],
+   "rotY": 111.0,
+   "scale": 2.75
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -6.26,
+    0.0,
+    -4.99
+   ],
+   "rotY": -9.2,
+   "scale": 1.959
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -12.61,
+    0.0,
+    16.48
+   ],
+   "rotY": -1.2,
+   "scale": 2.83
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -16.66,
+    0.0,
+    -1.44
+   ],
+   "rotY": 248.7,
+   "scale": 2.469
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -17.95,
+    0.0,
+    8.69
+   ],
+   "rotY": 301.7,
+   "scale": 2.429
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    11.41,
+    0.0,
+    -1.93
+   ],
+   "rotY": 178.6,
+   "scale": 2.558
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    15.37,
+    0.0,
+    16.29
+   ],
+   "rotY": 232.5,
+   "scale": 2.615
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    12.41,
+    0.0,
+    -1.51
+   ],
+   "rotY": 115.8,
+   "scale": 2.278
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    14.74,
+    0.0,
+    -8.81
+   ],
+   "rotY": 58.6,
+   "scale": 2.147
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -13.14,
+    0.0,
+    8.48
+   ],
+   "rotY": 70.7,
+   "scale": 1.463
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -7.95,
+    0.0,
+    17.02
+   ],
+   "rotY": 293.6,
+   "scale": 2.483
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    8.57,
+    0.0,
+    10.29
+   ],
+   "rotY": 310.1,
+   "scale": 1.747
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    1.65,
+    0.0,
+    11.32
+   ],
+   "rotY": 249.5,
+   "scale": 1.798
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -12.4,
+    0.0,
+    5.34
+   ],
+   "rotY": 119.9,
+   "scale": 2.525
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -13.17,
+    0.0,
+    7.5
+   ],
+   "rotY": 236.1,
+   "scale": 2.071
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -3.39,
+    0.0,
+    -7.83
+   ],
+   "rotY": 184.6,
+   "scale": 1.566
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    11.56,
+    0.0,
+    7.47
+   ],
+   "rotY": -1.8,
+   "scale": 2.273
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -17.76,
+    0.0,
+    2.94
+   ],
+   "rotY": 116.5,
+   "scale": 2.88
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -15.93,
+    0.0,
+    -0.08
+   ],
+   "rotY": 67.6,
+   "scale": 2.158
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -3.95,
+    0.0,
+    11.22
+   ],
+   "rotY": 188.4,
+   "scale": 2.612
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -8.46,
+    0.0,
+    -8.24
+   ],
+   "rotY": 124.3,
+   "scale": 2.103
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    11.12,
+    0.0,
+    15.7
+   ],
+   "rotY": 187.4,
+   "scale": 2.958
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    16.75,
+    0.0,
+    0.1
+   ],
+   "rotY": 9.2,
+   "scale": 2.884
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_A.glb",
+   "pos": [
+    -6.49,
+    0.0,
+    16.49
+   ],
+   "rotY": 247.9,
+   "scale": 2.603
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    -8.0,
+    0.0,
+    -5.03
+   ],
+   "rotY": 113.8,
+   "scale": 2.952
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Grass_B.glb",
+   "pos": [
+    11.02,
+    0.0,
+    8.54
+   ],
+   "rotY": 234.7,
+   "scale": 1.661
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_rock_01.glb",
+   "pos": [
+    7.05,
+    0.0,
+    13.97
+   ],
+   "rotY": 188.5,
+   "scale": 0.666
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_rock_01.glb",
+   "pos": [
+    15.87,
+    0.0,
+    6.7
+   ],
+   "rotY": 124.8,
+   "scale": 0.529
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_rock_02.glb",
+   "pos": [
+    -8.77,
+    0.0,
+    -7.74
+   ],
+   "rotY": 59.2,
+   "scale": 0.592
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_rock_01.glb",
+   "pos": [
+    14.15,
+    0.0,
+    12.96
+   ],
+   "rotY": 309.3,
+   "scale": 0.699
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_rock_01.glb",
+   "pos": [
+    16.4,
+    0.0,
+    -7.35
+   ],
+   "rotY": 67.0,
+   "scale": 0.643
+  },
+  {
+   "model": "/assets/3D/Paradise/SM_rock_02.glb",
+   "pos": [
+    -15.81,
+    0.0,
+    -0.24
+   ],
+   "rotY": 235.2,
+   "scale": 0.853
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_TrunkTree.glb",
+   "pos": [
+    -8.5,
+    0.0,
+    -7.8
+   ],
+   "rotY": 15,
+   "scale": 2.6
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_TrunkTree.glb",
+   "pos": [
+    9.5,
+    0.0,
+    -7.2
+   ],
+   "rotY": 160,
+   "scale": 2.6
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_TrunkTree.glb",
+   "pos": [
+    -14.5,
+    0.0,
+    8.0
+   ],
+   "rotY": 80,
+   "scale": 2.6
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_TrunkTree.glb",
+   "pos": [
+    15.0,
+    0.0,
+    5.5
+   ],
+   "rotY": 100,
+   "scale": 2.6
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_White_Flower.glb",
+   "pos": [
+    -13.64,
+    0.0,
+    -1.08
+   ],
+   "rotY": 116.8,
+   "scale": 2.971
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Blue_Flower.glb",
+   "pos": [
+    3.98,
+    0.0,
+    -7.57
+   ],
+   "rotY": 122.8,
+   "scale": 2.339
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Blue_Flower.glb",
+   "pos": [
+    -3.91,
+    0.0,
+    13.31
+   ],
+   "rotY": 297.9,
+   "scale": 1.852
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_White_Flower.glb",
+   "pos": [
+    -14.55,
+    0.0,
+    1.44
+   ],
+   "rotY": 54.5,
+   "scale": 2.221
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Yellow_Flower.glb",
+   "pos": [
+    2.51,
+    0.0,
+    10.02
+   ],
+   "rotY": 58.8,
+   "scale": 2.465
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_White_Flower.glb",
+   "pos": [
+    -2.95,
+    0.0,
+    -5.3
+   ],
+   "rotY": 302.5,
+   "scale": 3.104
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_White_Flower.glb",
+   "pos": [
+    3.23,
+    0.0,
+    -5.76
+   ],
+   "rotY": 188.3,
+   "scale": 1.94
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Blue_Flower.glb",
+   "pos": [
+    12.73,
+    0.0,
+    -0.58
+   ],
+   "rotY": 112.8,
+   "scale": 2.073
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Blue_Flower.glb",
+   "pos": [
+    12.29,
+    0.0,
+    15.98
+   ],
+   "rotY": 49.3,
+   "scale": 2.809
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Yellow_Flower.glb",
+   "pos": [
+    4.29,
+    0.0,
+    -5.48
+   ],
+   "rotY": 68.6,
+   "scale": 1.688
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_White_Flower.glb",
+   "pos": [
+    -10.56,
+    0.0,
+    -7.16
+   ],
+   "rotY": 186.8,
+   "scale": 2.984
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_White_Flower.glb",
+   "pos": [
+    12.78,
+    0.0,
+    0.12
+   ],
+   "rotY": -11.5,
+   "scale": 2.759
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Yellow_Flower.glb",
+   "pos": [
+    1.22,
+    0.0,
+    -7.46
+   ],
+   "rotY": 233.0,
+   "scale": 2.65
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Blue_Flower.glb",
+   "pos": [
+    11.16,
+    0.0,
+    13.36
+   ],
+   "rotY": 61.6,
+   "scale": 2.596
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_White_Flower.glb",
+   "pos": [
+    -14.63,
+    0.0,
+    3.23
+   ],
+   "rotY": 302.2,
+   "scale": 2.831
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_White_Flower.glb",
+   "pos": [
+    -13.71,
+    0.0,
+    15.27
+   ],
+   "rotY": 288.0,
+   "scale": 2.605
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Blue_Flower.glb",
+   "pos": [
+    -4.2,
+    0.0,
+    -5.22
+   ],
+   "rotY": 56.7,
+   "scale": 2.492
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Blue_Flower.glb",
+   "pos": [
+    -1.63,
+    0.0,
+    -4.65
+   ],
+   "rotY": -11.9,
+   "scale": 2.93
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_Blue_Flower.glb",
+   "pos": [
+    -3.25,
+    0.0,
+    -6.1
+   ],
+   "rotY": 245.0,
+   "scale": 2.829
+  },
+  {
+   "model": "/assets/3D/Stylized/SM_White_Flower.glb",
+   "pos": [
+    12.89,
+    0.0,
+    10.33
+   ],
+   "rotY": 169.7,
+   "scale": 2.779
+  }
+ ],
+ "cullNearCamera": 8,
+ "light": {
+  "dir": [
+   -0.35,
+   -1,
+   -0.3
+  ],
+  "color": [
+   0.98,
+   1.0,
+   0.82
+  ],
+  "ambient": [
+   0.5,
+   0.58,
+   0.52
+  ]
+ },
+ "fog": {
+  "color": [
+   0.16,
+   0.26,
+   0.21
+  ],
+  "near": 36,
+  "far": 100
+ },
+ "sky": {
+  "type": "gradient",
+  "stops": [
+   [
+    0,
+    "#1d3d44"
+   ],
+   [
+    0.5,
+    "#3d6a5a"
+   ],
+   [
+    1,
+    "#9fc29a"
+   ]
+  ]
+ },
+ "fx": [
+  {
+   "type": "fireflies",
+   "amount": 0.55
+  },
+  {
+   "type": "leaves",
+   "amount": 0.3
+  }
+ ],
+ "scenes": [
+  "forest"
+ ]
+}

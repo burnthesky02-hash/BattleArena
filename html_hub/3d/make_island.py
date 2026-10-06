@@ -107,6 +107,8 @@ put("SM_Stylized_Well", TX + 4.0, TZ - 8.2, 180, 0, 1.0); block(TX + 4.0, TZ - 8
 KEEP.append((TX, TZ, TR + 1.5))
 
 # ---- docks: the ferry pier (centre) and a smaller harbour pier (south-west); boats alongside
+WALK = []                          # walkable surfaces for the engine (scene.walk): flat boxes you can stand on that the heightmap does not know about
+DECK_TOP = 0.27                    # top of the dock planks (4.61 m mesh height + DECK)
 DECK = -4.35                       # the dock meshes have 4.6 m tall posts; this puts the deck ~0.26 m above the grass
 def pier(x, z0, wide=2):
     zc = z0 + 3.8
@@ -115,6 +117,7 @@ def pier(x, z0, wide=2):
         put("SM_Dock_Small", xx, z0 - 0.4, 0, DECK, 1.0, abs_y=True) if False else None
         put("SM_Dock_Straight", xx, z0 + 3.8, 0, DECK, 1.0, abs_y=True); put("SM_Dock_Straight", xx, z0 + 11.2, 0, DECK, 1.0, abs_y=True) if False else None
     w = wide * 2.45
+    WALK.append(dict(x=x, z=z0 + 3.8, w=round(w, 2), d=7.6, rot=0, y=DECK_TOP))      # you walk ON the deck, not along the seabed under it
     for sgn in (-1, 1): block(x + sgn * (w / 2 + 0.3), z0 + 4.0, 0.5, 8.6)
     block(x, z0 + 7.9, w + 1.2, 0.6)
     for sgn in (-1, 1): glow(x + sgn * w / 2, z0 + 6.0, 2.2, [1, 0.8, 0.45, 0.5])
@@ -304,9 +307,9 @@ d = dict(name="Paradise Island", kit="", tile=4, pieces=T.P, colliders=T.COL, np
                   layers=[dict(url=LYR + "clouds_wisps.webp", y=.18, height=.22, drift=.007, alpha=.9, tint=[1, 1, 1]),
                           dict(url=LYR + "clouds_puffy.webp", y=.34, height=.32, drift=.004, alpha=1, tint=[1, 1, 1], parallax=.2),
                           dict(url=LYR + "ridges_far.webp", y=.9, height=.22, parallax=.15, tint=[.7, .85, .95])]),
-         fx=[dict(type="dust", amount=.1)], terrain=IH.terrain_json(),
+         fx=[dict(type="dust", amount=.1)], terrain=IH.terrain_json(), walk=WALK,
          light=dict(dir=[-0.4, -1, -0.3], color=[1, 0.96, 0.86], ambient=[0.55, 0.57, 0.64]), fog=dict(color=[0.72, 0.88, 0.97], near=90, far=250))
 d.setdefault("music", {"url": "/assets/Music/mp3/04. Peaceful Village.mp3"})
-import island_story; island_story.apply(d)          # chapter-1 story chain (Mahina -> Lani -> raiders -> portal)
+import island_story; island_story.apply(d)          # chapter-1 story chain (Mahina -> Sera at the cave arch -> the cave and the Colosseum guards, see island_story.py)
 os.makedirs(OUT, exist_ok=True); json.dump(d, open(os.path.join(OUT, "island.json"), "w"), separators=(",", ":"))
 print("pieces", len(T.P), "colliders", len(T.COL), "npcs", len(NP), "events", len(EV), "trees", len(trees))

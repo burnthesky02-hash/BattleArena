@@ -9,6 +9,7 @@ import math
 
 ST = "/assets/3D/Stylized/"
 WALL_TINTS = ("cream", "sand", "blue", "rose", "mint", "stone")      # -> files <piece>_w<tint>.glb  (made by convert_stylized.py --variants)
+WT = 0.352                                                           # wall module thickness
 ROOF_TINTS = ("red", "blue", "brown", "green", "slate")              # -> SM_Roof_02_r<tint>.glb
 
 
@@ -40,28 +41,34 @@ class Town:
         D = 4 * bays; sfx = "_w" + wall; rfx = "_r" + roof
         def w(n, lx, lz, rr, y):
             x, z = at(lx, lz); self.put(n + sfx, x, z, rot + rr, y, 1, spec, abs_y=True)
+        lvl = {True: "normal", False: "none"}.get(windows, windows)        # windows: "none" | "few" (front only) | "normal" | "many" (every bay); True/False still work
+        def win(side, f, k):
+            if lvl == "none": return False
+            if lvl == "many": return True
+            if lvl == "few": return side == "front"
+            return side == "front" or (f > 0 if side == "back" else (k % 2 == 1 or f > 0))
         for f in range(floors):
             y = by + 3 * f
             for i in range(2):                                              # front (+z) and back (-z)
-                nm = "SM_Large_Wall_01"
+                nm = "SM_Window_Wall_01" if win("front", f, i) else "SM_Large_Wall_02"
                 if f == 0 and i == door_bay: nm = "SM_Door_Wall_01"
-                elif windows: nm = "SM_Window_Wall_01" if (f > 0 or i != door_bay) else nm
                 w(nm, -4 + 4 * i, D / 2, 0, y)
-                w("SM_Window_Wall_02" if (windows and f > 0) else "SM_Large_Wall_02", 4 * i, -D / 2, 180, y)
+                w("SM_Window_Wall_02" if win("back", f, i) else "SM_Large_Wall_02", 4 * i, -D / 2, 180, y)
             for k in range(bays):                                           # sides
                 zs = -D / 2 + 4 * k
-                nm = "SM_Window_Wall_02" if windows and (k % 2 == 1 or f > 0) else "SM_Large_Wall_03"
-                if 'R' not in skip: w(nm, 4, zs + 4, 90, y)
-                if 'L' not in skip: w(nm, -4, zs, 270, y)
+                nm = "SM_Window_Wall_02" if win("side", f, k) else "SM_Large_Wall_03"
+                if 'R' not in skip: w(nm, 4 - WT, zs + 4, 90, y)          # side slabs sit x 3.648..4 so their outer face is flush with the front/back wall ends
+                if 'L' not in skip: w(nm, -4 + WT, zs, 270, y)
         x, z = at(-4 + 4 * door_bay + 1.43, D / 2 + 0.175); self.put("SM_Door_01", x, z, rot, by, 1, spec, abs_y=True)      # the door leaf in its frame
         y = by + 3 * floors
         for k in range(bays):                                               # roof: left slope then right slope
             x, z = at(0, -D / 2 + 4 * k + 3.85); self.put("SM_Roof_02" + rfx, x, z, rot, y, 1, spec, abs_y=True)
             x, z = at(0, -D / 2 + 4 * k + 0.15); self.put("SM_Roof_02" + rfx, x, z, rot + 180, y, 1, spec, abs_y=True)
-        for zz in (D / 2, -D / 2):                                          # gable triangles
-            x, z = at(0, zz); self.put("SM_Roof_Wall" + sfx, x, z, rot, y, 1, spec, abs_y=True); self.put("SM_Roof_Wall" + sfx, x, z, rot + 180, y, 1, spec, abs_y=True)
+        for zz, lo in ((D / 2, 0.0), (-D / 2, -WT)):                        # gable triangles, flush with the wall slab (left half spans z -0.091..0.258, the rot-180 half -0.258..0.091)
+            x, z = at(0, zz + lo + 0.091); self.put("SM_Roof_Wall" + sfx, x, z, rot, y, 1, spec, abs_y=True)
+            x, z = at(0, zz + lo + 0.258); self.put("SM_Roof_Wall" + sfx, x, z, rot + 180, y, 1, spec, abs_y=True)
         if collide:
-            x, z = at(0, 0); w_, d_ = 8.5, D + 0.5
+            x, z = at(0, 0); w_, d_ = 8.4, D + 0.8
             if rot % 180 == 90: w_, d_ = d_, w_
             self.block(x, z, w_, d_, spec if spec and not spec.startswith(("S:", "H:", "!")) else None)
         dx, dz = at(-2 + 4 * door_bay, D / 2 + 1.9)

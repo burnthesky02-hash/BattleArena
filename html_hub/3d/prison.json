@@ -44,18 +44,33 @@
    "actions": [
     {
      "type": "say",
-     "who": "",
-     "text": "The violet light fades. Cold stone against your back, iron bars humming in the dark. Somewhere above, a crowd roars."
+     "who": null,
+     "text": "Cold stone against your cheek. Iron bars humming in the dark, a chain on your wrist, and somewhere far above, a crowd roaring like surf."
     },
     {
      "type": "say",
      "who": "Overseer Vex",
-     "text": "On your feet, islander. That portal dropped a fresh one into my pit."
+     "text": "On your feet, islander. Captain Varro's guards dragged you in at dawn, half drowned and bleeding."
+    },
+    {
+     "type": "say",
+     "who": "Overseer Vex",
+     "text": "Word is you broke a Sovereign the arena had already paid for. A beast like that costs eight thousand gold. The Colosseum wants its money's worth, and you are what is left."
     },
     {
      "type": "say",
      "who": "Overseer Vex",
      "text": "You belong to the Colosseum now. You fight when I say, you bleed when they cheer."
+    },
+    {
+     "type": "say",
+     "who": "Kael",
+     "text": "...Where is Sera? The healer who was with me. What did you do with her?"
+    },
+    {
+     "type": "say",
+     "who": "Overseer Vex",
+     "text": "The chapel girl? Up in the infirmary, stitching Varro's drowned men. She'll live. Forget her."
     },
     {
      "type": "say",
@@ -2035,7 +2050,7 @@
     {
      "type": "say",
      "who": "Rules of the Pit",
-     "text": "I. THE COLOSSEUM OWNS WHAT THE PORTAL BRINGS. II. A SLAVE FIGHTS WHEN THE OVERSEER SAYS. III. THE CROWD MAY BUY A CHAMPION'S COLLAR. THE PIT HAS NEVER KEPT ONE LONG."
+     "text": "I. THE COLOSSEUM OWNS WHAT ITS GUARDS BRING IN. II. A SLAVE FIGHTS WHEN THE OVERSEER SAYS. III. THE CROWD MAY BUY A CHAMPION'S COLLAR. THE PIT HAS NEVER KEPT ONE LONG."
     }
    ]
   },

@@ -1,0 +1,1398 @@
+{
+ "name": "Hollow Cave Hall",
+ "model": "cave_hall_ground.glb",
+ "scale": 1,
+ "offset": [
+  0,
+  0,
+  0
+ ],
+ "rotY": 0,
+ "props": [
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -19.31,
+    0.0,
+    -12.21
+   ],
+   "rotY": 0,
+   "scale": [
+    1.3986012458171677,
+    1.3071887799289068,
+    1.2146690457439606
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -14.22,
+    0.0,
+    -12.91
+   ],
+   "rotY": 270,
+   "scale": [
+    1.3474215630119921,
+    1.272972413751353,
+    1.2141348558078406
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -10.27,
+    0.0,
+    -13.06
+   ],
+   "rotY": 0,
+   "scale": [
+    1.3237368952317432,
+    1.0747127556927825,
+    1.2224771375285512
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -6.01,
+    0.0,
+    -12.29
+   ],
+   "rotY": 180,
+   "scale": [
+    1.3264093021652428,
+    1.0460569724135094,
+    1.2038245501701297
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -2.61,
+    0.0,
+    -12.39
+   ],
+   "rotY": 0,
+   "scale": [
+    1.3254534565817513,
+    1.2728212062073783,
+    1.325608613572586
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    2.5,
+    0.0,
+    -12.47
+   ],
+   "rotY": 90,
+   "scale": [
+    1.3976211279687165,
+    1.245633258069243,
+    1.399248564282859
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    6.65,
+    0.0,
+    -12.19
+   ],
+   "rotY": 90,
+   "scale": [
+    1.3467700176635882,
+    1.244016261632156,
+    1.1679856282541041
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    10.0,
+    0.0,
+    -11.93
+   ],
+   "rotY": 90,
+   "scale": [
+    1.3689329883512509,
+    1.2767429228584712,
+    1.398463185002631
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    14.97,
+    0.0,
+    -12.52
+   ],
+   "rotY": 90,
+   "scale": [
+    1.3888295381009323,
+    1.1429390797656558,
+    1.23064160486134
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    18.97,
+    0.0,
+    -12.82
+   ],
+   "rotY": 90,
+   "scale": [
+    1.39072949163046,
+    1.2149351052066948,
+    1.3263605632466184
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -21.47,
+    0.0,
+    -17.44
+   ],
+   "rotY": 180,
+   "scale": [
+    1.1979472254452852,
+    1.713347446402706,
+    1.3056393408284375
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -16.44,
+    0.0,
+    -17.29
+   ],
+   "rotY": 0,
+   "scale": [
+    1.165762276915635,
+    1.5413544744054697,
+    1.2759764743761304
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -11.99,
+    0.0,
+    -17.55
+   ],
+   "rotY": 90,
+   "scale": [
+    1.2944147120873162,
+    1.7007830601270122,
+    1.1659577672749706
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -7.91,
+    0.0,
+    -17.35
+   ],
+   "rotY": 270,
+   "scale": [
+    1.317605048696284,
+    1.6406205213692724,
+    1.3673098909482286
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -3.42,
+    0.0,
+    -16.81
+   ],
+   "rotY": 270,
+   "scale": [
+    1.1563591963217403,
+    1.7558540227909516,
+    1.3696611247907537
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    0.49,
+    0.0,
+    -17.05
+   ],
+   "rotY": 90,
+   "scale": [
+    1.3735219391386202,
+    1.6557974647175453,
+    1.3671156583093125
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    5.56,
+    0.0,
+    -17.29
+   ],
+   "rotY": 90,
+   "scale": [
+    1.187217305585117,
+    1.8077474761480863,
+    1.2350576010395304
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    9.97,
+    0.0,
+    -16.82
+   ],
+   "rotY": 90,
+   "scale": [
+    1.3977553754293788,
+    1.625688766237039,
+    1.3507413734993223
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    14.3,
+    0.0,
+    -16.63
+   ],
+   "rotY": 90,
+   "scale": [
+    1.2335434142338402,
+    1.7082160564800561,
+    1.2771812341278057
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    18.81,
+    0.0,
+    -17.29
+   ],
+   "rotY": 0,
+   "scale": [
+    1.188929544427674,
+    1.6997323913679918,
+    1.342889942009842
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -15.32,
+    0.0,
+    -9.88
+   ],
+   "rotY": 270,
+   "scale": [
+    1.2475046116785309,
+    1.2005350252520692,
+    1.3650702883573738
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -15.74,
+    0.0,
+    -6.3
+   ],
+   "rotY": 180,
+   "scale": [
+    1.364691980778549,
+    0.9915908157134183,
+    1.229382769991254
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -15.3,
+    0.0,
+    -1.83
+   ],
+   "rotY": 180,
+   "scale": [
+    1.2760353884838416,
+    1.0401762993144215,
+    1.1938293511311455
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -15.1,
+    0.0,
+    2.11
+   ],
+   "rotY": 90,
+   "scale": [
+    1.344765138574392,
+    1.1849674267452812,
+    1.167708988897731
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -14.91,
+    0.0,
+    6.38
+   ],
+   "rotY": 180,
+   "scale": [
+    1.3263714521700198,
+    1.1449408347225798,
+    1.332936503641663
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -15.56,
+    0.0,
+    10.88
+   ],
+   "rotY": 270,
+   "scale": [
+    1.2276993292671055,
+    1.0245337068711797,
+    1.2494751150716734
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -15.55,
+    0.0,
+    15.06
+   ],
+   "rotY": 90,
+   "scale": [
+    1.3220283436846305,
+    1.1517778276236568,
+    1.2094434980510815
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -19.45,
+    0.0,
+    -11.7
+   ],
+   "rotY": 0,
+   "scale": [
+    1.2734001148089464,
+    1.39280753602098,
+    1.1778476093967492
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -19.92,
+    0.0,
+    -7.8
+   ],
+   "rotY": 0,
+   "scale": [
+    1.3845021666498525,
+    1.3952531248407523,
+    1.26437095166533
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -20.11,
+    0.0,
+    -3.53
+   ],
+   "rotY": 180,
+   "scale": [
+    1.157494558607256,
+    1.600067862487062,
+    1.21249449672711
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -20.01,
+    0.0,
+    1.07
+   ],
+   "rotY": 0,
+   "scale": [
+    1.1671718409096332,
+    1.6561357954214584,
+    1.2311130649259119
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -19.65,
+    0.0,
+    4.77
+   ],
+   "rotY": 90,
+   "scale": [
+    1.201534405159638,
+    1.379894172003429,
+    1.2193366085552544
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -19.87,
+    0.0,
+    9.27
+   ],
+   "rotY": 270,
+   "scale": [
+    1.2985056735986724,
+    1.65427416547322,
+    1.1964634452147505
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -20.02,
+    0.0,
+    14.12
+   ],
+   "rotY": 90,
+   "scale": [
+    1.2607334613855752,
+    1.4863222970068386,
+    1.2395810466052617
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -19.73,
+    0.0,
+    17.92
+   ],
+   "rotY": 90,
+   "scale": [
+    1.3695328757469438,
+    1.7031365055045962,
+    1.310526760595055
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    15.32,
+    0.0,
+    -9.61
+   ],
+   "rotY": 270,
+   "scale": [
+    1.2938147617304727,
+    0.9545654412676815,
+    1.23652807015312
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    15.95,
+    0.0,
+    -5.86
+   ],
+   "rotY": 90,
+   "scale": [
+    1.298113594679292,
+    1.2038345238795998,
+    1.1558526498753454
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    15.95,
+    0.0,
+    -1.64
+   ],
+   "rotY": 90,
+   "scale": [
+    1.158989938220611,
+    1.0708399926722836,
+    1.1765265273915346
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    16.02,
+    0.0,
+    1.87
+   ],
+   "rotY": 180,
+   "scale": [
+    1.3743875375608878,
+    0.9686800301203354,
+    1.1672123875134595
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    15.72,
+    0.0,
+    6.41
+   ],
+   "rotY": 0,
+   "scale": [
+    1.2063705581263502,
+    1.0372360529459492,
+    1.3383887057865682
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    15.02,
+    0.0,
+    10.63
+   ],
+   "rotY": 0,
+   "scale": [
+    1.2215672725714546,
+    1.137384934392241,
+    1.2938000163735306
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    15.94,
+    0.0,
+    14.79
+   ],
+   "rotY": 90,
+   "scale": [
+    1.1649975455985555,
+    1.0278564978218208,
+    1.2454912305841312
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    20.17,
+    0.0,
+    -12.25
+   ],
+   "rotY": 90,
+   "scale": [
+    1.2187642715532292,
+    1.6530037909296127,
+    1.289915143715683
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    19.4,
+    0.0,
+    -7.69
+   ],
+   "rotY": 0,
+   "scale": [
+    1.2322890129286308,
+    1.51570529160482,
+    1.3588269721923631
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    19.49,
+    0.0,
+    -3.86
+   ],
+   "rotY": 270,
+   "scale": [
+    1.212666474404964,
+    1.379833839516274,
+    1.1576347705069379
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    20.07,
+    0.0,
+    1.28
+   ],
+   "rotY": 90,
+   "scale": [
+    1.2466749889803213,
+    1.5607710817636091,
+    1.2993078708367616
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    19.7,
+    0.0,
+    5.0
+   ],
+   "rotY": 180,
+   "scale": [
+    1.3357026789742585,
+    1.585085124392335,
+    1.283817974229816
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    20.13,
+    0.0,
+    9.16
+   ],
+   "rotY": 180,
+   "scale": [
+    1.2363687785299404,
+    1.7168832723548577,
+    1.3675748802591334
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    20.3,
+    0.0,
+    13.99
+   ],
+   "rotY": 0,
+   "scale": [
+    1.2254407166915395,
+    1.490862276396817,
+    1.2143268456374634
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    20.36,
+    0.0,
+    17.92
+   ],
+   "rotY": 0,
+   "scale": [
+    1.1724170494901676,
+    1.6127690170766247,
+    1.2974725270316332
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -19.2,
+    0.0,
+    19.97
+   ],
+   "rotY": 180,
+   "scale": [
+    1.2523258335328336,
+    1.1772736861717263,
+    1.3168327002064881
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    -14.58,
+    0.0,
+    19.15
+   ],
+   "rotY": 180,
+   "scale": [
+    1.36311050936004,
+    1.1198328714478403,
+    1.3297668698308112
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -9.81,
+    0.0,
+    19.1
+   ],
+   "rotY": 0,
+   "scale": [
+    1.3460213245701356,
+    1.0806314390207126,
+    1.3523725920439735
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_b.glb",
+   "pos": [
+    -6.08,
+    0.0,
+    19.58
+   ],
+   "rotY": 0,
+   "scale": [
+    1.3932242500667011,
+    1.1125939892805914,
+    1.3743091776999916
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    -1.15,
+    0.0,
+    19.92
+   ],
+   "rotY": 90,
+   "scale": [
+    1.2322011004479987,
+    1.2587053236462664,
+    1.1547352512112325
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    3.18,
+    0.0,
+    19.01
+   ],
+   "rotY": 180,
+   "scale": [
+    1.3304481817718221,
+    1.0280838275339073,
+    1.3875092362925041
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    7.9,
+    0.0,
+    19.37
+   ],
+   "rotY": 270,
+   "scale": [
+    1.26372877576138,
+    1.1949584753160878,
+    1.1783993363476437
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_c.glb",
+   "pos": [
+    11.57,
+    0.0,
+    19.93
+   ],
+   "rotY": 0,
+   "scale": [
+    1.281136513251022,
+    1.189973730957956,
+    1.1724298931393506
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_a.glb",
+   "pos": [
+    16.17,
+    0.0,
+    18.97
+   ],
+   "rotY": 0,
+   "scale": [
+    1.2557619316885178,
+    1.1297135197321049,
+    1.2868916545374183
+   ]
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_tall.glb",
+   "pos": [
+    -11,
+    0.0,
+    -21
+   ],
+   "rotY": 20,
+   "scale": 1.2
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_wall_tall.glb",
+   "pos": [
+    9,
+    0.0,
+    -21
+   ],
+   "rotY": 200,
+   "scale": 1.2
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_03.glb",
+   "pos": [
+    -14.05,
+    0.0,
+    -4.08
+   ],
+   "rotY": 309.1,
+   "scale": 0.916
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_02.glb",
+   "pos": [
+    14.85,
+    0.0,
+    -4.12
+   ],
+   "rotY": 188.1,
+   "scale": 0.934
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_03.glb",
+   "pos": [
+    -15.63,
+    0.0,
+    11.23
+   ],
+   "rotY": 54.4,
+   "scale": 0.857
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_03.glb",
+   "pos": [
+    7.22,
+    0.0,
+    -10.25
+   ],
+   "rotY": 297.0,
+   "scale": 0.844
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_04.glb",
+   "pos": [
+    16.76,
+    0.0,
+    -4.3
+   ],
+   "rotY": 53.5,
+   "scale": 0.531
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_03.glb",
+   "pos": [
+    15.63,
+    0.0,
+    3.34
+   ],
+   "rotY": 307.5,
+   "scale": 0.604
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_02.glb",
+   "pos": [
+    -9.48,
+    0.0,
+    15.72
+   ],
+   "rotY": 108.5,
+   "scale": 0.496
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_03.glb",
+   "pos": [
+    13.72,
+    0.0,
+    -6.66
+   ],
+   "rotY": 299.7,
+   "scale": 0.658
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_06.glb",
+   "pos": [
+    16.72,
+    0.0,
+    -3.62
+   ],
+   "rotY": 3.4,
+   "scale": 0.755
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_01.glb",
+   "pos": [
+    -14.13,
+    0.0,
+    13.7
+   ],
+   "rotY": 305.2,
+   "scale": 0.489
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_02.glb",
+   "pos": [
+    -16.09,
+    0.0,
+    -6.65
+   ],
+   "rotY": 2.7,
+   "scale": 0.776
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_06.glb",
+   "pos": [
+    -2.66,
+    0.0,
+    16.53
+   ],
+   "rotY": 53.0,
+   "scale": 0.562
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_03.glb",
+   "pos": [
+    16.34,
+    0.0,
+    16.74
+   ],
+   "rotY": 50.4,
+   "scale": 0.785
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_stalactic_03.glb",
+   "pos": [
+    -16.7,
+    0.0,
+    -1.44
+   ],
+   "rotY": 71.0,
+   "scale": 0.747
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -12.97,
+    0.0,
+    -6.7
+   ],
+   "rotY": 176.7,
+   "scale": 1.022
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -13.11,
+    0.0,
+    -5.49
+   ],
+   "rotY": 240.6,
+   "scale": 1.496
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    7.42,
+    0.0,
+    -7.65
+   ],
+   "rotY": 124.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -1.32,
+    0.0,
+    15.57
+   ],
+   "rotY": 126.1,
+   "scale": 1.344
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    8.43,
+    0.0,
+    12.79
+   ],
+   "rotY": 0.0,
+   "scale": 1.174
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -13.72,
+    0.0,
+    -3.53
+   ],
+   "rotY": 0.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    7.29,
+    0.0,
+    11.94
+   ],
+   "rotY": 233.2,
+   "scale": 1.001
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -9.49,
+    0.0,
+    15.9
+   ],
+   "rotY": 190.3,
+   "scale": 1.669
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -7.08,
+    0.0,
+    14.93
+   ],
+   "rotY": 244.6,
+   "scale": 1.137
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -1.15,
+    0.0,
+    -7.41
+   ],
+   "rotY": 188.4,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    4.25,
+    0.0,
+    -8.42
+   ],
+   "rotY": -7.2,
+   "scale": 1.533
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    4.33,
+    0.0,
+    -8.98
+   ],
+   "rotY": 71.5,
+   "scale": 1.42
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_green.glb",
+   "pos": [
+    -13,
+    0.0,
+    -9
+   ],
+   "rotY": 56.6,
+   "scale": 1.488
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_violet.glb",
+   "pos": [
+    -9.5,
+    0.0,
+    -10.5
+   ],
+   "rotY": 66.8,
+   "scale": 1.715
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_violet.glb",
+   "pos": [
+    12.5,
+    0.0,
+    -9.5
+   ],
+   "rotY": 288.9,
+   "scale": 1.59
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_violet.glb",
+   "pos": [
+    14.0,
+    0.0,
+    2.0
+   ],
+   "rotY": -6.6,
+   "scale": 2.004
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_blue.glb",
+   "pos": [
+    -14.5,
+    0.0,
+    6.0
+   ],
+   "rotY": -4.3,
+   "scale": 1.608
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_blue.glb",
+   "pos": [
+    -13,
+    0.0,
+    13
+   ],
+   "rotY": 169.1,
+   "scale": 1.903
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_violet.glb",
+   "pos": [
+    13.5,
+    0.0,
+    13.5
+   ],
+   "rotY": 128.2,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_blue.glb",
+   "pos": [
+    10,
+    0.0,
+    -10.8
+   ],
+   "rotY": 62.4,
+   "scale": 2.058
+  },
+  {
+   "model": "/assets/3D/Dungeon/SM_dg_brazier.glb",
+   "pos": [
+    -13.2,
+    0.0,
+    0.5
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_flame_gold.glb",
+   "pos": [
+    -13.2,
+    1.55,
+    0.5
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/Dungeon/SM_dg_brazier.glb",
+   "pos": [
+    13.2,
+    0.0,
+    5.5
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_flame_gold.glb",
+   "pos": [
+    13.2,
+    1.55,
+    5.5
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/Dungeon/SM_dg_brazier.glb",
+   "pos": [
+    -6.5,
+    0.0,
+    -10.2
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_flame_gold.glb",
+   "pos": [
+    -6.5,
+    1.55,
+    -10.2
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/Dungeon/SM_dg_brazier.glb",
+   "pos": [
+    6.5,
+    0.0,
+    -10.2
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_flame_gold.glb",
+   "pos": [
+    6.5,
+    1.55,
+    -10.2
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_water.glb",
+   "pos": [
+    -3.2,
+    0.03,
+    -9.0
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_water.glb",
+   "pos": [
+    0.8,
+    0.03,
+    -9.0
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_water.glb",
+   "pos": [
+    4.8,
+    0.03,
+    -9.0
+   ],
+   "rotY": 0,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_crate_group_02.glb",
+   "pos": [
+    -12.0,
+    0.0,
+    11.8
+   ],
+   "rotY": 200,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_barrel_02.glb",
+   "pos": [
+    -10.4,
+    0.0,
+    12.9
+   ],
+   "rotY": 108.7,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_barrel_03.glb",
+   "pos": [
+    12.2,
+    0.0,
+    12.4
+   ],
+   "rotY": 113.5,
+   "scale": 1.0
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_crate_group_01.glb",
+   "pos": [
+    13.5,
+    0.0,
+    11.0
+   ],
+   "rotY": 30,
+   "scale": 1.0
+  }
+ ],
+ "cullNearCamera": 8,
+ "light": {
+  "dir": [
+   -0.35,
+   -1,
+   -0.25
+  ],
+  "color": [
+   0.78,
+   0.86,
+   1.0
+  ],
+  "ambient": [
+   0.58,
+   0.62,
+   0.78
+  ]
+ },
+ "fog": {
+  "color": [
+   0.05,
+   0.075,
+   0.13
+  ],
+  "near": 38,
+  "far": 105
+ },
+ "sky": {
+  "type": "gradient",
+  "stops": [
+   [
+    0,
+    "#05070d"
+   ],
+   [
+    1,
+    "#0d1420"
+   ]
+  ]
+ },
+ "fx": [
+  {
+   "type": "dust",
+   "amount": 0.25
+  }
+ ],
+ "scenes": [
+  "dungeon"
+ ]
+}

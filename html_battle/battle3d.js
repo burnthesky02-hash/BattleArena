@@ -383,11 +383,11 @@ void main(){
     return true;
   }
 
-  B3D.setMap = function (id) {
+  B3D.setMap = function (id, auto) {
     if (!B3D.ready) return;
     if (id !== "painted" && !mapList.some((m) => m.id === id)) id = "painted";
     mapId = id; mapErr = null;
-    try { localStorage.setItem("battleMap", id); } catch (e) {}
+    if (!auto) { try { localStorage.setItem("battleMap", id); } catch (e) {} }     // a scene's own arena is not remembered as the user's pick
     refreshButtons();
     if (id === "painted") { curMap = null; mapToken++; return; }
     buildMap(id).then((m) => { if (m && mapId === id) curMap = m; })
@@ -401,9 +401,16 @@ void main(){
     } catch (e) { return; }
     refreshButtons();
     if (rescan) return;
-    let want = null;
-    try { want = new URLSearchParams(location.search).get("map") || localStorage.getItem("battleMap"); } catch (e) {}
-    if (want && want !== "painted") B3D.setMap(want);
+    let want = null, auto = false;
+    try {
+      const q = new URLSearchParams(location.search); want = q.get("map");
+      if (!want) {       // a fight that started in a 3D scene (?scene=island / forest / dungeon) uses that scene's own arena, if one lists it in `scenes`
+        const sc = q.get("scene"), sm = sc && mapList.find((m) => Array.isArray(m.scenes) && m.scenes.includes(sc));
+        if (sm) { want = sm.id; auto = true; }
+      }
+      if (!want) want = localStorage.getItem("battleMap");
+    } catch (e) {}
+    if (want && want !== "painted") B3D.setMap(want, auto);
   }
   B3D.mapInfo = () => ({ id: mapId, ready: !!curMap, list: mapList });
 

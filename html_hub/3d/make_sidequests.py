@@ -505,24 +505,43 @@ def dungeon_elite(sc, eid, name, title, sprite, ax, az, tint_, intro, pool, rel,
     return x, z
 
 
+def _cave_layout():
+    """make_cave.py writes dungeon_layout.json (room centres + tunnel centre lines) so the cave extras follow the winding layout."""
+    p = os.path.join(HERE, "dungeon_layout.json")
+    return json.load(open(p, encoding="utf-8")) if os.path.exists(p) else None
+
+
 def dungeon():
     sc = Scene("dungeon"); d = sc.d; strip_old_pieces(d); n0 = len(d["pieces"])
-    dungeon_elite(sc, "wraith", "Lantern Wraith", "Drowned guide", "Lyra", -80, -215, tint(0.6, 0.8, 1.2),
+    L = _cave_layout()
+
+    def room(n, dx, dz, old):
+        return (round(L["rooms"][n][0] + dx, 1), round(L["rooms"][n][1] + dz, 1)) if L else old
+
+    def tun(n, f, old):
+        if not L:
+            return old
+        pts = L["tunnels"][n]; q = pts[max(0, min(len(pts) - 1, int(f * (len(pts) - 1))))]
+        return (q[0], q[1])
+    wx, wz = room("RW", 4, 2, (-80, -215)); zx, zz = room("ME", -4, 4, (70, -420))
+    c1 = tun("t_K1_GA", .3, (40, -100)); c2 = room("CV", -16, 8, (-40, -300)); c3 = room("SH", 18, 0, (55, -520))
+    l1 = tun("t_GA_GR", .5, (-30, -160)); l2 = tun("t_CV_K2", .1, (30, -350)); l3 = room("CR", 0, 30, (0, -560))
+    dungeon_elite(sc, "wraith", "Lantern Wraith", "Drowned guide", "Lyra", wx, wz, tint(0.6, 0.8, 1.2),
                   ["A pale lantern drifts out of the dark, swaying. The face behind it is a drowned sailor's.", "'The king keeps no guests. Only company.'"],
                   ["frost_wraith"], (1, 2), 1.0,
                   ["The lantern gutters and drops into the water. In the silt beneath it, something glints."],
                   dict(gold=450, gems=4, equipment=["chapel_mace"]))
-    dungeon_elite(sc, "zealot", "Crypt Zealot", "Last of the court", "Draven", 70, -420, tint(0.7, 0.55, 0.85),
+    dungeon_elite(sc, "zealot", "Crypt Zealot", "Last of the court", "Draven", zx, zz, tint(0.7, 0.55, 0.85),
                   ["A robed figure is kneeling in the dust, whispering the king's name over and over. He rises, slowly, as you approach."],
                   ["dark_cultist"], (1, 2), 1.0,
                   ["The zealot dissolves into ash. His offering bowl, still full, rolls to a stop at your feet."],
                   dict(gold=550, shards=8, items=dict(ether=1, hi_potion=1)))
-    for cid, (x, z), loot in [("c1", (40, -100), dict(gold=300, items=dict(potion=2))), ("c2", (-40, -300), dict(gold=380, shards=4)),
-                              ("c3", (55, -520), dict(gold=480, gems=3, items=dict(antidote=2)))]:
+    for cid, (x, z), loot in [("c1", c1, dict(gold=300, items=dict(potion=2))), ("c2", c2, dict(gold=380, shards=4)),
+                              ("c3", c3, dict(gold=480, gems=3, items=dict(antidote=2)))]:
         chest_event(sc, "dg" + cid, x, z, loot, "detail-crate")
-    lore(sc, "lore1", "Weathered tablet", "Tablet", "'WE SANK THE KING BENEATH THE TIDE, AND THE TIDE REMEMBERED. LET NO ONE WAKE HIS COURT.'", -30, -160)
-    lore(sc, "lore2", "Cracked tablet", "Tablet", ["'HE WAS A GOOD KING, ONCE. THE SEA ASKED FOR A PRICE, AND HE PAID IT WITH HIS PEOPLE.'", "'THE BELL IN THE EASTERN HALL RINGS ON ITS OWN. DO NOT ANSWER IT.'"], 30, -350)
-    lore(sc, "lore3", "Salt-eaten tablet", "Tablet", "'WHOEVER FINDS THIS: THE LANTERN-BEARERS WERE HIS KEEPERS. THEY ARE BOUND TO THE LAST LIGHT. PUT THE LIGHT OUT AND THEY REST.'", 0, -560)
+    lore(sc, "lore1", "Weathered tablet", "Tablet", "'WE SANK THE KING BENEATH THE TIDE, AND THE TIDE REMEMBERED. LET NO ONE WAKE HIS COURT.'", l1[0], l1[1])
+    lore(sc, "lore2", "Cracked tablet", "Tablet", ["'HE WAS A GOOD KING, ONCE. THE SEA ASKED FOR A PRICE, AND HE PAID IT WITH HIS PEOPLE.'", "'THE BELL IN THE EASTERN HALL RINGS ON ITS OWN. DO NOT ANSWER IT.'"], l2[0], l2[1])
+    lore(sc, "lore3", "Salt-eaten tablet", "Tablet", "'WHOEVER FINDS THIS: THE LANTERN-BEARERS WERE HIS KEEPERS. THEY ARE BOUND TO THE LAST LIGHT. PUT THE LIGHT OUT AND THEY REST.'", l3[0], l3[1])
     record(sc, n0); sc.save()
     return sc
 

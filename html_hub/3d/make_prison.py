@@ -104,5 +104,6 @@ d = dict(name="The Pit", kit="", tile=4, pieces=P, colliders=COL, npcs=NP, event
          story=True, freeRank=FREE_RANK, autorun=AUTO,
          sky=dict(type="gradient", stops=[[0, "#05070d"], [1, "#120d18"]]), fx=[dict(type="dust", amount=.25)],
          light=dict(dir=[-0.35, -1, -0.25], color=[0.9, 0.78, 0.7], ambient=[0.42, 0.38, 0.45]), fog=dict(color=[0.05, 0.04, 0.07], near=40, far=95))
+import story_pit; story_pit.apply_prison(d)          # Kael wakes here after the Hollow Cave knock-out (Oct 6)
 os.makedirs(OUT, exist_ok=True); json.dump(d, open(os.path.join(OUT, "prison.json"), "w"), separators=(",", ":"))
 print("pieces", len(P), "colliders", len(COL), "npcs", len(NP), "events", len(EV))

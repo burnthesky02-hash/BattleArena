@@ -823,10 +823,10 @@
   var TABS = ["Economy", "Heroes", "Gear", "Items", "Ladder", "Quests", "Cheats", "Reset"];
   // Story chapters and the progress flags each one owns (flags live in this browser's localStorage "h3dCleared").
   var QUESTS = [
-    { name: "Paradise Island: the village and the Hollow Crypt", start: "st_intro", done: "st_found", flags: ["st_intro", "st_quest", "st_found", "st_bossmsg", "dg_boss"] },
-    { name: "Paradise Island: defend the village", start: "st_attack", done: "st_a3", flags: ["st_attack", "st_a1", "st_a2", "st_a3"] },
+    { name: "Paradise Island: Elder Mahina and Sera", start: "st_intro", done: "st_sera", flags: ["st_intro", "st_quest", "st_sera", "st_cave_in"] },
+    { name: "Hollow Cave: the Colosseum guards and the Sovereign", start: "dg_guards", done: "st_hurt", flags: ["dg_guards", "dg_boss", "st_bossmsg", "st_hurt"] },
     { name: "The Pit: slave of the Colosseum", start: "st_jailed", done: "st_free", flags: ["st_jailed", "st_done", "st_free"] },
-    { name: "Olympus: arrival and the siege", start: "st_arrived", done: "st_siege", flags: ["st_arrived", "st_siege"] },
+    { name: "Olympus: arrival, Sera and the siege", start: "st_arrived", done: "st_siege", flags: ["st_arrived", "st_sera_back", "st_siege"] },
     { name: "Outpost Kestrel: Rhea and Lyra", start: "st_landed", done: "st_lyra", flags: ["st_space", "st_landed", "st_met", "st_lyra"] },
     { name: "The Shard Vault: guardians and the Warden", start: "vt_g1", done: "vt_boss", flags: ["vt_g1", "vt_g2", "vt_g3", "vt_boss", "vc_*"] }
   ];

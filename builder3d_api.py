@@ -134,8 +134,8 @@ def validate_scene(kind: str, scene_id: str, data) -> str:
         if not isinstance(pieces, list):
             return "pieces must be a list"
         for i, p in enumerate(pieces):
-            if not (isinstance(p, list) and len(p) in (6, 7) and isinstance(p[0], str) and all(_num(v) for v in p[1:6]) and (len(p) == 6 or isinstance(p[6], str))):
-                return f"piece {i} must be [model, x, z, rotY, y, scale] (+ an optional hideIf key, \"!key\" = show only once cleared)"
+            if not (isinstance(p, list) and len(p) in (6, 7) and isinstance(p[0], str) and (all(_num(v) for v in p[1:5]) and (_num(p[5]) or (isinstance(p[5], list) and len(p[5]) == 3 and all(_num(v) for v in p[5])))) and (len(p) == 6 or isinstance(p[6], str))):
+                return f"piece {i} must be [model, x, z, rotY, y, scale | [sx, sy, sz]] (+ an optional hideIf key, \"!key\" = show only once cleared)"
         for key in ("npcs", "colliders", "decals", "events"):
             if not isinstance(data.get(key, []), list) or not all(isinstance(e, dict) for e in data.get(key, [])):
                 return f"{key} must be a list of objects"

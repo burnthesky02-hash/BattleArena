@@ -1,0 +1,582 @@
+{
+ "scenes": [
+  "dungeon"
+ ],
+ "name": "Hollow Cave Hall",
+ "light": {
+  "dir": [
+   -0.35,
+   -1,
+   -0.25
+  ],
+  "color": [
+   0.78,
+   0.86,
+   1
+  ],
+  "ambient": [
+   0.58,
+   0.62,
+   0.78
+  ]
+ },
+ "fog": {
+  "color": [
+   0.05,
+   0.075,
+   0.13
+  ],
+  "near": 38,
+  "far": 105
+ },
+ "sky": {
+  "type": "gradient",
+  "stops": [
+   [
+    0,
+    "#05070d"
+   ],
+   [
+    1,
+    "#0d1420"
+   ]
+  ]
+ },
+ "cullNearCamera": 8,
+ "fx": [
+  {
+   "type": "dust",
+   "amount": 0.25
+  }
+ ],
+ "model": "cave_hall_ground.glb",
+ "offset": [
+  0,
+  0,
+  0
+ ],
+ "rotY": 0,
+ "scale": 1,
+ "props": [
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -12.97,
+    0,
+    -6.7
+   ],
+   "rotY": 176.7,
+   "scale": 1.022
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -6,
+    0,
+    -9
+   ],
+   "rotY": 240.6,
+   "scale": 1.496
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -3,
+    0,
+    -12
+   ],
+   "rotY": 124.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -1,
+    0,
+    -12
+   ],
+   "rotY": 126.1,
+   "scale": 1.344
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -1,
+    -0.5,
+    -7
+   ],
+   "rotY": 0.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -4,
+    -1,
+    -7
+   ],
+   "rotY": 190.3,
+   "scale": 1.669
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -5,
+    -1,
+    -7
+   ],
+   "rotY": 244.6,
+   "scale": 1.137
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -6,
+    0,
+    -7
+   ],
+   "rotY": 188.4,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -5,
+    0,
+    -11
+   ],
+   "rotY": -7.2,
+   "scale": 1.533
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -6,
+    0,
+    -10
+   ],
+   "rotY": 71.5,
+   "scale": 1.42
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_green.glb",
+   "pos": [
+    -13,
+    0,
+    -9
+   ],
+   "rotY": 56.6,
+   "scale": 1.488
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_crystal_violet.glb",
+   "pos": [
+    -9.5,
+    0,
+    -10.5
+   ],
+   "rotY": 66.8,
+   "scale": 1.715
+  },
+  {
+   "model": "/assets/3D/Dungeon/SM_dg_brazier.glb",
+   "pos": [
+    -6.5,
+    0,
+    -10.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_flame_gold.glb",
+   "pos": [
+    -6.5,
+    1.55,
+    -10.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_water.glb",
+   "pos": [
+    -3.2,
+    0.03,
+    -9
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_water.glb",
+   "pos": [
+    0.8,
+    0.03,
+    -9
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_cv_water.glb",
+   "pos": [
+    4.8,
+    0.03,
+    -9
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_05.glb",
+   "pos": [
+    -8,
+    0,
+    -20
+   ],
+   "rotY": 270,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -19,
+    0,
+    -17
+   ],
+   "rotY": 300,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -29,
+    0,
+    -5
+   ],
+   "rotY": 345,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -27,
+    0,
+    12
+   ],
+   "rotY": 15,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    -15,
+    0,
+    22
+   ],
+   "rotY": 60,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_05.glb",
+   "pos": [
+    -4,
+    0,
+    25
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    4.998,
+    0,
+    -12.001
+   ],
+   "rotY": 10.3,
+   "scale": 1.669
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    0,
+    -0.5,
+    -7
+   ],
+   "rotY": 180.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    6.999,
+    0,
+    -12.001
+   ],
+   "rotY": 64.6,
+   "scale": 1.137
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    8,
+    0,
+    -9
+   ],
+   "rotY": 60.6,
+   "scale": 1.496
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    1,
+    0,
+    -12
+   ],
+   "rotY": 304.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    7,
+    -0.5,
+    -7
+   ],
+   "rotY": 306.1,
+   "scale": 1.344
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    4,
+    -0.5,
+    -11
+   ],
+   "rotY": 304.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    1,
+    -0.5,
+    -7
+   ],
+   "rotY": 0.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    2,
+    -0.5,
+    -7
+   ],
+   "rotY": 180.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    3,
+    -0.5,
+    -7
+   ],
+   "rotY": 0.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    4,
+    -0.5,
+    -7
+   ],
+   "rotY": 180.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    5,
+    -1,
+    -7
+   ],
+   "rotY": 190.3,
+   "scale": 1.669
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    5,
+    -0.5,
+    -12
+   ],
+   "rotY": 304.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    2,
+    -0.5,
+    -12
+   ],
+   "rotY": 304.5,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_02.glb",
+   "pos": [
+    -5,
+    0,
+    -12
+   ],
+   "rotY": 126.1,
+   "scale": 1.344
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -3,
+    -1,
+    -7
+   ],
+   "rotY": 188.4,
+   "scale": 1.491
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_01.glb",
+   "pos": [
+    -2,
+    -1,
+    -7
+   ],
+   "rotY": 0.1,
+   "scale": 1.202
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_05.glb",
+   "pos": [
+    -29,
+    0,
+    3
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_05.glb",
+   "pos": [
+    -24,
+    0,
+    -12
+   ],
+   "rotY": 315,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_05.glb",
+   "pos": [
+    -20,
+    0,
+    20
+   ],
+   "rotY": 60,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    11.333,
+    0,
+    24.999
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_05.glb",
+   "pos": [
+    21,
+    0,
+    22
+   ],
+   "rotY": 120,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    27,
+    0,
+    16.999
+   ],
+   "rotY": 135,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    32.335,
+    0,
+    2.001
+   ],
+   "rotY": 180,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_05.glb",
+   "pos": [
+    31.335,
+    0,
+    7.999
+   ],
+   "rotY": 165,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_05.glb",
+   "pos": [
+    30.335,
+    0,
+    -7.001
+   ],
+   "rotY": 195,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_05.glb",
+   "pos": [
+    18.335,
+    0,
+    -17.001
+   ],
+   "rotY": 240,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    7.334,
+    0,
+    -20
+   ],
+   "rotY": 270,
+   "scale": 1
+  },
+  {
+   "model": "/assets/3D/CaveCamp/SM_rock_04.glb",
+   "pos": [
+    26,
+    0,
+    -11
+   ],
+   "rotY": 225,
+   "scale": 1
+  }
+ ]
+}

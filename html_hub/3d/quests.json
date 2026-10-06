@@ -36,44 +36,27 @@
   {
    "id": "m_lani",
    "kind": "main",
-   "title": "The Missing Villager",
+   "title": "Escort Through the Hollow Cave",
    "giver": "Elder Mahina",
    "where": "Hollow Cave, north of the village",
-   "summary": "Lani went into the Hollow Cave and has not come back.",
+   "summary": "Elder Mahina asked you to see a chapel healer, Sera, through the Hollow Cave and out to the Colosseum.",
    "accept": "st_quest",
-   "done": "st_found",
+   "done": "st_done",
    "steps": [
     {
-     "text": "Speak with the healer resting by the campfire in the Smugglers' Camp, the first camp inside the cave.",
+     "text": "Meet Sera at the arch of the Hollow Cave, north of the village.",
      "if": "st_quest",
      "unless": "st_sera"
     },
     {
-     "text": "Find Lani in the Hollow Cave north of the village. Light the lamps, raise the causeway, and defeat the Drowned Sovereign.",
+     "text": "Escort Sera through the Hollow Cave. Light the lamps, raise the causeway and open the Sovereign's door.",
      "if": "st_sera",
-     "unless": "dg_boss"
+     "unless": "dg_guards"
     },
     {
-     "text": "Speak with Lani.",
-     "if": "dg_boss",
-     "unless": "st_found"
-    }
-   ]
-  },
-  {
-   "id": "m_village",
-   "kind": "main",
-   "title": "Defend the Village",
-   "giver": "",
-   "where": "Paradise Island",
-   "summary": "Masked raiders have come for the village.",
-   "accept": "st_attack",
-   "done": "st_a3",
-   "steps": [
-    {
-     "text": "Defend the village!",
-     "if": "st_attack",
-     "unless": "st_a3"
+     "text": "Help the Colosseum guards: the Drowned Sovereign is tearing them apart.",
+     "if": "dg_guards",
+     "unless": "st_done"
     }
    ]
   },
@@ -91,6 +74,28 @@
      "text": "Fight for the Overseer until you rise past the freedom rank and win your release.",
      "if": "st_jailed",
      "unless": "st_free"
+    }
+   ]
+  },
+  {
+   "id": "m_sera",
+   "kind": "main",
+   "title": "The Infirmary",
+   "giver": "",
+   "where": "Olympus Colosseum",
+   "summary": "Sera was taken to the Colosseum infirmary while Kael was thrown in the Pit.",
+   "accept": "st_hurt",
+   "done": "st_sera_back",
+   "steps": [
+    {
+     "text": "Win your freedom in the Pit, then find Sera.",
+     "if": "st_hurt",
+     "unless": "st_free"
+    },
+    {
+     "text": "Find Sera in the Colosseum infirmary, on the west side of the concourse.",
+     "if": "st_free",
+     "unless": "st_sera_back"
     }
    ]
   },
@@ -404,9 +409,21 @@
   "island/mayor2": "main?",
   "island/elder": "later",
   "island/elder1": "main!",
+  "island/sera_arch": [
+   {
+    "if": "st_quest",
+    "unless": "st_sera",
+    "mark": "main!"
+   }
+  ],
+  "olympus/sera_infirmary": [
+   {
+    "if": "st_free,st_hurt",
+    "unless": "st_sera_back",
+    "mark": "main!"
+   }
+  ],
   "forest/willa1": "main?",
-  "dungeon/dg_lani": "main?",
-  "dungeon/dg_sera": "main!",
   "asteroid/rhea": [
    {
     "unless": "st_met",
@@ -447,4 +464,4 @@
   "asteroid/sq_kade2": "side?",
   "island/ferry": "travel"
  }
-}
+}

@@ -118,7 +118,8 @@ const V = {
 function perspective(fovy, asp, n, f) { const t = 1 / Math.tan(fovy / 2); return [t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]; }
 function lookAt(e, c, up) { const z = V.norm(V.sub(e, c)), x = V.norm(V.cross(up, z)), y = V.cross(z, x); return { m: [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -V.dot(x, e), -V.dot(y, e), -V.dot(z, e), 1], x, y, z }; }
 function mul4(a, b) { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3]; return o; }
-function pieceMatrix(p) { const a = (p.rot || 0) * Math.PI / 360, s = p.sc; return B3DMap.mat4TRS([p.x, p.y || 0, p.z], [0, Math.sin(a), 0, Math.cos(a)], [s, s, s]); }
+const pS = (p) => p.sa ? [p.sc * p.sa[0], p.sc * p.sa[1], p.sc * p.sa[2]] : [p.sc, p.sc, p.sc];   // per-axis scale in the piece's own axes (sa = optional stretch multipliers on top of sc)
+function pieceMatrix(p) { const a = (p.rot || 0) * Math.PI / 360, s = pS(p); return B3DMap.mat4TRS([p.x, p.y || 0, p.z], [0, Math.sin(a), 0, Math.cos(a)], s); }
 
 /* ============================== camera ============================== */
 const cam = { tx: 0, ty: 0, tz: 0, yaw: 20, pitch: 45, dist: 40, fov: 40, w: 1, h: 1, vp: null, pos: [0, 0, 0], X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
@@ -267,10 +268,14 @@ function blankScene(kind, id, name) {
   if (kind === "hub") return { kind, id, name, kit: "", tile: 4, pieces: [], colliders: [], npcs: [], events: [], decals: [], spawn: { x: 0, z: 8 }, bounds: { minX: -20, maxX: 20, minZ: -12, maxZ: 12 }, playerHeight: 2.4, light: DEF_LIGHT(), fog: DEF_FOG(), extra: {} };
   return { kind, id, name, pieces: [], light: { dir: [-0.5, -1, -0.35], color: [1, 0.95, 0.85], ambient: [0.55, 0.55, 0.62] }, fog: { color: [0.35, 0.3, 0.45], near: 40, far: 120 }, sky: "painted", cullNearCamera: 8, extra: {} };
 }
+function parseScale(v, T) {                          // scene scale slot: a number, or [sx, sy, sz] for a stretched piece
+  if (Array.isArray(v)) { const sc = v[1] || 1; return { sc, sa: [v[0] / sc, 1, v[2] / sc] }; }
+  return { sc: v == null ? T : v };
+}
 function parseHub(def, id) {
   const s = blankScene("hub", id, def.name || id), kit = def.kit || "", T = def.tile || 4;
   s.kit = kit; s.tile = T;
-  s.pieces = (def.pieces || []).map((p) => ({ uid: nid(), model: (p[0].startsWith("/") && !kit ? p[0] : kit + p[0]) + ".glb", x: p[1], z: p[2], rot: p[3] || 0, y: p[4] || 0, sc: p[5] == null ? T : p[5], spec: typeof p[6] === "string" ? p[6] : undefined }));
+  s.pieces = (def.pieces || []).map((p) => ({ uid: nid(), model: (p[0].startsWith("/") && !kit ? p[0] : kit + p[0]) + ".glb", x: p[1], z: p[2], rot: p[3] || 0, y: p[4] || 0, ...parseScale(p[5], T), spec: typeof p[6] === "string" ? p[6] : undefined }));
   s.colliders = (def.colliders || []).map((c) => ({ uid: nid(), x: c.x, z: c.z, w: c.w, d: c.d, hideIf: c.hideIf, showIf: c.showIf }));
   s.npcs = (def.npcs || []).map((n) => Object.assign({ uid: nid() }, JSON.parse(JSON.stringify(n))));
   s.events = (def.events || []).map((n) => Object.assign({ uid: nid() }, JSON.parse(JSON.stringify(n))));
@@ -299,7 +304,7 @@ function serialize(s) {
   const out = Object.assign({}, s.extra);
   if (s.kind === "hub") {
     out.name = s.name; out.kit = s.kit || ""; out.tile = s.tile || 4;
-    out.pieces = s.pieces.map((p) => { let n = p.model; if (s.kit && n.startsWith(s.kit)) n = n.slice(s.kit.length); return [n.replace(/\.glb$/i, ""), r3(p.x), r3(p.z), r3(p.rot || 0), r3(p.y || 0), r3(p.sc)].concat(p.spec ? [p.spec] : []); });
+    out.pieces = s.pieces.map((p) => { let n = p.model; if (s.kit && n.startsWith(s.kit)) n = n.slice(s.kit.length); return [n.replace(/\.glb$/i, ""), r3(p.x), r3(p.z), r3(p.rot || 0), r3(p.y || 0), p.sa ? pS(p).map(r3) : r3(p.sc)].concat(p.spec ? [p.spec] : []); });
     out.colliders = s.colliders.map((c) => { const o = { x: r3(c.x), z: r3(c.z), w: r3(c.w), d: r3(c.d) }; if (c.hideIf) o.hideIf = c.hideIf; if (c.showIf) o.showIf = c.showIf; return o; });
     out.npcs = s.npcs.map((n) => { const c = clean(n); if (!c.action) delete c.action; if (!c.line) delete c.line; if (!c.actions || !c.actions.length) delete c.actions; if (!c.tint) delete c.tint; return c; });
     if (s.events.length) out.events = s.events.map((e) => { const c = clean(e); if (!c.prompt) delete c.prompt; return c; }); else delete out.events;
@@ -359,6 +364,19 @@ function scaleGroup(items, f) {
   for (const it of items) { const r = it.ref; r.x = r3(cx + (r.x - cx) * f); r.z = r3(cz + (r.z - cz) * f);
     if (it.type === "piece") r.sc = r3(r.sc * f); else if (it.type === "event" || it.type === "collider") { r.w = r3(r.w * f); r.d = r3(r.d * f); } else if (it.type === "decal") r.r = r3(r.r * f); }
 }
+function scaleAxis(items, ax, f) {                   // stretch along ONE world axis (0 = X, 1 = Y, 2 = Z) about the group centre / lowest base
+  const [cx, cz] = centroid(items); let y0 = 1e9; for (const it of items) if (it.type === "piece") y0 = Math.min(y0, it.ref.y || 0);
+  for (const it of items) {
+    const r = it.ref, t = it.type;
+    if (ax === 0) r.x = r3(cx + (r.x - cx) * f); else if (ax === 2) r.z = r3(cz + (r.z - cz) * f);
+    if (t === "piece") {
+      if (ax === 1) r.y = r3(y0 + ((r.y || 0) - y0) * f);
+      const odd = ((Math.round((r.rot || 0) / 90) % 2) + 2) % 2 === 1, li = ax === 1 ? 1 : (odd ? 2 - ax : ax);     // a piece turned 90 / 270 degrees has its local X along world Z
+      const sa = r.sa ? r.sa.slice() : [1, 1, 1]; sa[li] = sa[li] * f;
+      if (Math.abs(sa[0] - sa[1]) < 1e-4 && Math.abs(sa[1] - sa[2]) < 1e-4) { r.sc = r3(r.sc * sa[0]); r.sa = null; } else r.sa = sa.map((v) => Math.round(v * 1e4) / 1e4);
+    } else if (t === "event" || t === "collider") { if (ax === 0) r.w = r3(r.w * f); else if (ax === 2) r.d = r3(r.d * f); }
+  }
+}
 function addItem(type, obj) { obj.uid = nid(); scene[TYPES[type]].push(obj); return obj; }
 function removeSel() {
   const items = selItems().filter((i) => i.type !== "spawn"); if (!items.length) return; checkpoint();
@@ -409,9 +427,9 @@ function pickBoxes() {
    what is behind or inside something). Thin or tiny pieces that a ray can miss fall back to a forgiving box test, smallest first. */
 function rayTris(ray, p, m) {
   if (!m || !m.cpu) return null;
-  const a = (p.rot || 0) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), k = 1 / (p.sc || 1);
+  const a = (p.rot || 0) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), ks = pS(p), kx = 1 / (ks[0] || 1), ky = 1 / (ks[1] || 1), kz = 1 / (ks[2] || 1);
   const ox = ray.o[0] - p.x, oy = ray.o[1] - (p.y || 0), oz = ray.o[2] - p.z;
-  const O = [(c * ox - sn * oz) * k, oy * k, (sn * ox + c * oz) * k], D = [(c * ray.d[0] - sn * ray.d[2]) * k, ray.d[1] * k, (sn * ray.d[0] + c * ray.d[2]) * k];
+  const O = [(c * ox - sn * oz) * kx, oy * ky, (sn * ox + c * oz) * kz], D = [(c * ray.d[0] - sn * ray.d[2]) * kx, ray.d[1] * ky, (sn * ray.d[0] + c * ray.d[2]) * kz];
   let best = null;
   for (const o of m.cpu) {
     const P = o.p, I = o.i;
@@ -499,6 +517,7 @@ function draw() {
     const m = ensureModel(curModel.url);
     if (m) { gl.useProgram(MP.p); gl.uniformMatrix4fv(MP.u.u_vp, false, cam.vp); drawModel(m, pieceMatrix({ x: hoverG[0], y: terrH(hoverG[0], hoverG[2]), z: hoverG[2], rot: placeRot, sc: placeScale }), [0.8, 1, 0.8, 0.6]); }
   }
+  if (tool === "house" && hoverG && !dragState && !play) { const H = houseAtHover(); gl.useProgram(MP.p); gl.uniformMatrix4fv(MP.u.u_vp, false, cam.vp); for (const p of H.pieces) { const m = ensureModel(p.model); if (m) drawModel(m, pieceMatrix(p), [0.8, 1, 0.8, 0.55]); } }
   // grid
   if ($("#vGrid").checked) {
     const R = Math.round(clamp(cam.dist * 0.9, 20, 100)), step = Math.max(1, grid >= 1 ? grid : 1), cx = Math.round(cam.tx / step) * step, cz = Math.round(cam.tz / step) * step, minor = [], major = [];
@@ -526,6 +545,7 @@ function draw() {
   gl.disable(gl.DEPTH_TEST);
   if (!tOnly) for (const it of selItems()) { const b = selBox(it), pr = sel && it.type === sel.type && (it.type === "spawn" || it.ref.uid === sel.uid); flat(gl.LINES, boxEdges(b.mn, b.mx), pr ? [1, .9, .2, 1] : [1, .6, .15, .95]); }
   if (typeof drawLineGhost === "function") drawLineGhost();
+  if (typeof drawHouseGhost === "function") drawHouseGhost();
   gl.enable(gl.DEPTH_TEST);
   // labels
   if (!tOnly && $("#vLabels").checked && scene.kind === "hub") {
@@ -541,7 +561,7 @@ function draw() {
 }
 function updateStatus() {
   const hint = { select: "Click to select (what you click is what you see; Alt+click cycles through everything under the cursor) · Shift-click add/remove · drag empty space or Shift-drag for a box · drag to move · Q/E rotate · Ctrl+A all · Ctrl+C/V · Del",
-    line: lineHint(), place: "Click to place · Shift+drag to fill a rectangle with tiles · Q/E rotate the ghost", collider: "Drag a rectangle on the ground", bounds: "Drag a rectangle to set the walkable bounds", npc: "Click the ground to place an NPC", event: "Click the ground to place an event trigger", decal: "Click the ground to place a decal", spawn: "Click the ground to move the player spawn", terrain: "Drag on the ground to sculpt · Shift inverts raise/lower · [ ] brush size · Ctrl+Z undoes a stroke" }[tool] || "";
+    house: "Pick a prefab in the options (house, temple, colonnade, stall, gate...) · click to drop it · Q/E turn it 90° (Alt = 15°) · Alt = no grid snap · Ctrl+Z undoes the whole prefab", line: lineHint(), place: "Click to place · Shift+drag to fill a rectangle with tiles · Q/E rotate the ghost", collider: "Drag a rectangle on the ground", bounds: "Drag a rectangle to set the walkable bounds", npc: "Click the ground to place an NPC", event: "Click the ground to place an event trigger", decal: "Click the ground to place a decal", spawn: "Click the ground to move the player spawn", terrain: "Drag on the ground to sculpt · Shift inverts raise/lower · [ ] brush size · Ctrl+Z undoes a stroke" }[tool] || "";
   const hv = hoverG ? `x ${r3(hoverG[0])}  z ${r3(hoverG[2])}` : "";
   $("#status").innerHTML = `<span>${hint}</span><span>${hv}</span><span>${scene ? scene.pieces.length + " pieces" + (scene.kind === "hub" ? ` · ${scene.npcs.length} NPCs · ${scene.events.length} events · ${scene.colliders.length} colliders` : "") : ""}</span>`;
 }
@@ -553,7 +573,7 @@ function mouse(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.
 function groundPt(e, y) { const [sx, sy] = mouse(e); return onPlane(rayAt(sx, sy), y || 0); }
 function uniqueId(base, arr) { let i = 1, id; do { id = base + "_" + i++; } while (arr.some((a) => a.id === id)); return id; }
 function setTool(t) {
-  tool = t; document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === t)); ghostRect = null; if (tool !== "line" && typeof lineCancel === "function") lineCancel(); if (typeof syncLineOpts === "function") syncLineOpts(); if (typeof syncTerrOpts === "function") syncTerrOpts(); terrBrush = null; scheduleDraw();
+  tool = t; document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === t)); ghostRect = null; if (tool !== "line" && typeof lineCancel === "function") lineCancel(); if (typeof syncLineOpts === "function") syncLineOpts(); if (typeof syncHouseOpts === "function") syncHouseOpts(); { const gm = $("#gizModes"); if (gm) gm.style.display = tool === "select" ? "" : "none"; } if (typeof syncTerrOpts === "function") syncTerrOpts(); terrBrush = null; scheduleDraw();
 }
 cv.addEventListener("contextmenu", (e) => e.preventDefault());
 cv.addEventListener("pointerdown", (e) => {
@@ -581,6 +601,7 @@ cv.addEventListener("pointerdown", (e) => {
     if (e.shiftKey) dragState = { mode: "fill", x0: snapv(gp[0], free), z0: snapv(gp[2], free) }, ghostRect = { x0: snapv(gp[0], free), z0: snapv(gp[2], free), x1: snapv(gp[0], free), z1: snapv(gp[2], free) };
     else { checkpoint(); const p = addItem("piece", { model: curModel.url, x: r3(snapv(gp[0], free)), z: r3(snapv(gp[2], free)), y: r3(terrH(snapv(gp[0], free), snapv(gp[2], free))), rot: placeRot, sc: placeScale }); lastScale[curModel.url] = placeScale; selectItem("piece", p.uid); refreshOutliner(); }
   } else if (tool === "line") { lineDown(e, gp, free);
+  } else if (tool === "house") { houseDown(gp, free);
   } else if (tool === "terrain") { terrDown(e, sx, sy);
   } else if (tool === "collider" || tool === "bounds") {
     if (gp) { dragState = { mode: "rect", x0: snapv(gp[0], free), z0: snapv(gp[2], free) }; ghostRect = { x0: dragState.x0, z0: dragState.z0, x1: dragState.x0, z1: dragState.z0 }; }
@@ -616,6 +637,7 @@ cv.addEventListener("pointermove", (e) => {
     } else if ((d.mode === "fill" || d.mode === "rect") && hg) { ghostRect.x1 = snapv(hg[0], e.altKey); ghostRect.z1 = snapv(hg[2], e.altKey); }
   }
   if (tool === "line" && typeof lineHover === "function") lineHover(hg, e);
+  houseFree = e.altKey;
   scheduleDraw();
 });
 cv.addEventListener("pointerup", (e) => {
@@ -666,15 +688,16 @@ window.addEventListener("keydown", (e) => {
   if (ctrl && k.toLowerCase() === "c") { e.preventDefault(); copySel(); return; }
   if (ctrl && k.toLowerCase() === "v") { e.preventDefault(); pasteClip(hoverG ? [hoverG[0], hoverG[2]] : null); return; }
   if (k === "Escape") { if (typeof lineCancel === "function" && lineActive()) lineCancel(); else if (marq) { marq = null; dragState = null; } else selectItem(null); scheduleDraw(); return; }
-  const tk = { 1: "select", 2: "place", 3: "collider", 4: "npc", 5: "event", 6: "decal", 7: "spawn", 8: "bounds", 9: "line", 0: "terrain" }[k]; if (tk) { setTool(tk); return; }
+  const tk = { 1: "select", 2: "place", 3: "collider", 4: "npc", 5: "event", 6: "decal", 7: "spawn", 8: "bounds", 9: "line", 0: "terrain", "-": "house" }[k]; if (tk) { setTool(tk); return; }
   if (tool === "terrain" && (k === "[" || k === "]")) { terrOpts.radius = clamp(terrOpts.radius * (k === "]" ? 1.15 : 1 / 1.15), 1, 40); terrOpts.radius = Math.round(terrOpts.radius * 2) / 2; syncTerrOpts(); scheduleDraw(); return; }
   if (k === "Delete" || k === "Backspace") { e.preventDefault(); removeSel(); return; }
   const lk = k.toLowerCase();
+  if (tool === "select" && !ctrl && !e.altKey && (lk === "w" || lk === "r" || lk === "s")) { setGizMode({ w: "move", r: "rotate", s: "scale" }[lk]); return; }
   if (lk === "y") { const c = $("#vTerrOnly"); c.checked = !c.checked; scheduleDraw(); return; }
   if (lk === "t") { cam.pitch = cam.pitch > 80 ? 45 : 89.5; scheduleDraw(); return; }
   if (multi && tool === "select" && (lk === "h" || lk === "v")) { checkpoint(); mirrorGroup(grp, lk === "h" ? "x" : "z"); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); return; }
   if (lk === "f") { if (it) { const b = multi ? selBounds(grp) : selBox(it); cam.tx = (b.mn[0] + b.mx[0]) / 2; cam.tz = (b.mn[2] + b.mx[2]) / 2; cam.dist = clamp(Math.max(b.mx[0] - b.mn[0], b.mx[2] - b.mn[2]) * 2.5 + 8, 8, 120); } else frameScene(); scheduleDraw(); return; }
-  if (lk === "q" || lk === "e") { const dr = (lk === "q" ? -1 : 1) * (e.shiftKey ? 90 : 15); if (multi && tool === "select") { checkpoint(); rotateGroup(grp, dr); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); } else if (tool === "place" || !it || it.type !== "piece") { placeRot = ((placeRot + dr) % 360 + 360) % 360; scheduleDraw(); } else { checkpoint(); it.ref.rot = (((it.ref.rot || 0) + dr) % 360 + 360) % 360; refreshInspectorValues(); scheduleDraw(); } return; }
+  if (lk === "q" || lk === "e") { const dr = (lk === "q" ? -1 : 1) * (tool === "house" ? (e.altKey ? 15 : 90) : (e.shiftKey ? 90 : 15)); if (multi && tool === "select") { checkpoint(); rotateGroup(grp, dr); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); } else if (tool === "place" || tool === "house" || !it || it.type !== "piece") { placeRot = ((placeRot + dr) % 360 + 360) % 360; scheduleDraw(); } else { checkpoint(); it.ref.rot = (((it.ref.rot || 0) + dr) % 360 + 360) % 360; refreshInspectorValues(); scheduleDraw(); } return; }
   if (!it) return;
   if ((k === "[" || k === "]") && multi) { checkpoint(); scaleGroup(grp, k === "]" ? 1.1 : 1 / 1.1); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); return; }
   if ((k === "PageUp" || k === "PageDown") && multi) { checkpoint(); raiseGroup(grp, (k === "PageUp" ? 1 : -1) * (grid || 0.5)); refreshInspectorValues(); scheduleDraw(); return; }
@@ -690,7 +713,7 @@ function frameScene() {
   cam.tx = (mnx + mxx) / 2; cam.tz = (mnz + mxz) / 2; cam.ty = 0; cam.dist = clamp(Math.max(mxx - mnx, mxz - mnz) * 1.3 + 10, 15, 250);
 }
 /* ============================== UI: palette, layers, tools ============================== */
-const TOOLS = [["select", "Select", "1"], ["place", "Place piece", "2"], ["collider", "Collider", "3"], ["npc", "NPC", "4"], ["event", "Event", "5"], ["decal", "Decal", "6"], ["spawn", "Spawn", "7"], ["bounds", "Bounds", "8"], ["line", "Wall line", "9"], ["terrain", "Terrain", "0"]];
+const TOOLS = [["select", "Select", "1"], ["place", "Place piece", "2"], ["collider", "Collider", "3"], ["npc", "NPC", "4"], ["event", "Event", "5"], ["decal", "Decal", "6"], ["spawn", "Spawn", "7"], ["bounds", "Bounds", "8"], ["line", "Wall line", "9"], ["house", "Prefab", "-"], ["terrain", "Terrain", "0"]];
 function buildTools() {
   const box = $("#tools"); box.innerHTML = "";
   TOOLS.forEach(([id, label, key]) => box.append(h("button", { "data-tool": id, class: id === tool ? "on" : "", onclick: () => setTool(id) }, label, h("kbd", {}, key))));
@@ -784,7 +807,8 @@ function refreshInspector() {
   const xz = () => { p.append(fNum("X", () => r.x, (v) => { r.x = v; }), fNum("Z", () => r.z, (v) => { r.z = v; })); };
   if (t === "piece") {
     p.append(fText("Model", () => r.model, null, true), fNum("X", () => r.x, (v) => { r.x = v; }), fNum("Y", () => r.y || 0, (v) => { r.y = v; }), fNum("Z", () => r.z, (v) => { r.z = v; }),
-      fNum("Rotation°", () => r.rot || 0, (v) => { r.rot = v; }, "15"), fNum("Scale", () => r.sc, (v) => { if (v > 0) r.sc = v; }, "0.05"));
+      fNum("Rotation°", () => r.rot || 0, (v) => { r.rot = v; }, "15"), fNum("Scale", () => r.sc, (v) => { if (v > 0) r.sc = v; }, "0.05"),
+      ...[0, 1, 2].map((i) => fNum("Stretch " + "XYZ"[i], () => r.sa ? r.sa[i] : 1, (v) => { if (v > 0) { const a = r.sa ? r.sa.slice() : [1, 1, 1]; a[i] = v; r.sa = a[0] === 1 && a[1] === 1 && a[2] === 1 ? null : a; } }, "0.05")));
     p.append(h("div", { class: "row" }, btn("Use palette model", () => { if (!curModel) return toast("Pick a model in the palette first", "err"); edit(() => { r.model = curModel.url; ensureModel(curModel.url); }); refreshInspector(); }),
       btn("Select same model", () => { selectMany(scene.pieces.filter((q) => q.model === r.model).map((q) => ({ type: "piece", uid: q.uid })), false); }),
       scene.kind === "hub" ? btn("Collider from footprint", () => { const m = modelReady.get(r.model); if (!m) return; const b = worldBox(m, r); checkpoint(); const c = addItem("collider", { x: r3((b.mn[0] + b.mx[0]) / 2), z: r3((b.mn[2] + b.mx[2]) / 2), w: r3(b.mx[0] - b.mn[0]), d: r3(b.mx[2] - b.mn[2]) }); selectItem("collider", c.uid); refreshOutliner(); scheduleDraw(); }) : null));
@@ -1274,16 +1298,33 @@ buildTerrOpts(); loadTerrLib();
 /* ============================== transform gizmo ============================== */
 const GAX = [[1, 0, 0, "#ff5a4f"], [0, 1, 0, "#5adf6a"], [0, 0, 1, "#5a9bff"]];
 let gizHover = -1;
+let gizMode = "move";                                   // move | rotate | scale (keys W / R / S with the Select tool)
+function setGizMode(m) { gizMode = m; document.querySelectorAll("#gizModes button").forEach((b) => b.classList.toggle("on", b.dataset.m === m)); gizHover = -1; scheduleDraw(); }
+(function buildGizModes() {
+  const box = h("div", { id: "gizModes", class: "opts", style: "margin-top:6px" }, h("span", { class: "hint", style: "margin-right:6px" }, "Gizmo"));
+  [["move", "Move", "W"], ["rotate", "Rotate", "R"], ["scale", "Scale", "S"]].forEach(([m, t, k]) => box.append(h("button", { "data-m": m, class: m === gizMode ? "on" : "", onclick: () => setGizMode(m), title: t + " (" + k + ")" + (m === "scale" ? " · drag an axis to stretch just that axis, hold Shift to scale all axes" : "") }, t, h("kbd", {}, k))));
+  $("#tools").after(box);
+})();
+const gizSnap = (items) => items.map((it) => ({ r: it.ref, v: { x: it.ref.x, y: it.ref.y, z: it.ref.z, rot: it.ref.rot, sc: it.ref.sc, sa: it.ref.sa ? it.ref.sa.slice() : null, w: it.ref.w, d: it.ref.d, r: it.ref.r } }));
+const gizRestore = (S) => { for (const s of S) for (const k in s.v) if (s.v[k] !== undefined) s.r[k] = s.v[k]; };
 function gizGeom() {
   if (play || tool !== "select" || !selSet.length || !scene || !cam.vp) return null;
   const items = selItems(); if (!items.length) return null;
-  const b = selBounds(items), o = [(b.mn[0] + b.mx[0]) / 2, (b.mn[1] + b.mx[1]) / 2, (b.mn[2] + b.mx[2]) / 2], so = project(o); if (!so) return null;
+  const b = selBounds(items), o = [(b.mn[0] + b.mx[0]) / 2, (b.mn[1] + b.mx[1]) / 2, (b.mn[2] + b.mx[2]) / 2];
+  if (gizMode !== "move") { const c = centroid(items); o[0] = c[0]; o[2] = c[1]; }          // rotate / scale pivot = the group centroid (what rotateGroup / scaleGroup use)
+  const so = project(o); if (!so) return null;
   const dc = Math.hypot(o[0] - cam.pos[0], o[1] - cam.pos[1], o[2] - cam.pos[2]), ppu = cam.h / (2 * Math.tan(cam.fov * Math.PI / 360) * Math.max(0.1, dc)), L = 90 / Math.max(1e-4, ppu), hasPiece = items.some((i) => i.type === "piece");
-  const axes = []; for (let i = 0; i < 3; i++) { if (i === 1 && !hasPiece) continue; const tip = project([o[0] + GAX[i][0] * L, o[1] + GAX[i][1] * L, o[2] + GAX[i][2] * L]); if (tip) axes.push({ i, tip }); }
-  return { o, so, L, axes };
+  const axes = [], ring = [];
+  if (gizMode === "rotate") { for (let i = 0; i <= 72; i++) { const a = i / 72 * 6.2832, p = project([o[0] + Math.cos(a) * L * 0.85, o[1], o[2] + Math.sin(a) * L * 0.85]); if (p) ring.push(p); } }
+  else for (let i = 0; i < 3; i++) { if (i === 1 && !hasPiece) continue; const tip = project([o[0] + GAX[i][0] * L, o[1] + GAX[i][1] * L, o[2] + GAX[i][2] * L]); if (tip) axes.push({ i, tip }); }
+  return { o, so, L, axes, ring };
 }
 function gizHit(sx, sy) {
   const g = gizGeom(); if (!g) return -1; let best = -1, bd = 10;
+  if (gizMode === "rotate") {
+    for (let i = 0; i + 1 < g.ring.length; i++) { const p = g.ring[i], q = g.ring[i + 1], vx = q.x - p.x, vy = q.y - p.y, L2 = vx * vx + vy * vy || 1, t = clamp(((sx - p.x) * vx + (sy - p.y) * vy) / L2, 0, 1); if (Math.hypot(sx - (p.x + vx * t), sy - (p.y + vy * t)) < 9) return 3; }
+    return -1;
+  }
   for (const a of g.axes) {
     const vx = a.tip.x - g.so.x, vy = a.tip.y - g.so.y, L2 = vx * vx + vy * vy || 1, t = clamp(((sx - g.so.x) * vx + (sy - g.so.y) * vy) / L2, 0, 1), d = Math.hypot(sx - (g.so.x + vx * t), sy - (g.so.y + vy * t));
     if (t > 0.12 && d < bd) { bd = d; best = a.i; }
@@ -1291,12 +1332,19 @@ function gizHit(sx, sy) {
   return best;
 }
 function drawGizmo() {
-  const g = gizGeom(); if (!g) return; const act = dragState && dragState.mode === "gizmo" ? dragState.axis : gizHover;
+  const g = gizGeom(); if (!g) return; const dg = dragState && dragState.mode === "gizmo" ? dragState : null, act = dg ? dg.axis : gizHover;
   g2.save(); g2.lineCap = "round";
-  for (const a of g.axes) {
-    const col = a.i === act ? "#ffe14a" : GAX[a.i][3], vx = a.tip.x - g.so.x, vy = a.tip.y - g.so.y, L = Math.hypot(vx, vy) || 1, ux = vx / L, uy = vy / L;
-    g2.strokeStyle = col; g2.fillStyle = col; g2.lineWidth = a.i === act ? 4 : 3; g2.beginPath(); g2.moveTo(g.so.x, g.so.y); g2.lineTo(a.tip.x - ux * 8, a.tip.y - uy * 8); g2.stroke();
-    g2.beginPath(); g2.moveTo(a.tip.x, a.tip.y); g2.lineTo(a.tip.x - ux * 14 - uy * 6, a.tip.y - uy * 14 + ux * 6); g2.lineTo(a.tip.x - ux * 14 + uy * 6, a.tip.y - uy * 14 - ux * 6); g2.closePath(); g2.fill();
+  if (gizMode === "rotate") {
+    g2.strokeStyle = act === 3 ? "#ffe14a" : GAX[1][3]; g2.lineWidth = act === 3 ? 4 : 3; g2.beginPath(); g.ring.forEach((p, i) => i ? g2.lineTo(p.x, p.y) : g2.moveTo(p.x, p.y)); g2.stroke();
+    if (dg && dg.moved) { g2.fillStyle = "#ffe14a"; g2.font = "bold 13px sans-serif"; g2.fillText(Math.round(dg.deg * 10) / 10 + "°", g.so.x + 12, g.so.y - 12); }
+  } else {
+    for (const a of g.axes) {
+      const col = a.i === act ? "#ffe14a" : GAX[a.i][3], vx = a.tip.x - g.so.x, vy = a.tip.y - g.so.y, L = Math.hypot(vx, vy) || 1, ux = vx / L, uy = vy / L;
+      g2.strokeStyle = col; g2.fillStyle = col; g2.lineWidth = a.i === act ? 4 : 3; g2.beginPath(); g2.moveTo(g.so.x, g.so.y); g2.lineTo(a.tip.x - ux * 8, a.tip.y - uy * 8); g2.stroke();
+      if (gizMode === "scale") g2.fillRect(a.tip.x - 6, a.tip.y - 6, 12, 12);
+      else { g2.beginPath(); g2.moveTo(a.tip.x, a.tip.y); g2.lineTo(a.tip.x - ux * 14 - uy * 6, a.tip.y - uy * 14 + ux * 6); g2.lineTo(a.tip.x - ux * 14 + uy * 6, a.tip.y - uy * 14 - ux * 6); g2.closePath(); g2.fill(); }
+    }
+    if (gizMode === "scale" && dg && dg.moved) { g2.fillStyle = "#ffe14a"; g2.font = "bold 13px sans-serif"; g2.fillText("×" + dg.f.toFixed(2) + (dg.uni ? " (all)" : " " + "XYZ"[dg.axis]), g.so.x + 12, g.so.y - 12); }
   }
   g2.fillStyle = "#fff"; g2.strokeStyle = "#000"; g2.lineWidth = 1; g2.beginPath(); g2.arc(g.so.x, g.so.y, 4, 0, 6.2832); g2.fill(); g2.stroke(); g2.restore();
 }
@@ -1304,14 +1352,32 @@ function gizParam(sx, sy, o, dir) {                    // where along the axis l
   const ray = rayAt(sx, sy), w0 = V.sub(o, ray.o), b = V.dot(dir, ray.d), d = V.dot(dir, w0), e = V.dot(ray.d, w0), den = 1 - b * b;
   return den < 1e-4 ? null : (b * e - d) / den;
 }
+const gizAng = (sx, sy, o) => { const h = onPlane(rayAt(sx, sy), o[1]); return h ? Math.atan2(h[2] - o[2], h[0] - o[0]) : null; };
 function gizStart(axis, sx, sy) {
   const g = gizGeom(), prim = getItem(sel); if (!g || !prim) return;
+  if (gizMode === "rotate") {
+    const a0 = gizAng(sx, sy, g.o); if (a0 == null) return;
+    gizHover = 3; dragState = { mode: "gizmo", axis: 3, o: g.o, prev: a0, acc: 0, deg: 0, items: selItems(), snap: gizSnap(selItems()), moved: false }; return;
+  }
   const dir = [GAX[axis][0], GAX[axis][1], GAX[axis][2]], s0 = gizParam(sx, sy, g.o, dir); if (s0 == null) return;
-  gizHover = axis; dragState = { mode: "gizmo", axis, dir, o: g.o, s0, items: selItems(), prim, p0: [prim.ref.x, itemY(prim), prim.ref.z], moved: false };
+  gizHover = axis; dragState = { mode: "gizmo", axis, dir, o: g.o, s0, L: g.L, f: 1, items: selItems(), snap: gizSnap(selItems()), prim, p0: [prim.ref.x, itemY(prim), prim.ref.z], moved: false };
 }
 function gizDrag(e) {
-  const d = dragState, [sx, sy] = mouse(e), s = gizParam(sx, sy, d.o, d.dir); if (s == null) return;
-  const delta = s - d.s0, free = e.altKey, items = d.items;
+  const d = dragState, [sx, sy] = mouse(e), free = e.altKey, items = d.items;
+  if (gizMode === "rotate") {                                                    // drag round the ring: 15 deg steps (Alt = free)
+    const a = gizAng(sx, sy, d.o); if (a == null) return;
+    let dl = a - d.prev; while (dl > Math.PI) dl -= 2 * Math.PI; while (dl < -Math.PI) dl += 2 * Math.PI; d.prev = a; d.acc += dl;
+    const raw = -d.acc * 180 / Math.PI, deg = free ? Math.round(raw * 10) / 10 : Math.round(raw / 15) * 15;      // engine rotY turns +x towards -z, so screen-angle delta is negated
+    if (deg === d.deg) return; if (!d.moved) { checkpoint(); d.moved = true; }
+    gizRestore(d.snap); if (deg) rotateGroup(items, deg); d.deg = deg; refreshInspectorValues(); return;
+  }
+  const s = gizParam(sx, sy, d.o, d.dir); if (s == null) return;
+  const delta = s - d.s0;
+  if (gizMode === "scale") {                                                     // the dragged axis stretches ONLY that axis (Shift = uniform); dragging a handle out by the gizmo length doubles it
+    d.uni = e.shiftKey; let f = Math.max(0.05, (d.L + delta) / d.L); f = free ? Math.round(f * 100) / 100 : Math.round(f * 20) / 20; if (f < 0.05) f = 0.05;
+    if (f === d.f) return; if (!d.moved) { checkpoint(); d.moved = true; }
+    gizRestore(d.snap); if (f !== 1) { if (d.uni) scaleGroup(items, f); else scaleAxis(items, d.axis, f); } d.f = f; refreshInspectorValues(); return;
+  }
   let inc;
   if (d.axis === 0) inc = snapv(d.p0[0] + delta, free) - d.prim.ref.x;
   else if (d.axis === 2) inc = snapv(d.p0[2] + delta, free) - d.prim.ref.z;
@@ -1398,6 +1464,240 @@ function drawLineGhost() {
   if (tool !== "line" || !ln) return; const L = lineLayout(ln.a, ln.b); if (!L) return;
   for (const p of L.pieces) { const b = worldBox(L.m, p); flat(gl.LINES, boxEdges([b.mn[0], .02, b.mn[2]], [b.mx[0], Math.max(.3, b.mx[1]), b.mx[2]]), [.4, 1, .6, .95]); }
   flat(gl.LINES, [ln.a[0], .08, ln.a[1], ln.b[0], .08, ln.b[1]], [1, 1, .4, 1]);
+}
+/* ============================== prefab tool ============================== */
+/* One click drops a ready-aligned structure. "Stylized house" (Stylized kit, same layout as Town.house in stylhouse.py) and the "Temple city" set from the
+   God_city kit (colonnade, temple, market stall, gate, torch avenue, garden, domed shrine; scales follow make_outside.py / make_olympus.py).
+   Everything placed is selected afterwards so it can be moved / rotated / scaled as one group; Ctrl+Z undoes the whole prefab.
+   Local frame: x right, z toward the front/entrance (+z), rotated by the ghost rotation (Q/E, 90 degrees). Needs a scene with no kit prefix (island, outside, ...). */
+const houseOpts = { floors: 1, bays: 2, wall: "cream", roof: "red", doorBay: 0, windows: "normal", coll: true };
+let houseFree = false, curPrefab = "house";
+/* window levels: none = plain walls, few = front only, normal = front + back/side upper floors + alternate side bays, many = every wall bay */
+const houseWin = (lvl, side, f, k) => lvl === "none" ? false : lvl === "many" ? true : lvl === "few" ? side === "front" : side === "front" || (side === "back" ? f > 0 : (k % 2 === 1 || f > 0));
+const HST = "/assets/3D/Stylized/", HOUSE_NEEDS = ["SM_Door_Wall_01", "SM_Window_Wall_01", "SM_Window_Wall_02", "SM_Large_Wall_02", "SM_Large_Wall_03", "SM_Roof_Wall"];
+const GC = "/assets/3D/GodCity/";
+const hasStyl = (n) => modelList.some((m) => m.url === HST + n + ".glb");
+const houseWalls = () => ["cream", "sand", "blue", "rose", "mint", "stone"].filter((t) => HOUSE_NEEDS.every((n) => hasStyl(n + "_w" + t)));
+const houseRoofs = () => ["red", "blue", "brown", "green", "slate"].filter((t) => hasStyl("SM_Roof_02_r" + t));
+const WT = 0.352;                                  // wall module thickness (z 0..0.352 from the corner pivot)
+function houseLayout(cx, cz, rot, o) {
+  const a = rot * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), D = 4 * o.bays, at = (dx, dz) => [cx + dx * c + dz * s, cz - dx * s + dz * c];
+  const corners = [[-4, -D / 2], [4, -D / 2], [4, D / 2], [-4, D / 2]].map(([dx, dz]) => at(dx, dz));
+  let by = terrH(cx, cz); for (const q of corners) by = Math.max(by, terrH(q[0], q[1]));            // sit on the highest corner so the low side is buried, not floating
+  const sfx = "_w" + o.wall, rfx = "_r" + o.roof, P = [];
+  const put = (n, lx, lz, rr, y) => { const [x, z] = at(lx, lz); P.push({ model: HST + n + ".glb", x: r3(x), z: r3(z), y: r3(y), rot: r3(((rot + rr) % 360 + 360) % 360), sc: 1 }); };
+  for (let f = 0; f < o.floors; f++) {
+    const y = by + 3 * f, wl = o.windows || "normal";
+    for (let i = 0; i < 2; i++) {
+      put((f === 0 && i === o.doorBay ? "SM_Door_Wall_01" : houseWin(wl, "front", f, i) ? "SM_Window_Wall_01" : "SM_Large_Wall_02") + sfx, -4 + 4 * i, D / 2, 0, y);   // front (+z)
+      put((houseWin(wl, "back", f, i) ? "SM_Window_Wall_02" : "SM_Large_Wall_02") + sfx, 4 * i, -D / 2, 180, y);                                                      // back (-z)
+    }
+    for (let k = 0; k < o.bays; k++) {
+      const zs = -D / 2 + 4 * k, nm = (houseWin(wl, "side", f, k) ? "SM_Window_Wall_02" : "SM_Large_Wall_03") + sfx;
+      put(nm, 4 - WT, zs + 4, 90, y); put(nm, -4 + WT, zs, 270, y);              // right / left sides: slab x 3.648..4 so the outer face is flush with the front/back wall ends
+    }
+  }
+  put("SM_Door_01", -4 + 4 * o.doorBay + 1.43, D / 2 + 0.175, 0, by);                                                       // door leaf in its frame
+  const ry = by + 3 * o.floors;
+  for (let k = 0; k < o.bays; k++) { put("SM_Roof_02" + rfx, 0, -D / 2 + 4 * k + 3.85, 0, ry); put("SM_Roof_02" + rfx, 0, -D / 2 + 4 * k + 0.15, 180, ry); }
+  for (const [zz, front] of [[D / 2, true], [-D / 2, false]]) {                                                              // gable triangles, flush with the wall slab
+    const lo = front ? 0 : -WT;                                                                                               // slab z: front 0..WT, back -WT..0 (relative to the wall line)
+    put("SM_Roof_Wall" + sfx, 0, zz + lo + 0.091, 0, ry); put("SM_Roof_Wall" + sfx, 0, zz + lo + 0.258, 180, ry);            // left half spans z -0.091..0.258, the rot-180 right half -0.258..0.091
+  }
+  const ang = ((rot % 180) + 180) % 180 === 90, cw = 8.4, cd = D + 0.8;
+  return { pieces: P, colliders: [{ x: r3(cx), z: r3(cz), w: ang ? cd : cw, d: ang ? cw : cd }], decals: [], outline: corners, by, arrow: [at(0, D / 2), at(0, D / 2 + 2.2)], at, D, door: at(-2 + 4 * o.doorBay, D / 2 + 1.9) };
+}
+
+/* ---- generic builder for the God_city prefabs: put / block / glow take local metres, y is relative to the ground under the footprint ---- */
+function pfRun(cx, cz, rot, outline, fn) {
+  const a = rot * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), at = (dx, dz) => [cx + dx * c + dz * s, cz - dx * s + dz * c], P = [], C = [], D = [];
+  const put = (n, lx, lz, rr, y, sc, sa, spec) => { const [x, z] = at(lx, lz), q = { model: GC + n + ".glb", x: r3(x), z: r3(z), y: y || 0, rot: r3(((rot + rr) % 360 + 360) % 360), sc: sc == null ? 1 : sc }; if (sa) q.sa = sa.map((v) => Math.round(v * 1e4) / 1e4); if (spec) q.spec = spec; P.push(q); };   // sa = [x, y, z] stretch on top of sc (the piece's own axes)
+  const block = (lx, lz, w, d) => { const [x, z] = at(lx, lz); C.push({ x: r3(x), z: r3(z), w: r3(Math.abs(w * c) + Math.abs(d * s)), d: r3(Math.abs(w * s) + Math.abs(d * c)) }); };
+  const glow = (lx, lz, r) => { const [x, z] = at(lx, lz); D.push({ type: "glow", x: r3(x), z: r3(z), r, color: [1, 0.85, 0.5, 1], spin: 0 }); };
+  fn({ put, block, glow, at });
+  const poly = outline.map(([dx, dz]) => at(dx, dz)), fz = Math.max(...outline.map((q) => q[1]));
+  let by = terrH(cx, cz); for (const q of poly) by = Math.max(by, terrH(q[0], q[1]));
+  for (const p of P) p.y = r3(p.y + by);
+  return { pieces: P, colliders: C, decals: D, outline: poly, by, arrow: [at(0, fz), at(0, fz + 2.2)] };
+}
+const rect = (w, d) => [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]];
+function pfRand(seed) { let t = seed >>> 0; return () => { t = (t + 0x6D2B79F5) >>> 0; let r = Math.imul(t ^ (t >>> 15), 1 | t); r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r; return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; }
+const SEL = (key, label, vals, def, num) => ({ key, label, type: "sel", vals, def, num });
+const CHK = (key, label, def) => ({ key, label, type: "chk", def });
+
+
+/* ---- closed God_city buildings: walls are the plain SM_wall_10x13 slab (2 x 10 x 13 m, centred, base at y 0) STRETCHED per axis to the exact length / height / thickness ---- */
+const BLD_SIZES = [["8x10", "small house (8 x 10 m)"], ["10x14", "house (10 x 14 m)"], ["14x18", "large house (14 x 18 m)"], ["12x24", "long hall (12 x 24 m)"]];
+function bldShell(api, o) {
+  const { put, block, glow, at } = api, [W, D] = String(o.size).split("x").map(Number), H = o.h, T = 0.8, hw = W / 2, hd = D / 2, dw = o.dw, wl = (W - dw) / 2, dh = Math.min(H - 1.0, 3.8);
+  const wall = (lx, lz, rr, len, y, hgt) => put("SM_wall_10x13", lx, lz, rr, y, 1, [T / 2, hgt / 10, len / 13]);               // rot 90 = wall runs along local x; rot 0 = along z
+  wall(0, -hd + T / 2, 90, W, 0, H); block(0, -hd + T / 2, W, T);                                                              // back
+  for (const sg of [-1, 1]) { wall(sg * (hw - T / 2), 0, 0, D - 2 * T, 0, H); block(sg * (hw - T / 2), 0, T, D - 2 * T); }    // sides
+  if (o.door) {
+    for (const sg of [-1, 1]) { wall(sg * (dw / 2 + wl / 2), hd - T / 2, 90, wl, 0, H); block(sg * (dw / 2 + wl / 2), hd - T / 2, wl, T); }
+    wall(0, hd - T / 2, 90, dw, dh, H - dh);                                                                                   // lintel over the doorway
+  } else { wall(0, hd - T / 2, 90, W, 0, H); block(0, hd - T / 2, W, T); }
+  if (o.roof !== "none") {                                                                                                     // cornice trim round the top
+    for (const sg of [-1, 1]) { put("SM_beam_02", 0, sg * (hd + 0.05), 90, H - 0.2, 1.8, [1, 1, (W + 1) / 9]); put("SM_beam_02", sg * (hw + 0.05), 0, 0, H - 0.2, 1.8, [1, 1, (D + 1) / 9]); }
+  }
+  const k = H / 13.04, cc = o.cols;
+  if (cc === "corners" || cc === "both") for (const sx of [-1, 1]) for (const sz of [-1, 1]) put("SM_temple_column", sx * hw, sz * hd, 0, 0, k);
+  if ((cc === "door" || cc === "both") && o.door) for (const sg of [-1, 1]) put("SM_temple_column_02", sg * (dw / 2 + 0.7), hd + 0.4, 0, 0, k);
+  if (o.braz && o.door) for (const sg of [-1, 1]) { const x = sg * (dw / 2 + 2.3 + 1.3 * k), z = hd + 1.6; put("SM_Brasero_02", x, z, 0, 0, 0.09); block(x, z, 0.8, 0.8); glow(x, z, 3); }
+  const ry = H + 0.4;
+  if (o.roof === "gable" || o.roof === "tall") {                                                                               // roof prefab: long axis (ridge) along the building's depth
+    const tall = o.roof === "tall", rise = W * (tall ? 0.3 : 0.2), P0 = tall ? 9.53 : 8.014, spec = o.door && o.hide ? (() => { const q = [at(-hw + T, -hd + T), at(hw - T, hd - T)]; return "I:" + [Math.min(q[0][0], q[1][0]), Math.min(q[0][1], q[1][1]), Math.max(q[0][0], q[1][0]), Math.max(q[0][1], q[1][1])].map(r3).join(","); })() : undefined;
+    put(tall ? "SM_temple_roof_prefab_02" : "SM_temple_roof_prefab_01", 0, 0, 90, ry, 1, [(D + 1.6) / 40.78, rise / P0, (W + 1.6) / 26], spec);
+  } else if (o.roof === "flat") put("SM_wall_10x13", 0, 0, 0, ry, 1, [(W + 1.2) / 2, 0.5 / 10, (D + 1.2) / 13]);
+}
+const bldRoof = SEL("roof", "Roof", [["gable", "tiled gable"], ["tall", "tall tiled gable"], ["flat", "flat slab"]], "gable");
+
+const PREFABS = [
+  { id: "house", name: "Stylized house", store: houseOpts, needs: () => HOUSE_NEEDS.map((n) => HST + n + "_wcream.glb"),
+    opts: [SEL("floors", "Floors", [[1, "1"], [2, "2"], [3, "3"], [4, "4"]], 1, true), SEL("bays", "Bays (depth)", [[1, "1 (4 m)"], [2, "2 (8 m)"], [3, "3 (12 m)"], [4, "4 (16 m)"]], 2, true),
+      SEL("doorBay", "Door", [[0, "left"], [1, "right"]], 0, true), SEL("windows", "Windows", [["none", "none"], ["few", "few (front)"], ["normal", "normal"], ["many", "many"]], "normal"),
+      { key: "wall", label: "Walls", type: "sel", vals: () => houseWalls().map((t) => [t, t]), def: "cream" }, { key: "roof", label: "Roof", type: "sel", vals: () => houseRoofs().map((t) => [t, t]), def: "red" }, CHK("coll", "Add collider (hub)", true)],
+    layout: (cx, cz, rot, o) => houseLayout(cx, cz, rot, o) },
+
+  { id: "colonnade", name: "Temple city: colonnade", needs: ["SM_temple_column", "SM_temple_column_02", "SM_beam_02", "SM_fabric_decoration_03", "SM_light"],
+    opts: [SEL("n", "Columns", [3, 4, 5, 6, 7, 8, 10], 5, true), SEL("rows", "Rows", [[1, "1 row"], [2, "2 rows (roofless walk)"]], 1, true), CHK("banners", "Blue banners between columns", true), CHK("lamps", "Hanging lamps", false), CHK("coll", "Colliders", true)],
+    layout: (cx, cz, rot, o) => { const n = o.n, L = (n - 1) * 5, zs = o.rows === 2 ? [-3, 3] : [0];
+      return pfRun(cx, cz, rot, rect(L + 2.4, o.rows === 2 ? 8 : 2.6), ({ put, block, glow }) => {
+        for (const z of zs) for (let i = 0; i < n; i++) {
+          const x = (i - (n - 1) / 2) * 5; put(i % 2 ? "SM_temple_column_02" : "SM_temple_column", x, z, 0, 0, 0.62); if (o.coll) block(x, z, 1.4, 1.4);
+          if (i < n - 1) { put("SM_beam_02", x + 2.5, z, 90, 7.9, 1); if (o.banners && !o.lamps) put("SM_fabric_decoration_03", x + 2.5, z - 0.6, 0, 0.4, 0.25); if (o.lamps) { put("SM_light", x + 2.5, z, 0, 2.9, 1.6); glow(x + 2.5, z, 3); } }
+        }
+        if (o.rows === 2) for (let i = 0; i < n; i++) put("SM_beam_02", (i - (n - 1) / 2) * 5, 0, 0, 7.9, 1.2);                    // cross beams, 5 m x 1.2 = 6 m span
+      }); } },
+
+  { id: "temple", name: "Temple city: columned temple", needs: ["SM_temple_column", "SM_temple_column_02", "SM_beam_02", "SM_temple_roof_prefab_01", "SM_temple_roof_prefab_02", "SM_carpet_thin", "SM_Brasero_02", "SM_fabric_decoration_03"],
+    opts: [SEL("size", "Size", [[0.3, "small (7.8 x 12 m)"], [0.42, "medium (10.9 x 17 m)"], [0.55, "large (14 x 22 m)"]], 0.42, true), SEL("roofv", "Roof", [[1, "tiled"], [2, "tall tiled"]], 1, true),
+      CHK("carpet", "Carpet to the entrance", true), CHK("braz", "Braziers at the steps", true), CHK("banners", "Banners on the front", true), CHK("coll", "Column colliders", true)],
+    layout: (cx, cz, rot, o) => { const s = o.size, W = 26 * s, D = 40.77 * s, k = 1.48 * s, colH = 13.04 * k, inset = 1.0;
+      const hw = W / 2 - inset, hd = D / 2 - inset, nx = Math.max(2, Math.round(2 * hw / 4.5) + 1), nz = Math.max(2, Math.round(2 * hd / 4.5) + 1), sx = 2 * hw / (nx - 1), sz = 2 * hd / (nz - 1);
+      return pfRun(cx, cz, rot, rect(W, D), ({ put, block, glow }) => {
+        const col = (x, z, i) => { put(i % 2 ? "SM_temple_column_02" : "SM_temple_column", x, z, 0, 0, k); if (o.coll) block(x, z, 1.4 * k / 0.62, 1.4 * k / 0.62); };
+        for (let i = 0; i < nx; i++) { const x = -hw + i * sx; col(x, hd, i); col(x, -hd, i + 1); if (i < nx - 1) { put("SM_beam_02", x + sx / 2, hd, 90, colH * 0.978, sx / 5); put("SM_beam_02", x + sx / 2, -hd, 90, colH * 0.978, sx / 5); } }
+        for (let j = 1; j < nz - 1; j++) { const z = -hd + j * sz; col(-hw, z, j); col(hw, z, j); }
+        for (let j = 0; j < nz - 1; j++) { const z = -hd + j * sz + sz / 2; put("SM_beam_02", -hw, z, 0, colH * 0.978, sz / 5); put("SM_beam_02", hw, z, 0, colH * 0.978, sz / 5); }
+        put(o.roofv === 2 ? "SM_temple_roof_prefab_02" : "SM_temple_roof_prefab_01", 0, 0, 90, colH * 0.995, s);                                     // ridge along local z, gable faces the front
+        if (o.carpet) put("SM_carpet_thin", 0, 0, 90, 0.05, D * 0.8 / 10.08);
+        if (o.braz) for (const sg of [-1, 1]) { put("SM_Brasero_02", sg * (hw - 0.6), hd + 1.8, 0, 0, 0.09); block(sg * (hw - 0.6), hd + 1.8, 0.8, 0.8); glow(sg * (hw - 0.6), hd + 1.8, 3); }
+        if (o.banners) for (let i = 0; i < nx - 1; i++) put("SM_fabric_decoration_03", -hw + i * sx + sx / 2, hd - 0.6, 0, 0.4, 0.25 * k / 0.62);
+      }); } },
+
+  { id: "stall", name: "Temple city: market stall", needs: ["SM_market_tent_01", "SM_market_tent_02", "SM_market_tent_03", "Sm_table_01", "SM_crate_01", "SM_basket_01", "SM_Apple_crate", "SM_merchandise_bag_01"],
+    opts: [SEL("tent", "Tent", [[1, "tent 1 (long)"], [2, "tent 2 (long, wide)"], [3, "tent 3 (short)"]], 2, true), SEL("goods", "Goods", [["fruit", "crate, basket, apples"], ["bags", "bags and crates"], ["none", "none"]], "fruit"), CHK("table", "Counter table", true), CHK("coll", "Collider", true)],
+    layout: (cx, cz, rot, o) => { const len = [8.81, 9.63, 4.37][o.tent - 1] * 1.15, w = [4.85, 5.07, 4.76][o.tent - 1] * 1.15, gz = Math.min(3.6, len / 2 - 1.0);
+      return pfRun(cx, cz, rot, rect(w + 0.6, len), ({ put, block }) => {
+        put("SM_market_tent_0" + o.tent, 0, 0, 0, 0, 1.15);
+        if (o.table) put("Sm_table_01", 0, gz - 1.4, 90, 0, 1.2);
+        if (o.goods === "fruit") { put("SM_crate_01", 0, gz, 0, 0, 1.8); put("SM_basket_01", -2.6, gz - 0.2, 0, 0, 1.8); put("SM_Apple_crate", 2.6, gz - 0.2, 0, 0, 1.9); }
+        else if (o.goods === "bags") { put("SM_merchandise_bag_01", -2.2, gz, 20, 0, 2.0); put("SM_merchandise_bag_01", 2.0, gz - 0.3, 0, 0, 2.0); put("SM_crate_01", 0.2, gz, 10, 0, 1.8); }
+        if (o.coll) block(0, 0, 6.4, len * 0.87);
+      }); } },
+
+  { id: "gate", name: "Temple city: gate arch", needs: ["SM_arc_entrance", "SM_fire_tower_04", "SM_Brasero_02"],
+    opts: [SEL("sc", "Size", [[0.3, "small (opening 2.5 m)"], [0.35, "medium (opening 3 m)"], [0.45, "large (opening 3.8 m)"]], 0.35, true), SEL("tow", "Pillar height", [[0.12, "short (9.5 m)"], [0.16, "medium (12.7 m)"], [0.22, "tall (17 m)"]], 0.16, true), CHK("towers", "Flanking pillars", true), CHK("braz", "Braziers", true), CHK("coll", "Colliders", true)],
+    layout: (cx, cz, rot, o) => { const sc = o.sc, span = 19.69 * sc, th = 7.32 * sc, px = 6.76 * sc, tx = span / 2 + 2.8;
+      return pfRun(cx, cz, rot, rect(o.towers ? 2 * tx + 4.4 : span, Math.max(th, 3)), ({ put, block, glow }) => {
+        put("SM_arc_entrance", 0, 0, 90, 0, sc);                                                                                    // passage runs along local z
+        if (o.coll) for (const sg of [-1, 1]) block(sg * px, 0, 5.4 * sc, th * 0.95);
+        if (o.towers) for (const sg of [-1, 1]) { put("SM_fire_tower_04", sg * tx, 0, 0, 0, o.tow); if (o.coll) block(sg * tx, 0, 19.5 * o.tow * 0.55, 19.5 * o.tow * 0.55); }
+        if (o.braz) for (const sg of [-1, 1]) { put("SM_Brasero_02", sg * (px + 0.6), th / 2 + 1.4, 0, 0, 0.09); if (o.coll) block(sg * (px + 0.6), th / 2 + 1.4, 0.8, 0.8); glow(sg * (px + 0.6), th / 2 + 1.4, 3); }
+      }); } },
+
+  { id: "avenue", name: "Temple city: torch avenue", needs: ["SM_Brasero_02", "SM_vase_01"],
+    opts: [SEL("n", "Pairs", [2, 3, 4, 5, 6, 8, 10], 4, true), SEL("gap", "Spacing", [[4, "4 m"], [6, "6 m"], [8, "8 m"]], 6, true), SEL("half", "Half width", [[2.5, "2.5 m"], [3.5, "3.5 m"], [5.5, "5.5 m"]], 3.5, true),
+      SEL("item", "Item", [["brazier", "brazier"], ["vase", "vase"], ["mixed", "brazier + vase"]], "brazier"), SEL("side", "Sides", [["both", "both"], ["left", "left"], ["right", "right"]], "both"), CHK("coll", "Colliders", true)],
+    layout: (cx, cz, rot, o) => { const L = (o.n - 1) * o.gap, sides = o.side === "both" ? [-1, 1] : o.side === "left" ? [-1] : [1];
+      return pfRun(cx, cz, rot, rect(2 * o.half + 1.6, L + 1.6), ({ put, block, glow }) => {
+        for (const sg of sides) for (let i = 0; i < o.n; i++) {
+          const x = sg * o.half, z = -L / 2 + i * o.gap;
+          if (o.item === "brazier" || (o.item === "mixed" && i % 2 === 0)) { put("SM_Brasero_02", x, z, 0, 0, 0.09); glow(x, z, 3); if (o.coll) block(x, z, 0.8, 0.8); }
+          else { put("SM_vase_01", x, z, 0, 0, 2.2); if (o.coll) block(x, z, 1.0, 1.0); }
+        }
+      }); } },
+
+  { id: "garden", name: "Temple city: garden plot", needs: ["SM_garden_8x8", "SM_garden_12x12", "SM_circular_terrace_02", "SM_bush_01", "SM_bush_02", "SM_flowers_01"],
+    opts: [SEL("plot", "Plot", [[8, "8 x 8 m"], [12, "12 x 12 m"]], 8, true), CHK("gazebo", "Domed gazebo in the middle", true), CHK("bush", "Bushes", true), CHK("flow", "Flower patches", true), CHK("coll", "Block the lawn", true)],
+    layout: (cx, cz, rot, o) => { const p = o.plot, r = pfRand(7 + p);
+      return pfRun(cx, cz, rot, rect(p, p), ({ put, block }) => {
+        put(p === 12 ? "SM_garden_12x12" : "SM_garden_8x8", 0, 0, 0, 0, 1);
+        if (o.gazebo) put("SM_circular_terrace_02", 0, 0, 0, 0.2, p === 12 ? 1.4 : 0.95);
+        const gz = o.gazebo ? (p === 12 ? 4.4 : 3.1) : 0, h2 = p / 2 - 1.1;
+        if (o.bush) { const sp = [[-h2, -h2], [h2, -h2], [-h2, h2], [h2, h2]]; if (p === 12) sp.push([0, -h2], [-h2, 0], [h2, 0]); for (const [bx, bz] of sp) put("SM_bush_0" + (1 + Math.floor(r() * 2)), bx + (r() - 0.5) * 0.8, bz + (r() - 0.5) * 0.8, r() * 360, 0.2, 0.8 + r() * 0.3); }
+        if (o.flow) for (let i = 0, t = 0; i < (p === 12 ? 24 : 12) && t < 200; t++) { const x = (r() - 0.5) * (p - 1.5), z = (r() - 0.5) * (p - 1.5); if (Math.hypot(x, z) < gz + 0.6) continue; put("SM_flowers_01", x, z, r() * 360, 0.2, 6); i++; }
+        if (o.coll) block(0, 0, p, p);
+      }); } },
+
+  { id: "shrine", name: "Temple city: domed shrine", needs: ["SM_brasero"],
+    opts: [SEL("sc", "Size", [[0.13, "small (5.9 m)"], [0.2, "large (9.1 m)"]], 0.13, true), CHK("glow", "Torch glow", true), CHK("coll", "Collider", true)],
+    layout: (cx, cz, rot, o) => { const w = 45.67 * o.sc;
+      return pfRun(cx, cz, rot, rect(w, w), ({ put, block, glow }) => { put("SM_brasero", 0, 0, 0, 0, o.sc); if (o.glow) glow(0, 0, w * 0.6); if (o.coll) block(0, 0, w * 0.4, w * 0.4); }); } },
+
+  { id: "building", name: "Temple city: closed building", needs: ["SM_wall_10x13", "SM_beam_02", "SM_temple_column", "SM_temple_column_02", "SM_temple_roof_prefab_01", "SM_temple_roof_prefab_02", "SM_Brasero_02"],
+    opts: [SEL("size", "Footprint", BLD_SIZES, "10x14"), SEL("h", "Wall height", [[4.5, "low (4.5 m)"], [6, "normal (6 m)"], [8, "tall (8 m)"]], 6, true), bldRoof, CHK("door", "Doorway (you can walk in)", true), SEL("dw", "Doorway width", [[2.4, "2.4 m"], [3.2, "3.2 m"], [4.4, "4.4 m"]], 3.2, true),
+      SEL("cols", "Columns", [["both", "corners + door"], ["corners", "corners"], ["door", "door"], ["none", "none"]], "both"), CHK("braz", "Braziers at the door", true), CHK("hide", "Roof hides when you are inside", true)],
+    layout: (cx, cz, rot, o) => { const [W, D] = String(o.size).split("x").map(Number);
+      return pfRun(cx, cz, rot, rect(W + 1.6, D + 1.6), (api) => bldShell(api, o)); } },
+
+  { id: "shop", name: "Temple city: shop with awning", needs: ["SM_wall_10x13", "SM_beam_02", "SM_temple_column", "SM_temple_column_02", "SM_temple_roof_prefab_01", "SM_temple_roof_prefab_02", "SM_Brasero_02", "SM_market_tent_03", "Sm_table_01", "SM_crate_01", "SM_basket_01", "SM_Apple_crate"],
+    opts: [SEL("size", "Footprint", BLD_SIZES.slice(0, 3), "10x14"), SEL("h", "Wall height", [[4.5, "low (4.5 m)"], [6, "normal (6 m)"]], 4.5, true), bldRoof, SEL("goods", "Goods", [["fruit", "crate, basket, apples"], ["none", "none"]], "fruit"), CHK("braz", "Braziers at the door", false), CHK("hide", "Roof hides when you are inside", true)],
+    layout: (cx, cz, rot, o) => { const [W, D] = String(o.size).split("x").map(Number), ex = 5.6, oo = Object.assign({}, o, { door: true, dw: 3.2, cols: "corners" });
+      return pfRun(cx, cz, rot, [[-W / 2 - 0.8, -D / 2 - 0.8], [W / 2 + 0.8, -D / 2 - 0.8], [W / 2 + 0.8, D / 2 + ex], [-W / 2 - 0.8, D / 2 + ex]], (api) => {
+        bldShell(api, oo); const { put, block } = api, tx = -(W / 4 + 1.0), tz = D / 2 + 3.0;
+        put("SM_market_tent_03", tx, tz, 0, 0, 1.15); block(tx, tz + 0.8, 2.4, 1.2);                                              // awning stall beside the doorway
+        put("Sm_table_01", tx, tz + 0.8, 90, 0, 1.2);
+        if (o.goods === "fruit") { put("SM_crate_01", tx - 1.3, tz + 1.5, 0, 0, 1.8); put("SM_basket_01", tx + 1.3, tz + 1.4, 0, 0, 1.8); put("SM_Apple_crate", tx, tz + 1.9, 0, 0, 1.9); }
+      }); } },
+
+  { id: "courtyard", name: "Temple city: walled courtyard", needs: ["SM_wall_10x13", "SM_beam_02", "SM_temple_column", "SM_temple_column_02", "SM_Brasero_02", "SM_garden_8x8", "SM_garden_12x12", "SM_bush_01", "SM_bush_02", "SM_flowers_01"],
+    opts: [SEL("size", "Yard", [["12x12", "12 x 12 m"], ["16x16", "16 x 16 m"], ["20x20", "20 x 20 m"], ["16x24", "16 x 24 m"]], "16x16"), SEL("h", "Wall height", [[3, "low (3 m)"], [4, "normal (4 m)"], [5.5, "tall (5.5 m)"]], 4, true), SEL("dw", "Gate width", [[3.2, "3.2 m"], [4.4, "4.4 m"], [6, "6 m"]], 4.4, true),
+      SEL("cols", "Columns", [["both", "corners + gate"], ["corners", "corners"], ["door", "gate"], ["none", "none"]], "both"), CHK("braz", "Braziers at the gate", true), CHK("garden", "Lawn, bushes and flowers inside", true)],
+    layout: (cx, cz, rot, o) => { const [W, D] = String(o.size).split("x").map(Number), r = pfRand(11 + W + D), oo = Object.assign({}, o, { door: true, roof: "none" });
+      return pfRun(cx, cz, rot, rect(W + 1.6, D + 1.6), (api) => {
+        bldShell(api, oo); const { put } = api;
+        if (o.garden) {
+          const g = Math.min(W, D) - 1.6 >= 12 ? 12 : 8, gz = -D / 2 + 0.8 + g / 2 + 0.6; put(g === 12 ? "SM_garden_12x12" : "SM_garden_8x8", 0, gz, 0, 0, 1);
+          for (const [bx, bz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) put("SM_bush_0" + (1 + Math.floor(r() * 2)), bx * (g / 2 - 1.1), gz + bz * (g / 2 - 1.1), r() * 360, 0.2, 0.8 + r() * 0.3);
+          for (let i = 0; i < 12; i++) put("SM_flowers_01", (r() - 0.5) * (g - 3), gz + (r() - 0.5) * (g - 3), r() * 360, 0.2, 6);
+        }
+      }); } },
+];
+const pfSpec = () => PREFABS.find((p) => p.id === curPrefab) || PREFABS[0];
+const pfStore = (p) => p.store || (pfStore[p.id] = pfStore[p.id] || Object.fromEntries(p.opts.map((q) => [q.key, q.def])));
+const pfMissing = (p) => (typeof p.needs === "function" ? p.needs() : p.needs.map((n) => GC + n + ".glb")).filter((u) => !modelList.some((m) => m.url === u));
+const houseAtHover = () => { const p = pfSpec(); return p.layout(snapv(hoverG[0], houseFree), snapv(hoverG[2], houseFree), placeRot, pfStore(p)); };
+function houseDown(gp, free) {
+  if (!gp) return;
+  if (scene.kit) { toast("The Prefab tool needs a scene without a kit prefix (e.g. island, outside)", "err"); return; }
+  const p = pfSpec(), miss = pfMissing(p); if (miss.length) { toast("Missing models: " + miss.map((u) => modelName(u)).join(", "), "err"); return; }
+  const o = pfStore(p), L = p.layout(snapv(gp[0], free), snapv(gp[2], free), placeRot, o);
+  checkpoint(); const out = [];
+  for (const q of L.pieces) { const it = addItem("piece", q); out.push({ type: "piece", uid: it.uid }); }
+  if (scene.kind === "hub" && o.coll !== false) for (const c of L.colliders) { const it = addItem("collider", c); out.push({ type: "collider", uid: it.uid }); }
+  if (scene.kind === "hub") for (const d of L.decals) { const it = addItem("decal", d); out.push({ type: "decal", uid: it.uid }); }
+  setSel(out); refreshUI(); scheduleDraw(); toast(`Placed ${p.name} (${L.pieces.length} pieces)`, "ok");
+}
+function drawHouseGhost() {
+  if (tool !== "house" || !hoverG || dragState || play) return; const L = houseAtHover(), y = L.by + 0.06, q = L.outline, ln4 = [];
+  for (let i = 0; i < q.length; i++) { const a = q[i], b = q[(i + 1) % q.length]; ln4.push(a[0], y, a[1], b[0], y, b[1]); }
+  flat(gl.LINES, ln4, [.4, 1, .6, .95]);
+  const [f0, f1] = L.arrow; flat(gl.LINES, [f0[0], y, f0[1], f1[0], y, f1[1]], [1, .9, .3, 1]);                       // door / entrance arrow
+}
+function syncHouseOpts() {
+  let b = $("#houseOpts"); if (!b) { b = h("div", { id: "houseOpts", class: "opts", style: "display:none;margin-top:6px" }); $("#tools").after(b); }
+  b.style.display = tool === "house" ? "" : "none"; if (tool !== "house") return;
+  const p = pfSpec(), o = pfStore(p), miss = pfMissing(p); b.innerHTML = "";
+  b.append(h("label", {}, "Prefab ", h("select", { onchange: (e) => { curPrefab = e.target.value; syncHouseOpts(); scheduleDraw(); } }, PREFABS.map((q) => h("option", { value: q.id, selected: q.id === curPrefab }, q.name)))));
+  for (const d of p.opts) {
+    if (d.type === "chk") { b.append(h("label", {}, h("input", { type: "checkbox", checked: !!o[d.key], onchange: (e) => { o[d.key] = e.target.checked; scheduleDraw(); } }), d.label)); continue; }
+    let vals = (typeof d.vals === "function" ? d.vals() : d.vals).map((v) => Array.isArray(v) ? v : [v, String(v)]);
+    if (!vals.some(([v]) => String(v) === String(o[d.key])) && vals.length) o[d.key] = d.num ? Number(vals[0][0]) : vals[0][0];
+    b.append(h("label", {}, d.label + " ", h("select", { onchange: (e) => { o[d.key] = d.num ? parseFloat(e.target.value) : e.target.value; scheduleDraw(); } }, vals.map(([v, t]) => h("option", { value: String(v), selected: String(v) === String(o[d.key]) }, t)))));
+  }
+  b.append(h("div", { class: "hint" }, miss.length ? "Missing models: " + miss.map((u) => modelName(u)).join(", ") : "Click to place · Q/E turn 90° (Alt = 15°) · arrow = entrance side"));
 }
 /* ============================== environments / backdrops ============================== */
 let imageList = [], musicList = [], previewAudio = null;

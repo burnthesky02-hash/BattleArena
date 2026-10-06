@@ -62,6 +62,10 @@ class PlayerCharacter:
     # hero's current max (gear and level changes move it).
     hp: Optional[int] = None
     mp: Optional[int] = None
+    # Story heroes only: True while the hero is temporarily out of the story party (for example Sera recovering in the
+    # Colosseum infirmary, cutscene action {type:"away"} -> hub_server /api/story/away). They stay in the roster with their
+    # level and gear; party.story_party_characters skips them until they are brought back.
+    away: bool = False
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
 
     def __post_init__(self):

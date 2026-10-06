@@ -46,7 +46,22 @@
     for (let i = 0; i < n; i++) { let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v & 0x8000) v -= 0x10000; h[i] = v / sc; }
     return { x0: T.x0, z0: T.z0, cell: T.cell, nx: T.nx, nz: T.nz, h };
   }
-  function gh(x, z) {
+  /* walk surfaces: scene.walk = [{x, z, w, d, rot, y, y1}] -- flat-topped boxes you can stand on (docks, bridges, platforms) that the heightmap does not know about.
+     (x, z) is the centre, w x d the footprint (w along local X, d along local Z) turned by rot degrees; the top is y, or runs from y at the local -Z edge
+     to y1 at the +Z edge (a ramp). Inside one, ground height = max(terrain, surface), so you can step on to it from the shore. */
+  function walkY(x, z, base) {
+    const W = S && S.walk; if (!W) return base;
+    for (let i = 0; i < W.length; i++) {
+      const s = W[i], dx = x - s.x, dz = z - s.z, a = (s.rot || 0) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+      const lx = dx * c - dz * sn, lz = dx * sn + dz * c;
+      if (Math.abs(lx) > s.w / 2 || Math.abs(lz) > s.d / 2) continue;
+      const y = s.y1 === undefined ? s.y : s.y + (s.y1 - s.y) * (lz / s.d + 0.5);
+      if (y > base) base = y;
+    }
+    return base;
+  }
+  function gh(x, z) { return walkY(x, z, ghTerrain(x, z)); }
+  function ghTerrain(x, z) {
     const T = S && S.terrain; if (!T) return 0;
     let fx = (x - T.x0) / T.cell, fz = (z - T.z0) / T.cell;
     fx = Math.max(0, Math.min(T.nx - 1.001, fx)); fz = Math.max(0, Math.min(T.nz - 1.001, fz));
@@ -340,7 +355,7 @@ void main(){
   function deformGroundMesh(mdl, def) {
     const T = def.terrain, E = decodeTerrain(T), B = decodeTerrain(Object.assign({}, T, { data: T.base })), p = def.pieces.find((q) => q[0] === T.mesh);
     if (!E || !B || !p) return;
-    const a = (p[3] || 0) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), sc = p[5] == null ? (def.tile || 4) : p[5], cell = T.cell;
+    const a = (p[3] || 0) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), sc = p[5] == null ? (def.tile || 4) : Array.isArray(p[5]) ? p[5][0] : p[5], cell = T.cell;
     const samp = (F, x, z) => {
       let fx = (x - T.x0) / cell, fz = (z - T.z0) / cell; fx = Math.max(0, Math.min(T.nx - 1.001, fx)); fz = Math.max(0, Math.min(T.nz - 1.001, fz));
       const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j, o = j * T.nx + i;
@@ -364,7 +379,7 @@ void main(){
       gl.deleteBuffer(e.g.vbo); gl.deleteBuffer(e.g.ibo); e.g = uploadObject(o);
     }
   }
-  function trs(x, y, z, rotDeg, s) { const a = rotDeg * Math.PI / 360; return window.B3DMap.mat4TRS([x, y, z], [0, Math.sin(a), 0, Math.cos(a)], [s, s, s]); }
+  function trs(x, y, z, rotDeg, s) { const a = rotDeg * Math.PI / 360; return window.B3DMap.mat4TRS([x, y, z], [0, Math.sin(a), 0, Math.cos(a)], Array.isArray(s) ? s : [s, s, s]); }   // s = number, or [sx, sy, sz] for a stretched piece
 
   /* ---------- scene ---------- */
   function loadImage(url) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error(url)); im.src = url; }); }
@@ -418,12 +433,12 @@ void main(){
       let ins = null;                                   // "I:x0,z0,x1,z1" = hidden while the player stands inside that rectangle (roofs of enterable buildings)
       if (typeof p[6] === "string" && p[6].slice(0, 2) === "I:") ins = p[6].slice(2).split(",").map(Number);
       else if (p[6] && !visible(pieceVis(p[6]), cleared)) continue;
-      const [name, x, z, rot, y, sc] = p, mdl = models[name], s = sc === undefined || sc === null ? T : sc, mm = trs(x, y || 0, z, rot || 0, s);
+      const [name, x, z, rot, y, sc] = p, mdl = models[name], sv = Array.isArray(sc) ? sc : (sc === undefined || sc === null ? T : sc), sx = Array.isArray(sv) ? sv[0] : sv, s = Array.isArray(sv) ? sv[1] : sv, sz = Array.isArray(sv) ? sv[2] : sv, mm = trs(x, y || 0, z, rot || 0, sv);
       for (const { g, o } of mdl.gpu) {
         const lo = o.min, hi = o.max, cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2;
         const c = [mm[0] * cx + mm[8] * cz + mm[12], (lo[1] + hi[1]) / 2 * s + (y || 0), mm[2] * cx + mm[10] * cz + mm[14]];
         const m = o.material;
-        items.push({ g, mat: m, inside: ins, model: new Float32Array(mm), lo, hi, sc: s, inv: affInv(mm), bot: lo[1] * s + (y || 0), center: c, top: hi[1] * s + (y || 0), rad: Math.max(hi[0] - lo[0], hi[2] - lo[2]) * s / 2,
+        items.push({ g, mat: m, inside: ins, model: new Float32Array(mm), lo, hi, sc: Math.max(sx, sz), inv: affInv(mm), bot: lo[1] * s + (y || 0), center: c, top: hi[1] * s + (y || 0), rad: Math.max((hi[0] - lo[0]) * sx, (hi[2] - lo[2]) * sz) / 2,
           tex: m.image >= 0 ? mdl.texs[m.image] : null, mode: m.alphaMode === "BLEND" ? 2 : m.alphaMode === "MASK" ? 1 : 0 });
       }
     }
@@ -459,7 +474,7 @@ void main(){
     const events = (def.events || []).filter((e) => visible(e, cleared)).map((e) => Object.assign({ w: 3, d: 3, trigger: "touch", inside: false, done: false }, e));
     const skyInfo = await buildSky(def.sky);
     let paint = null; if (def.terrain && def.terrain.paint && def.terrain.paint.data) { try { paint = await buildPaint(def.terrain, decodeTerrain(def.terrain)); } catch (err) { console.warn("terrain paint", err); } }
-    return { name, def, skyInfo, paint, items, npcs, events, sheets, stex, colliders, terrain: decodeTerrain(def.terrain), bounds: def.bounds || { minX: -24, maxX: 24, minZ: -16, maxZ: 16 },
+    return { name, def, skyInfo, paint, items, npcs, events, sheets, stex, colliders, terrain: decodeTerrain(def.terrain), walk: (def.walk || []).map((w) => Object.assign({}, w)), bounds: def.bounds || { minX: -24, maxX: 24, minZ: -16, maxZ: 16 },
       player: { x: def.spawn ? def.spawn.x : 0, z: def.spawn ? def.spawn.z : 8, face: "south", moving: false, t: 0, target: null, wantNpc: null, h: def.playerHeight || 2.3 } };
   }
 
@@ -473,7 +488,9 @@ void main(){
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
     const opaque = [], blend = [];
     const pp = S.player;
+    const cullD = S.def && S.def.cull;                                                          // scene.cull = metres: pieces farther than this from the player (plus their own radius) are skipped; they are fogged out anyway (big scenes like the Hollow Cave)
     for (const it of S.items) {
+      if (cullD) { const cx = it.center[0] - pp.x, cz = it.center[2] - pp.z, rr = cullD + it.rad; if (cx * cx + cz * cz > rr * rr) continue; }
       if (it.inside && pp.x > it.inside[0] && pp.x < it.inside[2] && pp.z > it.inside[1] && pp.z < it.inside[3]) continue;
       (it.mode === 2 ? blend : opaque).push(it);
     }
@@ -878,6 +895,15 @@ void main(){
       if (a.type === "chest") { script.waiting = true; restParty("/api/story/chest", { loot: a.loot || {}, text: a.text || "" }); return; }
       if (a.type === "game") { script.waiting = true; restParty("/api/story/game", { game: a.game, stake: a.stake || 0 }); return; }   // fish | dice (server rolls it)
       if (a.type === "recruit") { script.waiting = true; restParty("/api/story/recruit", { name: a.name }); return; }
+      if (a.type === "away") {                                                                                 // {name, away:true|false}: a story hero leaves / rejoins the party (Sera in the infirmary)
+        const sc = script; script.waiting = true; script.lock = true;
+        fetch("/api/story/away", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: a.name, away: a.away !== false }) }).then((r) => r.json()).catch(() => ({})).then((r) => {
+          if (O && O.refresh) O.refresh();
+          sc.lock = false; sc.waiting = false;
+          if (script === sc) { if (r && r.message && a.away === false) { showSay("", r.message); sc.waiting = true; } else stepScript(); }
+        });
+        return;
+      }
       if (a.type === "pass_time") { script.waiting = true; restParty("/api/story/pass_time"); return; }
       if (a.type === "reset_progress") { resetCleared(a.prefix || ""); continue; }
       if (a.type === "unflag") { const c = getCleared(); if (a.key) c.delete(a.key); if (a.prefix) for (const k of [...c]) if (k.indexOf(a.prefix) === 0) c.delete(k); setCleared(c); script.dirty = true; continue; }
@@ -942,9 +968,8 @@ void main(){
       return S && S.name === "prison" ? `You are a slave of the Colosseum. Fight for the Overseer until you rise past Rank ${fr - 1} to win your freedom` + (r ? ` (you are Rank ${r}).` : ".") : "";
     }
     if (!c.has("st_quest")) return "Speak with Elder Mahina in the village.";
-    if (!c.has("st_found")) return "Find the missing villager, Lani, in the Hollow Cave (north of the village).";
-    if (!c.has("st_attack")) return "Leave the crypt.";
-    return "Defend the village!";
+    if (!c.has("st_sera")) return "Meet Sera, the healer waiting at the arch of the Hollow Cave (north of the village).";
+    return "Escort Sera through the Hollow Cave and out to the Colosseum.";
   }
   /* ---------- quest registry: html_hub/3d/quests.json (made by make_quests.py) ----------
      { quests: [{id, kind:"main"|"side", title, giver, where, summary, accept, ready, done, steps:[{if, unless, text, count}]}],
