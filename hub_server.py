@@ -1390,7 +1390,7 @@ class Handler(BaseHTTPRequestHandler):
             # Music/, SFX/, walking/ (the overworld's 4-direction walk-cycle sheets), and tilesets/
             # (the overworld's terrain art), and 3D/ (GLB models for the battle maps) live under the sibling Assets/ folder (capital A), not
             # data/ -- same generic static-file serving, just a different root for those subtrees.
-            root = ASSETS_DIR if rel.startswith(("Music/", "SFX/", "walking/", "tilesets/", "3D/", "Backgrounds/")) else DATA_DIR
+            root = ASSETS_DIR if rel.startswith(("Music/", "SFX/", "walking/", "tilesets/", "3D/", "Backgrounds/", "Terrain/")) else DATA_DIR
             path = (root / rel).resolve()
             if root.resolve() not in path.parents or not path.is_file():
                 self._send_bytes(404, b"not found", "text/plain")

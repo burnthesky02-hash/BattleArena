@@ -65,6 +65,204 @@
    "name": "Tech floor",
    "url": "/assets/Terrain/tech_floor.jpg",
    "scale": 4
+  },
+  {
+   "id": "asteroid_ground_01_d",
+   "name": "Asteroid ground 01 (color)",
+   "url": "/assets/Terrain/asteroid_ground_01_d.jpg",
+   "scale": 6
+  },
+  {
+   "id": "asteroid_ground_01_n",
+   "name": "Asteroid ground 01 (normal map)",
+   "url": "/assets/Terrain/asteroid_ground_01_n.jpg",
+   "scale": 6
+  },
+  {
+   "id": "asteroid_ground_02_aorm",
+   "name": "Asteroid ground 02 (AO/rough map)",
+   "url": "/assets/Terrain/asteroid_ground_02_aorm.jpg",
+   "scale": 6
+  },
+  {
+   "id": "asteroid_ground_02_d",
+   "name": "Asteroid ground 02 (color)",
+   "url": "/assets/Terrain/asteroid_ground_02_d.jpg",
+   "scale": 6
+  },
+  {
+   "id": "asteroid_ground_02_n",
+   "name": "Asteroid ground 02 (normal map)",
+   "url": "/assets/Terrain/asteroid_ground_02_n.jpg",
+   "scale": 6
+  },
+  {
+   "id": "asteroid_sand_02_aorm",
+   "name": "Asteroid sand 02 (AO/rough map)",
+   "url": "/assets/Terrain/asteroid_sand_02_aorm.jpg",
+   "scale": 6
+  },
+  {
+   "id": "asteroid_sand_02_d",
+   "name": "Asteroid sand 02 (color)",
+   "url": "/assets/Terrain/asteroid_sand_02_d.jpg",
+   "scale": 6
+  },
+  {
+   "id": "asteroid_sand_02_n",
+   "name": "Asteroid sand 02 (normal map)",
+   "url": "/assets/Terrain/asteroid_sand_02_n.jpg",
+   "scale": 6
+  },
+  {
+   "id": "campcave_ground_02_aorm",
+   "name": "Cave Camp ground 02 (AO/rough map)",
+   "url": "/assets/Terrain/campcave_ground_02_aorm.jpg",
+   "scale": 6
+  },
+  {
+   "id": "campcave_ground_02_d",
+   "name": "Cave Camp ground 02 (color)",
+   "url": "/assets/Terrain/campcave_ground_02_d.jpg",
+   "scale": 6
+  },
+  {
+   "id": "paradise_beach_sand_aorm",
+   "name": "Paradise beach sand (AO/rough map)",
+   "url": "/assets/Terrain/paradise_beach_sand_aorm.jpg",
+   "scale": 6
+  },
+  {
+   "id": "paradise_beach_sand_d",
+   "name": "Paradise beach sand (color)",
+   "url": "/assets/Terrain/paradise_beach_sand_d.jpg",
+   "scale": 6
+  },
+  {
+   "id": "paradise_beach_sand_h",
+   "name": "Paradise beach sand (height map)",
+   "url": "/assets/Terrain/paradise_beach_sand_h.jpg",
+   "scale": 6
+  },
+  {
+   "id": "paradise_beach_sand_n",
+   "name": "Paradise beach sand (normal map)",
+   "url": "/assets/Terrain/paradise_beach_sand_n.jpg",
+   "scale": 6
+  },
+  {
+   "id": "paradise_ground_height",
+   "name": "Paradise ground (height map)",
+   "url": "/assets/Terrain/paradise_ground_height.jpg",
+   "scale": 6
+  },
+  {
+   "id": "paradise_sand_01_aorm",
+   "name": "Paradise sand 01 (AO/rough map)",
+   "url": "/assets/Terrain/paradise_sand_01_aorm.jpg",
+   "scale": 6
+  },
+  {
+   "id": "paradise_sand_01_d",
+   "name": "Paradise sand 01 (color)",
+   "url": "/assets/Terrain/paradise_sand_01_d.jpg",
+   "scale": 6
+  },
+  {
+   "id": "paradise_sand_01_n",
+   "name": "Paradise sand 01 (normal map)",
+   "url": "/assets/Terrain/paradise_sand_01_n.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_cliff_orm",
+   "name": "Stylized Cliff (AO/rough map)",
+   "url": "/assets/Terrain/stylized_cliff_orm.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_cliff_basecolor",
+   "name": "Stylized Cliff (color)",
+   "url": "/assets/Terrain/stylized_cliff_basecolor.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_cliff_normal",
+   "name": "Stylized Cliff (normal map)",
+   "url": "/assets/Terrain/stylized_cliff_normal.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_grass_field_c",
+   "name": "Stylized Grass Field (color)",
+   "url": "/assets/Terrain/stylized_grass_field_c.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_grass_field_n",
+   "name": "Stylized Grass Field (normal map)",
+   "url": "/assets/Terrain/stylized_grass_field_n.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_ground_c",
+   "name": "Stylized Ground (color)",
+   "url": "/assets/Terrain/stylized_ground_c.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_ground_n",
+   "name": "Stylized Ground (normal map)",
+   "url": "/assets/Terrain/stylized_ground_n.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_ground_orm",
+   "name": "Stylized Ground (AO/rough map)",
+   "url": "/assets/Terrain/stylized_ground_orm.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_sand_orm",
+   "name": "Stylized Sand (AO/rough map)",
+   "url": "/assets/Terrain/stylized_sand_orm.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_sand_basecolor",
+   "name": "Stylized Sand (color)",
+   "url": "/assets/Terrain/stylized_sand_basecolor.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_sand_normal",
+   "name": "Stylized Sand (normal map)",
+   "url": "/assets/Terrain/stylized_sand_normal.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_stone_ground_c",
+   "name": "Stylized Stone Ground (color)",
+   "url": "/assets/Terrain/stylized_stone_ground_c.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_stone_ground_n",
+   "name": "Stylized Stone Ground (normal map)",
+   "url": "/assets/Terrain/stylized_stone_ground_n.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_stone_ground_orm",
+   "name": "Stylized Stone Ground (AO/rough map)",
+   "url": "/assets/Terrain/stylized_stone_ground_orm.jpg",
+   "scale": 6
+  },
+  {
+   "id": "stylized_wheat_c",
+   "name": "Stylized Wheat (color)",
+   "url": "/assets/Terrain/stylized_wheat_c.jpg",
+   "scale": 6
   }
  ]
 }
