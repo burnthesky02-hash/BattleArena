@@ -1151,6 +1151,9 @@ def _action_from_message(actor_id: str, msg: dict) -> Action:
 _fish = {"tokens": 6.0, "t": 0.0}
 
 
+_bot_seen: Dict[str, int] = {}     # playtest bot: highest log line number already written per run (see _handle_bot_endpoint)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print("[hub_server:http]", fmt % args)
@@ -1291,6 +1294,9 @@ class Handler(BaseHTTPRequestHandler):
         if route_path.startswith("/hub3d/"):
             # 3D colosseum plaza: html_hub/3d/ (hub3d.js, plaza.json, sprites.json, npc/*.webp)
             rel = unquote(route_path[len("/hub3d/"):])
+            if rel == "playtest_bot.js" and not config.DEBUG:        # the playtest bot exists only in debug mode
+                self._send_bytes(404, b"not found", "text/plain")
+                return
             base = (HTML_DIR / "3d").resolve()
             fp = (base / rel).resolve()
             ctype = {".js": "application/javascript", ".json": "application/json", ".webp": "image/webp",
@@ -1418,6 +1424,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/debug/act" and config.DEBUG:
             self._handle_debug_act()
             return
+        if self.path in ("/api/debug/bot_log", "/api/debug/bot_backup") and config.DEBUG:
+            self._handle_bot_endpoint(self.path)
+            return
         if self.path == "/api/action":
             self._handle_hub_action()
         elif self.path == "/api/heroes/upgrade_star":
@@ -1502,6 +1511,45 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_builder_save_palette()
         else:
             self._send_bytes(404, b"not found", "text/plain")
+
+    def _handle_bot_endpoint(self, path: str) -> None:
+        """Debug-only playtest bot (html_hub/3d/playtest_bot.js): bot_log appends its log lines to saves/playtest_log.jsonl and
+        writes its report to saves/playtest_live_report.md; bot_backup copies the current save aside before a fresh run."""
+        import shutil
+        msg = self._read_json_body()
+        out_dir = Path(save_system.SAVE_DIR)
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            if path.endswith("bot_backup"):
+                with _state_lock:
+                    save_system.save_game(player_state)              # make sure the file is current before copying it
+                dest = out_dir / ("playtest_backup_" + time.strftime("%Y%m%d_%H%M%S"))
+                dest.mkdir(parents=True, exist_ok=True)
+                for f in out_dir.iterdir():
+                    if f.is_file() and not f.name.startswith("playtest_"):
+                        shutil.copy2(f, dest / f.name)
+                self._send_json(200, {"ok": True, "path": str(dest)})
+                return
+            run_id = str(msg.get("run") or "")
+            lines = []
+            for l in (msg.get("lines") or [])[:300]:                 # a page change can make the bot resend lines: keep each once
+                n = l.get("n") if isinstance(l, dict) else None
+                if isinstance(n, int) and n <= _bot_seen.get(run_id, 0):
+                    continue
+                if isinstance(l, dict):
+                    lines.append(l)
+                    if isinstance(n, int):
+                        _bot_seen[run_id] = n
+            if lines:
+                with open(out_dir / "playtest_log.jsonl", "a", encoding="utf-8") as fh:
+                    for l in lines:
+                        fh.write(json.dumps(l, ensure_ascii=False) + "\n")
+            report = msg.get("report")
+            if isinstance(report, str) and report:
+                (out_dir / "playtest_live_report.md").write_text(report[:400000], encoding="utf-8")
+            self._send_json(200, {"ok": True, "lines": len(lines)})
+        except OSError as e:
+            self._send_json(200, {"ok": False, "message": str(e)})
 
     def _handle_debug_act(self) -> None:
         global pending_ladder, pending_hub3d, last_hub_battle, pending_challenge, debug_battle, story_slave, pending_world_level, pending_world_boss, pending_world_encounter

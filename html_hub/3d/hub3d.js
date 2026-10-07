@@ -1353,6 +1353,10 @@ void main(){
   H3.isStory = () => !!(S && S.def && S.def.story);   // story scene: the hub shows the story party, not the Colosseum one
   H3.onState = function (s) {
     state = s;
+    if (s && s.debug && !window.__ptBotLoad) {                     // debug mode only: load the playtest bot (the server refuses to serve it otherwise)
+      window.__ptBotLoad = true;
+      const sc = document.createElement("script"); sc.src = "/hub3d/playtest_bot.js"; document.head.appendChild(sc);
+    }
     if (!S) return;
     if (autorunPending) { autorunPending = false; runAutorun(); }
     renderQuest();
@@ -1562,6 +1566,15 @@ void main(){
     let saved = null; try { saved = localStorage.getItem("hubView"); } catch (e) {}
     const want = q.get("view") === "2d" || q.get("view") === "3d" ? q.get("view") : (saved || "3d");
     H3.setOn(want !== "2d");
+  };
+  /* Debug-only hooks for the playtest bot (html_hub/3d/playtest_bot.js). Returns null unless the server runs with --debug. */
+  H3.botApi = function () {
+    if (!state || !state.debug) return null;
+    return {
+      S: () => S, script: () => script, state: () => state, cleared: getCleared, setCleared, has, condOk, visible, interact, run: runActions,
+      advance: advanceScript, skip: skipCine, switchScene, startBattle, findPath, stepEvents, primeEvents, modalOpen, endAmbush,
+      encounter: encounterStep, say: () => sayEl, hudLoaded: () => !!(hudEls.load && hudEls.load.classList.contains("done")),
+    };
   };
   H3.debug = { cam, setGoal, findPath, walkN: (n) => { for (let i = 0; i < n; i++) stepPlayer(0.05); }, camStep: (n) => { for (let i = 0; i < n; i++) updateCamera(0.05); }, project, groundAt, scene: () => S, say, interact: (id) => { const n = S.npcs.find((q) => q.id === id); if (n) interact(n); }, cineStep: (sec) => { for (let t = 0; t < sec; t += 0.05) stepCine(0.05); } };
 })();

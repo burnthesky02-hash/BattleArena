@@ -1260,6 +1260,10 @@ function setDebugUi(on) {
   document.getElementById("log-panel").classList.toggle("dbg", on);
   document.getElementById("log-toggle").style.display = on ? "block" : "none";
   document.getElementById("dbg-auto-btn").style.display = on ? "block" : "none";
+  if (on && !window.__ptBotLoad) {                 // debug mode only: the playtest bot also drives this page (clicks through dialogue / results)
+    window.__ptBotLoad = true;
+    const sc = document.createElement("script"); sc.src = "/hub3d/playtest_bot.js"; document.head.appendChild(sc);
+  }
   if (on) {                                   // the bot setting survives from fight to fight (each fight reloads this page)
     let want = false;
     try { want = sessionStorage.getItem("dbgAuto") === "1"; } catch (e) {}
