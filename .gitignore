@@ -19,4 +19,5 @@ Thumbs.db
 #Raw Assets
 uassetconverter/
 
+*.log
 launcher.log

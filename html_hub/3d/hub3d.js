@@ -4,7 +4,7 @@
    own logic (currencies, party, ladder, navigation, tutorial, debug); this file only adds:
      - a WebGL canvas behind the DOM: Kenney GLB pieces for the town (see plaza.json), sprite billboards for the
        player (4-direction walk cycle) and the NPCs (idle sheets), blob shadows, floor glyph decals;
-     - walking (WASD / arrows, click-to-move), collision, an auto-follow camera (swings behind the direction of travel; drag only tilts) and wheel zoom;
+     - walking (WASD / arrows, click-to-move), collision, a manual camera (mouse drag orbits and tilts; A/D only strafe) and wheel zoom;
      - NPC interaction (E / Enter / Space, or click). Each NPC just triggers the hub's existing [data-action] control.
    Hub3D.init({ activate(action), sfx(url), SFX }) is called once by the page; Hub3D.onState(state) on every refresh.
    `?view=2d|3d` and localStorage `hubView` choose the view; if WebGL fails the page stays in its 2D layout. */
@@ -719,10 +719,6 @@ void main(){
       else if (!blocked(nx, p.z, R)) { p.x = nx; moved = true; }
       else if (!blocked(p.x, nz, R)) { p.z = nz; moved = true; }
       if (moved) encounterStep(Math.hypot(p.x - ox, p.z - oz));
-      if (moved && !cam.free && !(iy < 0)) {                               // auto-follow: swing the camera round behind the direction of travel (no manual yaw)
-        const want = Math.atan2(-mx, -mz) * 180 / Math.PI, d = ((want - cam.goalYaw) % 360 + 540) % 360 - 180, lim = 115 * dt;
-        cam.goalYaw += Math.max(-lim, Math.min(lim, d * 2.0 * dt));
-      }
       if (!moved && p.target && !keys.shift && (p.replans || 0) < 4) {             // wedged on something: plan again from here
         p.replans = (p.replans || 0) + 1; const goal = p.target.want || p.target, nw = p.wantNpc, rp = p.replans; setGoal(goal.x, goal.z, nw); p.replans = rp;
         if (p.target && p.path && p.path.length) moved = true;
@@ -1502,7 +1498,7 @@ void main(){
     window.addEventListener("pointermove", (e) => {
       if (!drag || script) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
-      if (drag.moved) { cam.goalPitch = clamp(drag.pitch + dy * 0.15, 14, 62); }
+      if (drag.moved) { cam.goalPitch = clamp(drag.pitch + dy * 0.15, 14, 62); cam.goalYaw = drag.yaw - dx * 0.3; }
     });
     window.addEventListener("pointerup", (e) => {
       if (!drag) return; const d = drag; drag = null;
