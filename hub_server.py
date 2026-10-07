@@ -2562,6 +2562,8 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
                 from_world = True
             if from_world and not slave_fight:
                 party = party_logic.story_party_characters(player_state) or party     # outside the Colosseum the story heroes fight
+        if challenge_boss is not None and getattr(challenge_boss, "tutorial", False):
+            party = party[:1]       # Garrick's warm-up teaches one hero's menu: Kael alone
         edb = _resolved_equipment_db()
         with _state_lock:
             ldb = dict(player_state.legacy_instances)
@@ -2609,12 +2611,19 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
                     pc.hp = None
                     pc.mp = None
     bdef = getattr(setup, "_boss_def", None)   # set for scripted boss fights (see data/bosses.py)
-    pay_boss_rewards = bool(bdef) and (not dbg or bool(dbg.get("rewards")))
+    tutorial = bool(bdef) and bool(getattr(bdef, "tutorial", False)) and not dbg      # the guided warm-up (see data/bosses.WARMUP_GOBLIN)
+    if tutorial:
+        for h in heroes:
+            h.hp, h.mp = h.max_hp, h.max_mp                  # a fresh start; the real HP/MP are put back after the fight
+        outbound.put({"type": "tutorial", "on": True})        # the battle page switches its coach on
+    pay_boss_rewards = bool(bdef) and (not dbg or bool(dbg.get("rewards"))) and not tutorial
     # Debug battles stream every damage/heal calculation into the log; normal ones turn the hook off.
     formulas.calc_hook = ((lambda text: outbound.put({"type": "log", "message": text, "debug": True}))
                           if dbg else None)
     with _state_lock:
         inventory = ({k: 9 for k in ITEMS} if dbg else dict(player_state.inventory))  # debug: plenty of everything
+    if tutorial:
+        inventory["potion"] = max(inventory.get("potion", 0), 3)       # Garrick's practice potions (never saved: see sync_inventory)
     wins = 0
 
     def ladder_status() -> dict:
@@ -2625,7 +2634,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
                 "bonus": ladder_logic.REWARD_BONUS, "perks": ladder.summary()}
 
     def sync_inventory() -> None:
-        if dbg:
+        if dbg or tutorial:
             return
         # Items used in battle are gone for good, win or lose.
         with _state_lock:
@@ -2720,6 +2729,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             outbound.put({"type": "state", "state": _serialize_battle_state(engine_ref[0])})
 
     auto_ids = set()
+    dbg_kill_pending = [False]         # debug "Kill all" clicked (applied on the next tick, also if it was clicked during the intro dialogue)
     dbg_auto = [False]                 # debug-only full-player autoplay (game/debug_autoplay.py), toggled by the browser
     dbg_memo = debug_autoplay.new_memo()
     observe_ref = [None]     # set to the enemy AI's .observe once it is built (below)
@@ -2774,6 +2784,8 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             if msg.get("type") == "debug_auto" and config.DEBUG:
                 dbg_auto[0] = bool(msg.get("on"))
                 outbound.put({"type": "debug_auto", "on": dbg_auto[0]})
+            if msg.get("type") == "debug_kill_enemies" and config.DEBUG:
+                dbg_kill_pending[0] = True
 
     # ---- ATB plumbing --------------------------------------------------------------------------------------
     # The engine loop ticks in real time. Player input is read without blocking: `stash` holds inbound messages nobody
@@ -2785,7 +2797,22 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
     anim_seq = [0]
     tick_n = [0]
 
+    def dbg_kill_enemies() -> None:
+        e = engine_ref[0]
+        if config.DEBUG and e is not None and e.result == BattleResult.ONGOING:
+            for c in e.enemies:
+                if c.alive:
+                    c.take_damage(c.hp)
+                c.cast = None
+                c.atb_phase = "charging"
+            e.log("[debug] All enemies were defeated.")
+            e._check_result()
+            outbound.put({"type": "state", "state": _serialize_battle_state(e)})
+
     def pump_inbound() -> None:
+        if dbg_kill_pending[0] and engine_ref[0] is not None:
+            dbg_kill_pending[0] = False
+            dbg_kill_enemies()
         while True:
             try:
                 m = inbound.get_nowait()
@@ -2794,6 +2821,8 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             if m.get("type") == "atb_pause":
                 if engine_ref[0] is not None:
                     engine_ref[0].paused = bool(m.get("on"))
+            elif m.get("type") == "debug_kill_enemies":       # debug button: wipe the enemy side instantly (a win, as if they were beaten)
+                dbg_kill_pending[0] = True
             elif m.get("type") == "debug_auto":
                 if config.DEBUG:
                     dbg_auto[0] = bool(m.get("on"))
@@ -3038,7 +3067,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             # Carry what is left of everyone's HP/MP into the world. A downed hero is benched by the
             # wound system (game/legacy.py) and comes back whole, so they are stored as "full".
             with _state_lock:
-                if getattr(setup, "_hub3d", False) and result != BattleResult.VICTORY:
+                if tutorial or (getattr(setup, "_hub3d", False) and result != BattleResult.VICTORY):
                     # Lost a fight in a 3D scene: nothing is lost. The party goes back to how it was before the
                     # fight, and the page offers Retry Battle / Restart Dungeon (see html_battle/index.html).
                     for pc, (hp0, mp0) in zip(party, hub3d_snapshot):
@@ -3059,7 +3088,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             # Boss fights: no win-streak pot. First clear pays big (tracked in the save), rematches pay less.
             if result == BattleResult.VICTORY:
                 with _state_lock:
-                    first_clear = bdef.id not in player_state.cleared_bosses
+                    first_clear = bdef.id not in player_state.cleared_bosses and not tutorial
                 this_win = dict(bdef.rewards_first if first_clear else bdef.rewards_repeat)
                 if from_world:      # outside the Colosseum: no summon tickets / equipment shards
                     this_tickets, this_shards = {}, 0
@@ -3171,7 +3200,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             ladder_info = ladder_status()
             if can_continue:
                 ladder_info["perk_choices"] = ladder.draw(heroes)
-        outbound.put({"type": "battle_end", "result": result.value,
+        outbound.put({"type": "battle_end", "result": result.value, "tutorial": tutorial,
                       "money": this_win["money"], "gems": this_win["gems"], "xp": this_win["xp"],
                       "pot": dict(pot), "win_streak": wins,
                       "tickets_won": this_tickets, "items_won": items_won, "pot_tickets": {k: v for k, v in pot_tickets.items() if v},

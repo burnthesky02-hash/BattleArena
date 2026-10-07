@@ -41,6 +41,7 @@
   .box { border:1px solid var(--line); border-radius:6px; padding:7px; margin:6px 0; background:#14170f; }
   .box .hd { display:flex; gap:5px; align-items:center; margin-bottom:5px; } .box .hd b { flex:1; color:var(--accent); font-size:12px; }
   .box .hd button { padding:1px 7px; } .row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:5px 0; } .hint { color:var(--dim); font-size:11px; margin:4px 0; line-height:1.35; }
+  .mrow.fol { background:#27431f; color:#d9ffd0; } .mrow.fol::before { content:"\2713  "; color:#8f8; }
   .olrow { padding:3px 6px; cursor:pointer; border-bottom:1px solid #1d2117; font-size:12px; display:flex; gap:6px; } .olrow:hover { background:#232919; } .olrow.sel { background:var(--sel); }
   .olrow i { font-style:normal; color:var(--dim); width:58px; flex:none; font-size:10px; text-transform:uppercase; padding-top:1px; }
   body.playing .side { pointer-events:none; opacity:.35; } body.playing #top button:not(#btnWalk), body.playing #top select { pointer-events:none; opacity:.4; }
@@ -87,8 +88,8 @@
     </div>
     <div id="stage"><div id="skyBg"></div><canvas id="gl"></canvas><canvas id="ov"></canvas><div id="loading">Loading…</div><div id="status"></div></div>
     <div id="right" class="side">
-      <div class="tabs"><button data-tab="insp" class="on">Inspector</button><button data-tab="scene">Scene</button><button data-tab="outl">Outliner</button></div>
-      <div class="pane show" id="p-insp"></div><div class="pane" id="p-scene"></div><div class="pane" id="p-outl"></div>
+      <div class="tabs"><button data-tab="insp" class="on">Inspector</button><button data-tab="scene">Scene</button><button data-tab="outl">Outliner</button><button data-tab="fol" id="tabFol" style="display:none">Mesh paint</button></div>
+      <div class="pane show" id="p-insp"></div><div class="pane" id="p-scene"></div><div class="pane" id="p-outl"></div><div class="pane" id="p-fol"></div>
     </div>
   </div>
 </div>
@@ -539,7 +540,8 @@ function draw() {
     flat(gl.LINES, circleLines(0, 3, 8, .03), [.3, .9, 1, .35]);
   }
   if (!tOnly && $("#vRef").checked) { const o = scene.kind === "hub" ? [scene.spawn.x + 1.5, scene.spawn.z] : [-12, 3], hh = scene.kind === "hub" ? (scene.playerHeight || 2.4) : 3.5; flat(gl.LINES, boxEdges([o[0] - .35, 0, o[1] - .2], [o[0] + .35, hh, o[1] + .2]), [1, 1, .4, .9]); }
-  if (tool === "terrain" && terrBrush && !play) drawTerrBrush();
+  if (tool === "terrain" && !play) { if (terrOpts.mode === "ramp") { if (dragState && dragState.mode === "ramp") drawRampGhost(dragState); else if (terrBrush) drawRampCursor(); } else if (terrBrush) drawTerrBrush(); }
+  if (tool === "foliage" && folBrush && !play) drawFolBrush();
   if (ghostRect) { const g = ghostRect, x0 = Math.min(g.x0, g.x1), x1 = Math.max(g.x0, g.x1), z0 = Math.min(g.z0, g.z1), z1 = Math.max(g.z0, g.z1); flat(gl.TRIANGLES, rectTris(x0, z0, x1, z1, .09), [1, 1, .4, .25]); flat(gl.LINES, boxEdges([x0, .09, z0], [x1, .1, z1]), [1, 1, .4, 1]); }
   gl.depthMask(true);
   gl.disable(gl.DEPTH_TEST);
@@ -561,7 +563,8 @@ function draw() {
 }
 function updateStatus() {
   const hint = { select: "Click to select (what you click is what you see; Alt+click cycles through everything under the cursor) · Shift-click add/remove · drag empty space or Shift-drag for a box · drag to move · Q/E rotate · Ctrl+A all · Ctrl+C/V · Del",
-    house: "Pick a prefab in the options (house, temple, colonnade, stall, gate...) · click to drop it · Q/E turn it 90° (Alt = 15°) · Alt = no grid snap · Ctrl+Z undoes the whole prefab", line: lineHint(), place: "Click to place · Shift+drag to fill a rectangle with tiles · Q/E rotate the ghost", collider: "Drag a rectangle on the ground", bounds: "Drag a rectangle to set the walkable bounds", npc: "Click the ground to place an NPC", event: "Click the ground to place an event trigger", decal: "Click the ground to place a decal", spawn: "Click the ground to move the player spawn", terrain: "Drag on the ground to sculpt · Shift inverts raise/lower · [ ] brush size · Ctrl+Z undoes a stroke" }[tool] || "";
+    foliage: "Click models in the palette to add / remove them (you can pick several) · set the density in the Mesh paint tab · drag to paint · Shift+drag erases · [ ] brush size",
+    house: "Pick a prefab in the options (house, temple, colonnade, stall, gate...) · click to drop it · Q/E turn it 90° (Alt = 15°) · Alt = no grid snap · Ctrl+Z undoes the whole prefab", line: lineHint(), place: "Click to place · Shift+drag to fill a rectangle with tiles · Q/E rotate the ghost", collider: "Drag a rectangle on the ground", bounds: "Drag a rectangle to set the walkable bounds", npc: "Click the ground to place an NPC", event: "Click the ground to place an event trigger", decal: "Click the ground to place a decal", spawn: "Click the ground to move the player spawn", terrain: (terrOpts.mode === "ramp" ? "Ramp: press at the start of the path, drag, release at its end · Esc cancels · [ ] path width · Ctrl+Z undoes it" : "Drag on the ground to sculpt · Shift inverts raise/lower · [ ] brush size · Ctrl+Z undoes a stroke") }[tool] || "";
   const hv = hoverG ? `x ${r3(hoverG[0])}  z ${r3(hoverG[2])}` : "";
   $("#status").innerHTML = `<span>${hint}</span><span>${hv}</span><span>${scene ? scene.pieces.length + " pieces" + (scene.kind === "hub" ? ` · ${scene.npcs.length} NPCs · ${scene.events.length} events · ${scene.colliders.length} colliders` : "") : ""}</span>`;
 }
@@ -573,9 +576,10 @@ function mouse(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.
 function groundPt(e, y) { const [sx, sy] = mouse(e); return onPlane(rayAt(sx, sy), y || 0); }
 function uniqueId(base, arr) { let i = 1, id; do { id = base + "_" + i++; } while (arr.some((a) => a.id === id)); return id; }
 function setTool(t) {
-  tool = t; document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === t)); ghostRect = null; if (tool !== "line" && typeof lineCancel === "function") lineCancel(); if (typeof syncLineOpts === "function") syncLineOpts(); if (typeof syncHouseOpts === "function") syncHouseOpts(); { const gm = $("#gizModes"); if (gm) gm.style.display = tool === "select" ? "" : "none"; } if (typeof syncTerrOpts === "function") syncTerrOpts(); terrBrush = null; scheduleDraw();
+  tool = t; document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === t)); ghostRect = null; if (tool !== "line" && typeof lineCancel === "function") lineCancel(); if (typeof syncLineOpts === "function") syncLineOpts(); if (typeof syncHouseOpts === "function") syncHouseOpts(); { const gm = $("#gizModes"); if (gm) gm.style.display = tool === "select" ? "" : "none"; } if (typeof syncTerrOpts === "function") syncTerrOpts(); terrBrush = null; folBrush = null; if (typeof syncFolOpts === "function") syncFolOpts(); scheduleDraw();
 }
 cv.addEventListener("contextmenu", (e) => e.preventDefault());
+cv.addEventListener("lostpointercapture", () => { if (dragState && dragState.mode === "fol") { dragState = null; folEnd(); } else if (dragState && dragState.mode === "ramp") { dragState = null; scheduleDraw(); } });
 cv.addEventListener("pointerdown", (e) => {
   if (!scene) return; cv.focus(); cv.setPointerCapture(e.pointerId); const [sx, sy] = mouse(e);
   if (e.button === 1 || e.button === 2) { dragState = { mode: (e.button === 1 || e.shiftKey) ? "pan" : "orbit", x: e.clientX, y: e.clientY }; e.preventDefault(); return; }
@@ -603,6 +607,7 @@ cv.addEventListener("pointerdown", (e) => {
   } else if (tool === "line") { lineDown(e, gp, free);
   } else if (tool === "house") { houseDown(gp, free);
   } else if (tool === "terrain") { terrDown(e, sx, sy);
+  } else if (tool === "foliage") { folDown(e, sx, sy);
   } else if (tool === "collider" || tool === "bounds") {
     if (gp) { dragState = { mode: "rect", x0: snapv(gp[0], free), z0: snapv(gp[2], free) }; ghostRect = { x0: dragState.x0, z0: dragState.z0, x1: dragState.x0, z1: dragState.z0 }; }
   } else if (gp) {
@@ -623,6 +628,7 @@ cv.addEventListener("pointermove", (e) => {
   if (!scene) return;
   const hg = groundPt(e, 0); hoverG = hg;
   if (tool === "terrain" && !play && !(dragState && dragState.mode !== "terr")) { const [tx, ty] = mouse(e), t = terrRay(tx, ty); terrBrush = t ? { x: t[0], z: t[2] } : null; }
+  if (tool === "foliage" && !play && !(dragState && dragState.mode !== "fol")) { const [tx, ty] = mouse(e), t = terrRay(tx, ty); folBrush = t ? { x: t[0], z: t[2] } : null; }
   if (tool === "select" && !play && !dragState) { const [tx, ty] = mouse(e), gz = gizHit(tx, ty); if (gz !== gizHover) { gizHover = gz; cv.style.cursor = gz >= 0 ? "grab" : ""; } }
   if (dragState) {
     const d = dragState;
@@ -633,6 +639,7 @@ cv.addEventListener("pointermove", (e) => {
       cam.tx += (-rt[0] * dx + fw[0] * dy) * s; cam.tz += (-rt[2] * dx + fw[2] * dy) * s; d.x = e.clientX; d.y = e.clientY;
     } else if (d.mode === "move") {
       const g = groundPt(e, d.y); if (g) { const nx = snapv(g[0] + d.off[0], e.altKey), nz = snapv(g[2] + d.off[1], e.altKey), dx = nx - d.prim.ref.x, dz = nz - d.prim.ref.z; if (dx || dz) { if (!d.moved) { checkpoint(); d.moved = true; } moveGroup(d.items, dx, dz); refreshInspectorValues(); } }
+    } else if (d.mode === "ramp") { rampMove(e);
     } else if (d.mode === "marq") { const [mx, my] = mouse(e); marq.x1 = mx; marq.y1 = my;
     } else if ((d.mode === "fill" || d.mode === "rect") && hg) { ghostRect.x1 = snapv(hg[0], e.altKey); ghostRect.z1 = snapv(hg[2], e.altKey); }
   }
@@ -644,6 +651,8 @@ cv.addEventListener("pointerup", (e) => {
   const d = dragState; dragState = null; if (!d) return;
   if (d.mode === "gizmo") { gizHover = -1; if (d.moved) refreshOutliner(); }
   if (d.mode === "terr") terrEnd();
+  if (d.mode === "ramp") rampEnd(d);
+  if (d.mode === "fol") folEnd();
   if (d.mode === "pclick") { if (play && !play.script && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) { const g = groundPt(e, 0), b = scene.bounds; if (g) play.p.target = { x: clamp(g[0], b.minX + 1, b.maxX - 1), z: clamp(g[2], b.minZ + 1, b.maxZ - 1) }; } return; }
   if (d.mode === "move") { if (d.moved) refreshOutliner(); else if (d.grp) selectItem(d.pk.type, d.pk.uid); }
   if (d.mode === "line") lineUp(e, d);
@@ -687,8 +696,10 @@ window.addEventListener("keydown", (e) => {
   if (ctrl && k.toLowerCase() === "a") { e.preventDefault(); selectMany(pickBoxes().filter((b) => b.type !== "spawn"), false); return; }
   if (ctrl && k.toLowerCase() === "c") { e.preventDefault(); copySel(); return; }
   if (ctrl && k.toLowerCase() === "v") { e.preventDefault(); pasteClip(hoverG ? [hoverG[0], hoverG[2]] : null); return; }
-  if (k === "Escape") { if (typeof lineCancel === "function" && lineActive()) lineCancel(); else if (marq) { marq = null; dragState = null; } else selectItem(null); scheduleDraw(); return; }
-  const tk = { 1: "select", 2: "place", 3: "collider", 4: "npc", 5: "event", 6: "decal", 7: "spawn", 8: "bounds", 9: "line", 0: "terrain", "-": "house" }[k]; if (tk) { setTool(tk); return; }
+  if (k === "Escape") { if (dragState && dragState.mode === "ramp") { dragState = null; scheduleDraw(); return; } if (typeof lineCancel === "function" && lineActive()) lineCancel(); else if (marq) { marq = null; dragState = null; } else selectItem(null); scheduleDraw(); return; }
+  const tk = { 1: "select", 2: "place", 3: "collider", 4: "npc", 5: "event", 6: "decal", 7: "spawn", 8: "bounds", 9: "line", 0: "terrain", "-": "house", "=": "foliage" }[k]; if (tk) { setTool(tk); return; }
+  if (tool === "foliage" && (k === "[" || k === "]")) { folOpts.radius = clamp(Math.round(folOpts.radius * (k === "]" ? 1.15 : 1 / 1.15) * 2) / 2, 1, 40); syncFolOpts(); scheduleDraw(); return; }
+  if (tool === "terrain" && terrOpts.mode === "ramp" && (k === "[" || k === "]")) { rampOpts.width = clamp(Math.round((rampOpts.width + (k === "]" ? 0.5 : -0.5)) * 2) / 2, 1, 24); syncTerrOpts(); scheduleDraw(); return; }
   if (tool === "terrain" && (k === "[" || k === "]")) { terrOpts.radius = clamp(terrOpts.radius * (k === "]" ? 1.15 : 1 / 1.15), 1, 40); terrOpts.radius = Math.round(terrOpts.radius * 2) / 2; syncTerrOpts(); scheduleDraw(); return; }
   if (k === "Delete" || k === "Backspace") { e.preventDefault(); removeSel(); return; }
   const lk = k.toLowerCase();
@@ -713,7 +724,7 @@ function frameScene() {
   cam.tx = (mnx + mxx) / 2; cam.tz = (mnz + mxz) / 2; cam.ty = 0; cam.dist = clamp(Math.max(mxx - mnx, mxz - mnz) * 1.3 + 10, 15, 250);
 }
 /* ============================== UI: palette, layers, tools ============================== */
-const TOOLS = [["select", "Select", "1"], ["place", "Place piece", "2"], ["collider", "Collider", "3"], ["npc", "NPC", "4"], ["event", "Event", "5"], ["decal", "Decal", "6"], ["spawn", "Spawn", "7"], ["bounds", "Bounds", "8"], ["line", "Wall line", "9"], ["house", "Prefab", "-"], ["terrain", "Terrain", "0"]];
+const TOOLS = [["select", "Select", "1"], ["place", "Place piece", "2"], ["collider", "Collider", "3"], ["npc", "NPC", "4"], ["event", "Event", "5"], ["decal", "Decal", "6"], ["spawn", "Spawn", "7"], ["bounds", "Bounds", "8"], ["line", "Wall line", "9"], ["house", "Prefab", "-"], ["terrain", "Terrain", "0"], ["foliage", "Mesh paint", "="]];
 function buildTools() {
   const box = $("#tools"); box.innerHTML = "";
   TOOLS.forEach(([id, label, key]) => box.append(h("button", { "data-tool": id, class: id === tool ? "on" : "", onclick: () => setTool(id) }, label, h("kbd", {}, key))));
@@ -726,7 +737,7 @@ function buildPalette() {
   const show = () => {
     const q = $("#mSearch").value.toLowerCase(), f = fs.value, box = $("#models"); box.innerHTML = "";
     const list = modelList.filter((m) => (!f || m.folder.startsWith(f)) && (!q || m.name.toLowerCase().includes(q) || m.folder.toLowerCase().includes(q))).slice(0, 400);
-    list.forEach((m) => box.append(h("div", { class: "mrow" + (curModel && curModel.url === m.url ? " cur" : ""), title: m.url, onclick: () => chooseModel(m) }, m.name, h("small", {}, m.folder.split("/").pop()))));
+    list.forEach((m) => box.append(h("div", { class: "mrow" + (curModel && curModel.url === m.url && tool !== "foliage" ? " cur" : "") + (tool === "foliage" && folHas(m.url) ? " fol" : ""), title: m.url, onclick: () => (tool === "foliage" ? folToggle(m) : chooseModel(m)) }, m.name, h("small", {}, m.folder.split("/").pop()))));
     if (!list.length) box.append(h("div", { class: "hint", style: "padding:8px" }, modelList.length ? "No matches." : "No .glb files found under Assets/3D."));
   };
   $("#mSearch").oninput = show; fs.onchange = show; buildPalette.show = show; show();
@@ -1095,6 +1106,7 @@ function terrCreate() {                                // a flat terrain over th
 }
 function terrDown(e, sx, sy) {
   if (scene.kind !== "hub") { toast("Terrain editing is only for hub scenes", "err"); return; }
+  if (terrOpts.mode === "ramp") { rampDown(sx, sy); return; }
   checkpoint();
   if (!TERR) terrCreate();
   const T = TERR.T; if (!T.base) T.base = T.data;
@@ -1125,6 +1137,80 @@ function terrApply(cx, cz, dt, inv) {
   }
   const pad = 2 * cell, bx = [cx - r - pad, cz - r - pad, cx + r + pad, cz + r + pad];
   terrDeform(bx); if (TERR.paint) terrOvFill(j0, j1); scheduleDraw();
+}
+/* ---- ramp / path: drag from A to B and the ground between them is levelled into a strip that slopes from A to B. The strip is `width` wide; `shoulder`
+   metres either side blend smoothly back into the surrounding terrain (so paths cut into hillsides and bank up across dips). The ends are rounded.
+   Slope: A -> B uses the terrain heights where you pressed / released, Level keeps A's height, Custom takes typed heights. Optionally paints a texture
+   layer along the strip. Nothing changes until you release; Esc cancels; the whole drag is one undo step. ---- */
+const rampOpts = { width: 4, edge: 3, slope: "ab", hA: 0, hB: 2, ease: false, paint: false };
+function rampHeights(a) { return rampOpts.slope === "level" ? [a[2], a[2]] : rampOpts.slope === "custom" ? [rampOpts.hA, rampOpts.hB] : null; }
+function rampEnds(a, b) { const f = rampHeights(a); return f || [a[2], b[2]]; }
+function rampSeg(px, pz, a, b) {                      // closest point of the A-B segment: [t along it (0..1), distance to it]
+  const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz; let t = L2 > 1e-9 ? ((px - a[0]) * dx + (pz - a[1]) * dz) / L2 : 0; t = clamp(t, 0, 1);
+  return [t, Math.hypot(px - (a[0] + dx * t), pz - (a[1] + dz * t))];
+}
+const rampEase = (t) => rampOpts.ease ? t * t * (3 - 2 * t) : t;
+const rampWt = (d, hw, edge) => { if (d <= hw) return 1; if (d >= hw + edge) return 0; const t = 1 - (d - hw) / edge; return t * t * (3 - 2 * t); };
+function rampApply(a, b) {
+  const T = TERR.T, H = TERR.h, cell = T.cell, hw = rampOpts.width / 2, edge = Math.max(0.01, rampOpts.edge), R = hw + edge, [hA, hB] = rampEnds(a, b);
+  const i0 = Math.max(0, Math.floor((Math.min(a[0], b[0]) - R - T.x0) / cell)), i1 = Math.min(T.nx - 1, Math.ceil((Math.max(a[0], b[0]) + R - T.x0) / cell));
+  const j0 = Math.max(0, Math.floor((Math.min(a[1], b[1]) - R - T.z0) / cell)), j1 = Math.min(T.nz - 1, Math.ceil((Math.max(a[1], b[1]) + R - T.z0) / cell));
+  if (i0 > i1 || j0 > j1) return;
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const [t, d] = rampSeg(T.x0 + i * cell, T.z0 + j * cell, a, b); if (d >= R) continue;
+    const o = j * T.nx + i, y = hA + (hB - hA) * rampEase(t);
+    H[o] = clamp(H[o] + (y - H[o]) * rampWt(d, hw, edge), -300, 300);
+  }
+  const pad = 2 * cell; terrDeform([T.x0 + i0 * cell - pad, T.z0 + j0 * cell - pad, T.x0 + i1 * cell + pad, T.z0 + j1 * cell + pad]); if (TERR.paint) terrOvFill(j0, j1);
+}
+function rampPaint(a, b) {
+  if (!TERR.paint) paintInit();
+  const P = TERR.paint, T = TERR.T, span = T.cell / P.res, hw = rampOpts.width / 2, edge = clamp(rampOpts.edge, 0.25, 1.5), R = hw + edge, Ls = terrOpts.layer, px = P.px;
+  const x0 = Math.max(0, Math.floor((Math.min(a[0], b[0]) - R - T.x0) / span - 0.5)), x1 = Math.min(P.w - 1, Math.ceil((Math.max(a[0], b[0]) + R - T.x0) / span));
+  const y0 = Math.max(0, Math.floor((Math.min(a[1], b[1]) - R - T.z0) / span - 0.5)), y1 = Math.min(P.h - 1, Math.ceil((Math.max(a[1], b[1]) + R - T.z0) / span));
+  if (x0 > x1 || y0 > y1) return;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const [, d] = rampSeg(T.x0 + (x + 0.5) * span, T.z0 + (y + 0.5) * span, a, b); if (d >= R) continue;
+    const w = rampWt(d, hw, edge), o = (y * P.w + x) * 4, v = [px[o] / 255, px[o + 1] / 255, px[o + 2] / 255, px[o + 3] / 255];
+    v[Ls] = Math.max(v[Ls], w); const tot = v[0] + v[1] + v[2] + v[3];
+    if (tot > 1) { const others = tot - v[Ls]; if (others > 1e-6) { const f = Math.max(0, 1 - v[Ls]) / others; for (let k = 0; k < 4; k++) if (k !== Ls) v[k] *= f; } }
+    for (let k = 0; k < 4; k++) px[o + k] = Math.round(v[k] * 255);
+  }
+  gl.bindTexture(gl.TEXTURE_2D, P.splat); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, y0, P.w, y1 - y0 + 1, gl.RGBA, gl.UNSIGNED_BYTE, px.subarray(y0 * P.w * 4, (y1 + 1) * P.w * 4));
+}
+function rampDown(sx, sy) {
+  const t = terrRay(sx, sy); if (!t) return;
+  dragState = { mode: "ramp", a: [t[0], t[2], t[1]], b: [t[0], t[2], t[1]] };
+}
+function rampMove(e) { const d = dragState, [mx, my] = mouse(e), t = terrRay(mx, my); if (t) d.b = [t[0], t[2], t[1]]; }
+function rampEnd(d) {
+  const a = d.a, b = d.b; scheduleDraw();
+  if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1) { toast("Drag a longer line: press at the start of the path, release at its end", "err"); return; }
+  checkpoint(); if (!TERR) terrCreate();
+  const T = TERR.T; if (!T.base) T.base = T.data; if (!T.mesh) { const mp = terrAutoMesh(); if (mp) T.mesh = serName(mp.model); }
+  const startH = Float32Array.from(TERR.h); rampApply(a, b);
+  if (rampOpts.paint) rampPaint(a, b);
+  terrCommit(startH); if (rampOpts.paint) paintCommit();
+  const [hA, hB] = rampEnds(a, b), len = Math.hypot(b[0] - a[0], b[1] - a[1]); toast("Ramp laid: " + len.toFixed(1) + " m, " + (hB - hA >= 0 ? "+" : "") + (hB - hA).toFixed(1) + " m rise (" + Math.round(Math.abs(hB - hA) / len * 100) + "% slope)", "ok");
+}
+function drawRampCursor() {
+  const cx = terrBrush.x, cz = terrBrush.z, hw = rampOpts.width / 2, ring = (rr) => { const o = []; for (let i = 0; i < 48; i++) { const p = i / 48 * 6.2832, q = (i + 1) / 48 * 6.2832, x1 = cx + Math.cos(p) * rr, z1 = cz + Math.sin(p) * rr, x2 = cx + Math.cos(q) * rr, z2 = cz + Math.sin(q) * rr; o.push(x1, terrH(x1, z1) + 0.15, z1, x2, terrH(x2, z2) + 0.15, z2); } return o; };
+  gl.disable(gl.DEPTH_TEST); flat(gl.LINES, ring(hw), [1, .85, .3, 1]); flat(gl.LINES, ring(hw + Math.max(0.01, rampOpts.edge)), [1, .85, .3, .35]);
+  const y = terrH(cx, cz) + 0.15; flat(gl.LINES, [cx - .6, y, cz, cx + .6, y, cz, cx, y, cz - .6, cx, y, cz + .6], [1, .85, .3, 1]); gl.enable(gl.DEPTH_TEST);
+}
+function drawRampGhost(d) {                           // the finished strip, drawn at its target heights so you can see where it cuts and fills
+  const a = d.a, b = d.b, dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz); const [hA, hB] = rampEnds(a, b);
+  const hw = rampOpts.width / 2, R = hw + Math.max(0.01, rampOpts.edge); gl.disable(gl.DEPTH_TEST);
+  if (len < 0.05) { flat(gl.LINES, [a[0] - .6, a[2] + .15, a[1], a[0] + .6, a[2] + .15, a[1], a[0], a[2] + .15, a[1] - .6, a[0], a[2] + .15, a[1] + .6], [1, .85, .3, 1]); gl.enable(gl.DEPTH_TEST); return; }
+  const ux = dx / len, uz = dz / len, nx = -uz, nz = ux, n = Math.max(2, Math.ceil(len)), C = [], E = [], S = [];
+  const pt = (k, off) => { const t = k / n, y = hA + (hB - hA) * rampEase(t) + 0.12; return [a[0] + dx * t + nx * off, y, a[1] + dz * t + nz * off]; };
+  for (let k = 0; k < n; k++) for (const [arr, off] of [[C, 0], [E, hw], [E, -hw], [S, R], [S, -R]]) arr.push(...pt(k, off), ...pt(k + 1, off));
+  flat(gl.LINES, C, [1, .85, .3, .9]); flat(gl.LINES, E, [.5, 1, .4, 1]); flat(gl.LINES, S, [.5, 1, .4, .3]);
+  flat(gl.LINES, [...pt(0, -hw), ...pt(0, hw), ...pt(n, -hw), ...pt(n, hw)], [.5, 1, .4, 1]);
+  gl.enable(gl.DEPTH_TEST);
+  const m = project([(a[0] + b[0]) / 2, (hA + hB) / 2 + 0.6, (a[1] + b[1]) / 2]);
+  if (m) { const txt = len.toFixed(1) + " m · " + (hB - hA >= 0 ? "+" : "") + (hB - hA).toFixed(1) + " m · " + Math.round(Math.abs(hB - hA) / len * 100) + "%"; g2.font = "12px sans-serif"; g2.textAlign = "center"; const w = g2.measureText(txt).width + 10; g2.fillStyle = "rgba(0,0,0,.7)"; g2.fillRect(m.x - w / 2, m.y - 14, w, 18); g2.fillStyle = "#ffe08a"; g2.fillText(txt, m.x, m.y - 1); }
 }
 function terrEnd() {
   const st = terrStroke; terrStroke = null; if (!st) return; clearInterval(st.timer);
@@ -1264,7 +1350,7 @@ function pickTexture(i) {
   $("#modal").classList.add("open");
 }
 function buildLayerUI() {
-  const box = $("#terrLayers"); if (!box) return; box.innerHTML = ""; box.style.display = isPaintMode() ? "" : "none"; if (!isPaintMode()) return;
+  const box = $("#terrLayers"); if (!box) return; box.innerHTML = ""; const show = isPaintMode() || (terrOpts.mode === "ramp" && rampOpts.paint); box.style.display = show ? "" : "none"; if (!show) return;
   box.append(h("div", { class: "hint" }, "Layers (click a swatch to change its texture; the number is metres per tile). Shift = erase."));
   curLayers().forEach((l, i) => box.append(h("div", { class: "row", style: "align-items:center;gap:6px;margin:3px 0" },
     h("input", { type: "radio", name: "tlayer", checked: terrOpts.layer === i, onchange: () => { terrOpts.layer = i; } }),
@@ -1274,11 +1360,20 @@ function buildLayerUI() {
 }
 function buildTerrOpts() {
   const box = h("div", { id: "terrOpts", class: "opts", style: "display:none;margin-top:6px" });
+  const rs = (label, key, min, max, step) => { const out = h("span", { class: "kbd", style: "float:none", id: "rv_" + key }, String(rampOpts[key])); return h("label", {}, label + " ", h("input", { type: "range", min, max, step, value: rampOpts[key], id: "rs_" + key, style: "flex:1", oninput: (e) => { rampOpts[key] = parseFloat(e.target.value); out.textContent = String(rampOpts[key]); scheduleDraw(); } }), out); };
+  const rampPanel = h("div", { id: "rampOpts", style: "display:none" },
+    h("div", { class: "hint" }, "Press at the start of the path, drag, release at its end. The ground between is levelled into a strip that slopes from A to B; the shoulders blend it into the surrounding terrain. Esc cancels · [ ] changes the width · one drag = one Ctrl+Z."),
+    rs("Width", "width", 1, 24, 0.5), rs("Shoulder", "edge", 0, 12, 0.5),
+    h("label", {}, "Slope ", h("select", { onchange: (e) => { rampOpts.slope = e.target.value; scheduleDraw(); } }, [["ab", "A → B (the heights you click)"], ["level", "Level (flat at A's height)"], ["custom", "Custom heights"]].map(([v, t]) => h("option", { value: v, selected: v === rampOpts.slope }, t)))),
+    h("label", {}, "Start ", h("input", { type: "number", step: "0.25", value: rampOpts.hA, style: "width:58px", onchange: (e) => { rampOpts.hA = parseFloat(e.target.value) || 0; scheduleDraw(); } }), " End ", h("input", { type: "number", step: "0.25", value: rampOpts.hB, style: "width:58px", onchange: (e) => { rampOpts.hB = parseFloat(e.target.value) || 0; scheduleDraw(); } }), " m (Custom)"),
+    h("label", {}, h("input", { type: "checkbox", checked: rampOpts.ease, onchange: (e) => { rampOpts.ease = e.target.checked; scheduleDraw(); } }), "Ease in / out (S-curve)"),
+    h("label", {}, h("input", { type: "checkbox", checked: rampOpts.paint, onchange: (e) => { rampOpts.paint = e.target.checked; buildLayerUI(); } }), "Paint a path texture along it (pick the layer below)"));
   const sl = (label, key, min, max, step) => { const out = h("span", { class: "kbd", style: "float:none", id: "tv_" + key }, String(terrOpts[key])); return h("label", {}, label + " ", h("input", { type: "range", min, max, step, value: terrOpts[key], id: "ts_" + key, style: "flex:1", oninput: (e) => { terrOpts[key] = parseFloat(e.target.value); out.textContent = String(terrOpts[key]); scheduleDraw(); } }), out); };
   box.append(
-    h("label", {}, "Brush ", h("select", { onchange: (e) => { terrOpts.mode = e.target.value; buildLayerUI(); } }, [["raise", "Raise"], ["lower", "Lower"], ["smooth", "Smooth"], ["flatten", "Flatten (to the height you start on)"], ["set", "Set height…"], ["paint", "Paint texture"], ["erase", "Erase paint"]].map(([v, t]) => h("option", { value: v, selected: v === terrOpts.mode }, t)))),
-    sl("Radius", "radius", 1, 40, 0.5), sl("Strength", "strength", 0.5, 20, 0.5), sl("Softness", "soft", 0, 1, 0.05),
-    h("label", {}, "Height ", h("input", { type: "number", step: "0.25", value: terrOpts.height, style: "width:70px", onchange: (e) => { terrOpts.height = parseFloat(e.target.value) || 0; } }), " (Set mode)"),
+    h("label", {}, "Brush ", h("select", { onchange: (e) => { terrOpts.mode = e.target.value; syncTerrOpts(); scheduleDraw(); } }, [["raise", "Raise"], ["lower", "Lower"], ["smooth", "Smooth"], ["flatten", "Flatten (to the height you start on)"], ["set", "Set height…"], ["ramp", "Ramp / path (drag A → B)"], ["paint", "Paint texture"], ["erase", "Erase paint"]].map(([v, t]) => h("option", { value: v, selected: v === terrOpts.mode }, t)))),
+    h("div", { id: "terrBrushOpts" }, sl("Radius", "radius", 1, 40, 0.5), sl("Strength", "strength", 0.5, 20, 0.5), sl("Softness", "soft", 0, 1, 0.05),
+      h("label", {}, "Height ", h("input", { type: "number", step: "0.25", value: terrOpts.height, style: "width:70px", onchange: (e) => { terrOpts.height = parseFloat(e.target.value) || 0; } }), " (Set mode)")),
+    rampPanel,
     h("div", { id: "terrLayers", style: "display:none" }),
     h("label", {}, h("input", { type: "checkbox", checked: terrOpts.follow, onchange: (e) => { terrOpts.follow = e.target.checked; } }), "Props follow the terrain"),
     h("div", { class: "row" }, btn("Drop selection to ground", terrDrop), btn("Reset terrain", terrResetAll), btn("Clear paint", paintClear)),
@@ -1289,11 +1384,118 @@ function buildTerrOpts() {
 }
 function syncTerrOpts() {
   const b = $("#terrOpts"); if (!b) return; b.style.display = tool === "terrain" ? "" : "none";
+  { const ramp = terrOpts.mode === "ramp", ro = $("#rampOpts"), bo = $("#terrBrushOpts"); if (ro) ro.style.display = ramp ? "" : "none"; if (bo) bo.style.display = ramp ? "none" : ""; const w = $("#rs_width"); if (w) { w.value = rampOpts.width; $("#rv_width").textContent = String(rampOpts.width); } }
   buildLayerUI(); const r = $("#ts_radius"); if (r) { r.value = terrOpts.radius; $("#tv_radius").textContent = String(terrOpts.radius); }
   const mp = TERR ? terrMeshPiece() : null;
   $("#terrInfo").textContent = !scene || scene.kind !== "hub" ? "Terrain is for hub scenes." : !TERR ? "This scene has no terrain yet — your first stroke creates a flat one over the bounds." : `Terrain ${TERR.T.nx}×${TERR.T.nz} (${TERR.T.cell} m cells) · ground mesh: ${mp ? serName(mp.model).split("/").pop() : "none found — hills affect walking only; select the ground piece and press the button"}`;
 }
 buildTerrOpts(); loadTerrLib();
+
+/* ============================== mesh paint (foliage) tool ============================== */
+/* Pick several meshes in the palette (a click toggles each one while this tool is active), set a density, then paint. Every brush step tops the
+   circle up to the density with meshes chosen at random (by weight), random spin and size, a minimum spacing between instances, standing on the
+   terrain. Shift (or the Erase switch) removes the listed meshes under the brush. A whole stroke is one undo step. Density is per 100 m^2,
+   like Unreal's foliage tool (per 1000 x 1000 units). */
+const folOpts = { models: [], radius: 6, density: 30, spacing: 0.6, minSc: 0.8, maxSc: 1.25, spin: true, yOff: 0, yJit: 0, erase: false, speed: 0.5 };
+let folBrush = null, folStroke = null;
+const folHas = (url) => folOpts.models.some((m) => m.url === url);
+function folBaseScale(url) { if (lastScale[url]) return lastScale[url]; const same = scene && scene.pieces.filter((p) => p.model === url).pop(); return same ? same.sc : (url.includes("kenney_retro-fantasy-kit") ? 4 : 1); }
+function folAdd(url, name) { if (folHas(url)) return; folOpts.models.push({ url, name: name || modelName(url), w: 1, sc: r3(folBaseScale(url)) }); ensureModel(url); }
+function folToggle(m) { if (folHas(m.url)) folOpts.models = folOpts.models.filter((x) => x.url !== m.url); else folAdd(m.url, m.name); syncFolOpts(); if (buildPalette.show) buildPalette.show(); scheduleDraw(); }
+function folFromSelection() {
+  const its = selItems().filter((i) => i.type === "piece"); if (!its.length) { toast("Select some pieces first", "err"); return; }
+  let n = 0; for (const i of its) if (!folHas(i.ref.model)) { folAdd(i.ref.model); folOpts.models[folOpts.models.length - 1].sc = r3(i.ref.sc); n++; }
+  syncFolOpts(); if (buildPalette.show) buildPalette.show(); toast(n ? "Added " + n + " mesh" + (n === 1 ? "" : "es") : "Those meshes are already in the list", n ? "ok" : "err");
+}
+function folPick() { let tot = 0; for (const m of folOpts.models) tot += Math.max(0, m.w); if (tot <= 0) return folOpts.models[Math.floor(Math.random() * folOpts.models.length)]; let r = Math.random() * tot; for (const m of folOpts.models) { r -= Math.max(0, m.w); if (r <= 0) return m; } return folOpts.models[folOpts.models.length - 1]; }
+function folStep(cx, cz, erase) {                      // one brush application at (cx, cz); returns how many instances were added or removed
+  const o = folOpts, r = o.radius, r2 = r * r, set = new Set(o.models.map((m) => m.url));
+  if (!set.size) return 0;
+  if (erase) {
+    const before = scene.pieces.length;
+    scene.pieces = scene.pieces.filter((p) => !(set.has(p.model) && (p.x - cx) * (p.x - cx) + (p.z - cz) * (p.z - cz) <= r2));
+    return before - scene.pieces.length;
+  }
+  const sp = Math.max(0, o.spacing), rr = (r + sp) * (r + sp), pts = []; let have = 0;
+  for (const p of scene.pieces) { if (!set.has(p.model)) continue; const d2 = (p.x - cx) * (p.x - cx) + (p.z - cz) * (p.z - cz); if (d2 <= rr) { pts.push([p.x, p.z]); if (d2 <= r2) have++; } }
+  const need = o.density * Math.PI * r2 / 100 - have; if (need < 0.05) return 0;
+  let n = Math.floor(need * o.speed); if (Math.random() < need * o.speed - n) n++;
+  n = Math.min(n, 60);
+  const lo = Math.min(o.minSc, o.maxSc), hi = Math.max(o.minSc, o.maxSc); let added = 0;
+  for (let i = 0; i < n; i++) {
+    for (let t = 0; t < 10; t++) {
+      const a = Math.random() * 6.2832, d = Math.sqrt(Math.random()) * r, x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
+      if (sp > 0 && pts.some((q) => (q[0] - x) * (q[0] - x) + (q[1] - z) * (q[1] - z) < sp * sp)) continue;
+      const m = folPick(), sc = m.sc * (lo + Math.random() * (hi - lo));
+      addItem("piece", { model: m.url, x: r3(x), z: r3(z), y: r3(terrH(x, z) + o.yOff + (Math.random() - 0.5) * 2 * o.yJit), rot: o.spin ? Math.round(Math.random() * 360) : placeRot, sc: r3(Math.max(0.01, sc)) });
+      pts.push([x, z]); added++; break;
+    }
+  }
+  return added;
+}
+function folDown(e, sx, sy) {
+  if (layers.piece.lock) { toast("The Pieces layer is locked", "err"); return; }
+  const erase = e.shiftKey || folOpts.erase;
+  if (!folOpts.models.length) { toast("Click one or more models in the palette first (click again to remove one)", "err"); return; }
+  const hit = terrRay(sx, sy); if (!hit) return;
+  const wasDirty = dirty; checkpoint();
+  folBrush = { x: hit[0], z: hit[2] }; folStroke = { erase, wasDirty, changed: 0, timer: 0 }; dragState = { mode: "fol" };
+  const tick = () => { if (!folStroke || !folBrush) return; folStroke.changed += folStep(folBrush.x, folBrush.z, folStroke.erase); scheduleDraw(); };
+  tick(); folStroke.timer = setInterval(tick, 40);
+}
+function folEnd() {
+  const st = folStroke; folStroke = null; if (!st) return; clearInterval(st.timer);
+  if (!st.changed) { undoS.pop(); setDirty(st.wasDirty); scheduleDraw(); return; }       // nothing happened: drop the empty undo step
+  setSel(selSet.filter((s) => getItem(s))); refreshOutliner(); refreshInspector(); scheduleDraw();
+  toast((st.erase ? "Erased " : "Painted ") + st.changed + " instance" + (st.changed === 1 ? "" : "s"), "ok");
+}
+function drawFolBrush() {
+  const cx = folBrush.x, cz = folBrush.z, r = folOpts.radius, erase = folOpts.erase || (dragState && folStroke && folStroke.erase), col = erase ? [1, .35, .3, 1] : [.5, 1, .4, 1];
+  const ring = (rr, y0) => { const o = []; for (let i = 0; i < 64; i++) { const a = i / 64 * 6.2832, b = (i + 1) / 64 * 6.2832, x1 = cx + Math.cos(a) * rr, z1 = cz + Math.sin(a) * rr, x2 = cx + Math.cos(b) * rr, z2 = cz + Math.sin(b) * rr; o.push(x1, terrH(x1, z1) + y0, z1, x2, terrH(x2, z2) + y0, z2); } return o; };
+  gl.disable(gl.DEPTH_TEST);
+  flat(gl.LINES, ring(r, 0.15), col); flat(gl.LINES, ring(r * 0.5, 0.15), [col[0], col[1], col[2], .3]);
+  const y = terrH(cx, cz) + 0.15; flat(gl.LINES, [cx - .6, y, cz, cx + .6, y, cz, cx, y, cz - .6, cx, y, cz + .6], col);
+  gl.enable(gl.DEPTH_TEST);
+}
+function folSyncSliders() {                           // every Density / Radius slider (left panel + Mesh paint tab) shows the same value
+  document.querySelectorAll("[data-fk]").forEach((i) => { i.value = folOpts[i.dataset.fk]; });
+  document.querySelectorAll("[data-fo]").forEach((o) => { o.textContent = String(folOpts[o.dataset.fo]); });
+  const qi = $("#folQuickInfo"); if (qi) qi.textContent = "≈ " + Math.round(folOpts.density * Math.PI * folOpts.radius * folOpts.radius / 100) + " instances fill the brush";
+}
+function buildFolOpts() {
+  const pane = $("#p-fol"); pane.innerHTML = "";
+  const sl = (label, key, min, max, step) => { const out = h("span", { class: "kbd", style: "float:none;min-width:34px;text-align:right", "data-fo": key }, String(folOpts[key])); return h("label", {}, label + " ", h("input", { type: "range", min, max, step, value: folOpts[key], "data-fk": key, style: "flex:1", oninput: (e) => { folOpts[key] = parseFloat(e.target.value); folSyncSliders(); scheduleDraw(); } }), out); };
+  const quick = h("div", { id: "folQuick", class: "opts", style: "display:none;margin-top:6px" }, h("h2", { style: "margin-top:4px" }, "Mesh paint"), sl("Density /100 m²", "density", 1, 300, 1), sl("Radius", "radius", 1, 40, 0.5), h("div", { class: "hint", id: "folQuickInfo" }, ""));
+  const qAfter = $("#terrOpts") || $("#tools"); qAfter.after(quick);
+  const nm = (key, step, w) => h("input", { type: "number", step, value: folOpts[key], style: "width:" + (w || 62) + "px", onchange: (e) => { folOpts[key] = parseFloat(e.target.value) || 0; scheduleDraw(); } });
+  pane.append(
+    h("div", { class: "hint", style: "margin-top:0" }, "Click models in the palette on the left to add them to the brush (click again to remove). Drag on the ground to paint · Shift+drag erases · [ ] changes the brush size · one stroke = one Ctrl+Z."),
+    h("div", { class: "opts" },
+      sl("Radius", "radius", 1, 40, 0.5), sl("Density /100 m²", "density", 1, 300, 1), sl("Min spacing", "spacing", 0, 4, 0.1),
+      h("label", {}, "Size × ", nm("minSc", "0.05"), " to ", nm("maxSc", "0.05"), h("span", { class: "kbd", style: "float:none" }, "random per instance")),
+      h("label", {}, "Raise ", nm("yOff", "0.05"), " jitter ±", nm("yJit", "0.05"), h("span", { class: "kbd", style: "float:none" }, "m")),
+      h("label", {}, h("input", { type: "checkbox", checked: folOpts.spin, onchange: (e) => { folOpts.spin = e.target.checked; } }), "Random rotation (off = use the Place rotation)"),
+      h("label", {}, h("input", { type: "checkbox", id: "fo_erase", checked: folOpts.erase, onchange: (e) => { folOpts.erase = e.target.checked; scheduleDraw(); } }), "Erase mode (or hold Shift)")),
+    h("h2", {}, "Brush meshes"), h("div", { id: "folList" }),
+    h("div", { class: "row" }, btn("Add current palette model", () => { if (!curModel) { toast("Click a model in the palette first", "err"); return; } folAdd(curModel.url, curModel.name); syncFolOpts(); if (buildPalette.show) buildPalette.show(); }), btn("Use selected pieces", folFromSelection), btn("Clear list", () => { folOpts.models = []; syncFolOpts(); if (buildPalette.show) buildPalette.show(); })),
+    h("div", { class: "hint", id: "folInfo" }, ""));
+}
+function syncFolOpts() {
+  const on = tool === "foliage", tb = $("#tabFol"); if (!tb) return;
+  tb.style.display = on ? "" : "none"; const q = $("#folQuick"); if (q) q.style.display = on ? "" : "none";
+  if (on) tb.click(); else if (tb.classList.contains("on")) { const i = document.querySelector('.tabs button[data-tab="insp"]'); if (i) i.click(); }
+  if (!on) return;
+  const e = $("#fo_erase"); if (e) e.checked = folOpts.erase;
+  folSyncSliders();
+  const L = $("#folList"); if (!L) return; L.innerHTML = "";
+  if (!folOpts.models.length) L.append(h("div", { class: "hint" }, "No meshes yet — click models in the palette."));
+  for (const m of folOpts.models) L.append(h("div", { class: "box" },
+    h("div", { class: "hd" }, h("b", { title: m.url }, m.name), btn("✕", () => { folOpts.models = folOpts.models.filter((x) => x !== m); syncFolOpts(); if (buildPalette.show) buildPalette.show(); })),
+    h("div", { class: "row" }, "Weight ", h("input", { type: "number", min: "0", step: "0.5", value: m.w, style: "width:58px", onchange: (ev) => { m.w = Math.max(0, parseFloat(ev.target.value) || 0); } }), " Base scale ", h("input", { type: "number", min: "0.01", step: "0.05", value: m.sc, style: "width:62px", onchange: (ev) => { m.sc = Math.max(0.01, parseFloat(ev.target.value) || 1); } }))));
+  const tot = folOpts.models.reduce((a, m) => a + Math.max(0, m.w), 0);
+  $("#folInfo").textContent = folOpts.models.length ? folOpts.models.map((m) => m.name + " " + (tot ? Math.round(100 * Math.max(0, m.w) / tot) : 0) + "%").join(" · ") : "";
+}
+buildFolOpts();
 
 /* ============================== transform gizmo ============================== */
 const GAX = [[1, 0, 0, "#ff5a4f"], [0, 1, 0, "#5adf6a"], [0, 0, 1, "#5a9bff"]];

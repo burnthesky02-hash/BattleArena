@@ -856,9 +856,11 @@
     TABS.forEach(function (t) { h += '<div class="dbg-tab' + (t === dbg.tab ? " on" : "") + '" data-tab="' + t + '">' + t + '</div>'; });
     h += "</div>";
     if (dbg.tab === "Cheats") {
-      var nc = false; try { nc = localStorage.getItem("h3dNoclip") === "1"; } catch (e) {}
+      var nc = false; try { nc = localStorage.getItem("h3dNoclip") === "1"; } catch (e) {} var pf = false; try { pf = localStorage.getItem("h3dPerf") === "1"; } catch (e) {} var ne = false; try { ne = localStorage.getItem("h3dNoEnc") === "1"; } catch (e) {}
       h += '<div class="dbg-sec">Movement</div><div class="dbg-row"><label>Noclip</label><button class="dbg-btn" id="d-noclip">' + (nc ? "ON - click to turn off" : "OFF - click to walk through walls") + '</button></div>' +
-           '<div class="dbg-row" style="color:var(--dim)">In the 3D scenes the hero ignores walls, colliders, NPC bodies and the map edge. Saved in this browser.</div>';
+           '<div class="dbg-row" style="color:var(--dim)">In the 3D scenes the hero ignores walls, colliders, NPC bodies and the map edge. Saved in this browser.</div>' +
+           '<div class="dbg-sec">Random battles</div><div class="dbg-row"><label>Encounters</label><button class="dbg-btn" id="d-noenc">' + (ne ? "OFF - click to turn random battles back on" : "ON - click to turn random battles off") + '</button></div>' +
+           '<div class="dbg-sec">Performance</div><div class="dbg-row"><label>Overlay</label><button class="dbg-btn" id="d-perf">' + (pf ? "ON - click to hide" : "OFF - fps, frame graph, draw calls, GPU/CPU time") + '</button></div>';
     } else if (dbg.tab === "Economy") {
       h += '<div class="dbg-row"><label>Gold</label><input type="number" id="d-gold" value="1000"><button class="dbg-btn" data-a="add_money" data-f="d-gold:amount">Add</button></div>' +
            '<div class="dbg-row"><label>Gems</label><input type="number" id="d-gems" value="100"><button class="dbg-btn" data-a="add_gems" data-f="d-gems:amount">Add</button></div>' +
@@ -933,6 +935,15 @@
     if (t.id === "d-reset") {
       if (t.dataset.armed) { dbgAct({ action: "reset_game" }); return; }
       t.dataset.armed = "1"; t.textContent = "Click again to confirm RESET"; return;
+    }
+    if (t.id === "d-noenc") {
+      try { localStorage.setItem("h3dNoEnc", localStorage.getItem("h3dNoEnc") === "1" ? "0" : "1"); } catch (e) {}
+      playSfx(SFX.confirm); drawDbg(); return;
+    }
+    if (t.id === "d-perf") {
+      var pfOn = false; try { pfOn = localStorage.getItem("h3dPerf") !== "1"; localStorage.setItem("h3dPerf", pfOn ? "1" : "0"); } catch (e) {}
+      if (window.Hub3D && Hub3D.setPerf) Hub3D.setPerf(pfOn);
+      playSfx(SFX.confirm); drawDbg(); return;
     }
     if (t.id === "d-noclip") {
       try { localStorage.setItem("h3dNoclip", localStorage.getItem("h3dNoclip") === "1" ? "0" : "1"); } catch (e) {}

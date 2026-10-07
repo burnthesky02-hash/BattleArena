@@ -180,6 +180,11 @@ class World:
                 self.flags = {k for k in self.flags if pre and not k.startswith(pre)}
                 self.trace.append({"scene": scene, "who": owner, "beat": f"reset_progress '{pre}'"})
                 dirty = True
+            elif t == "choice":                            # the walker always takes the first option (the one that continues the story)
+                opts = [o for o in (a.get("options") or []) if self.cond_ok(o, scene, f"{owner}/choice")]
+                if opts:
+                    outcome, payload, d2 = self.run_actions(scene, opts[0].get("actions") or [], owner)
+                    return outcome, payload, dirty or d2
             elif t == "warp":
                 return "warp", a, dirty
             elif t == "battle":
@@ -389,6 +394,15 @@ class World:
 
 
 # ------------------------------------------------------------------ analysis
+def walk_actions(actions):
+    """Every action of a script, including the ones nested in a {type:"choice", options:[{actions:[...]}]} step."""
+    for a in actions or []:
+        yield a
+        if a.get("type") == "choice":
+            for opt in a.get("options") or []:
+                yield from walk_actions(opt.get("actions"))
+
+
 def collect_flag_use(scenes: Dict[str, dict], quests: dict):
     setters: Dict[str, List[str]] = {}
     readers: Dict[str, List[str]] = {}
@@ -405,7 +419,7 @@ def collect_flag_use(scenes: Dict[str, dict], quests: dict):
             for o in d.get(kind, []):
                 where = f"{sname}/{o.get('id', '?')}"
                 read(o.get("showIf"), where); read(o.get("hideIf"), where)
-                for a in o.get("actions", []) or []:
+                for a in walk_actions(o.get("actions")):
                     read(a.get("if"), where); read(a.get("unless"), where)
                     if a.get("type") == "flag" and a.get("key"):
                         add(setters, a["key"], where)
@@ -415,7 +429,7 @@ def collect_flag_use(scenes: Dict[str, dict], quests: dict):
             for e in d.get(key, []) or []:
                 where = f"{sname}/{key}"
                 read(e.get("if"), where); read(e.get("unless"), where)
-                for a in e.get("actions", []) or []:
+                for a in walk_actions(e.get("actions")):
                     read(a.get("if"), where); read(a.get("unless"), where)
                     if a.get("type") == "flag" and a.get("key"):
                         add(setters, a["key"], where)
@@ -458,7 +472,7 @@ def analyse(w: World) -> dict:
     for sname, d in scenes.items():
         for kind in ("events", "npcs"):
             for o in d.get(kind, []):
-                for a in o.get("actions", []) or []:
+                for a in walk_actions(o.get("actions")):
                     if a.get("type") == "warp" and a.get("scene") not in scenes:
                         prob("error", f"{sname}/{o.get('id')} warps to missing scene '{a.get('scene')}'")
                     if a.get("type") == "battle" and a.get("boss") and bosses and a["boss"] not in bosses:
@@ -466,7 +480,7 @@ def analyse(w: World) -> dict:
                 if o.get("action") in ("shop", "heroes") and vendors and f"{sname}/{o.get('id')}" not in vendors:
                     prob("warn", f"{sname}/{o.get('id')} is a {o['action']} NPC with no entry in data/vendors.py")
         for e in d.get("autorun", []) or []:
-            for a in e.get("actions", []) or []:
+            for a in walk_actions(e.get("actions")):
                 if a.get("type") == "warp" and a.get("scene") not in scenes:
                     prob("error", f"{sname}/autorun warps to missing scene '{a.get('scene')}'")
     # flag collisions: several different things in different scenes use the same flag as their "done" marker
@@ -475,7 +489,7 @@ def analyse(w: World) -> dict:
         for coll in ("events", "npcs"):
             for o in d.get(coll, []):
                 hide = set(spec_flags(o.get("hideIf")))
-                for a in o.get("actions", []) or []:
+                for a in walk_actions(o.get("actions")):
                     if a.get("type") == "flag" and a.get("key") in hide:
                         owners.setdefault(a["key"], []).append(f"{sname}/{o.get('id')}")
     for k, v in sorted(owners.items()):
@@ -483,7 +497,7 @@ def analyse(w: World) -> dict:
             prob("error", f"flag '{k}' is the done-marker of {len(v)} different things in different scenes ({', '.join(v)}): "
                           f"using one hides the others for good, so the others can never be used")
     linked = {a.get("scene") for d in scenes.values() for coll in ("events", "npcs", "autorun") for o in d.get(coll, []) or []
-              for a in o.get("actions", []) or [] if a.get("type") == "warp"}
+              for a in walk_actions(o.get("actions")) if a.get("type") == "warp"}
     for sname in scenes:
         if sname not in w.visited and sname not in linked and sname != "island":
             prob("info", f"scene '{sname}' is not linked from any other scene (nothing warps to it), so it is skipped")

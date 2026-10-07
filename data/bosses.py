@@ -255,6 +255,7 @@ class BossDef:
     runner: str = "single"       # "single" -> game/boss_script.BossRunner, "twins" -> game/twins_fight.TwinsRunner
     portrait: str = ""           # path under data/ of the full-body card art (the hub's "next challenger" spot)
     escorts: List[tuple] = field(default_factory=list)   # [(enemy archetype id, level), ...] regular monsters fighting beside a single boss
+    tutorial: bool = False       # Garrick's warm-up: one hero, free potions, full HP/MP, no rewards or losses, and the battle page coaches every turn
 
 
 @dataclass
@@ -1086,9 +1087,32 @@ RIFT_HARBINGER = _guardian(
     {"money": 1000, "gems": 26, "xp": 340}, {"money": 280, "gems": 7, "xp": 100}, (150, 60, 200))
 
 
+# ======================================================================
+# PRACTICE GOBLIN -- Garrick's warm-up spar, the guided battle tutorial at the mouth of the Whispering Wood
+# (html_hub/3d/forest.json autorun -> {type:"battle", boss:"warmup_boss"}). A weak, patient goblin: it winds up a telegraphed
+# Crushing Blow every other round so the coach (html_battle/index.html, COACH) can teach Defend against a cast bar. `tutorial`
+# switches on hub_server's tutorial mode (Kael alone, free Potions, no rewards, HP/MP restored afterwards).
+# ======================================================================
+WARMUP_GOBLIN = _guardian(
+    "warmup_boss", "Practice Goblin", "Battlers/Enemies/Goblin-Skirmisher.png", 1.3,
+    Stats(max_hp=120, max_mp=40, atk=12, def_=4, mag=1, res=3, spd=9, luk=0),
+    Stats(max_hp=0, max_mp=0, atk=0, def_=0, mag=0, res=0, spd=0, luk=0), 1.0, 0,
+    ["power_strike"],
+    "A half-tame goblin Garrick keeps on a leash for sparring. Simple and predictable: Power Strike now and then, otherwise plain attacks.",
+    [],
+    [{"id": "wind_up", "when": {"round_at_least": 2}, "steps": [
+        {"force_skill": {"skill": "crushing_blow", "target": "player", "cast": 7.0, "brace": 1.6, "nopush": True}}]},
+     {"id": "wind_up_again", "when": {"every_n_rounds": 2, "from": 4}, "once": False, "steps": [
+        {"force_skill": {"skill": "crushing_blow", "target": "player", "cast": 7.0, "brace": 1.6, "nopush": True}}]}],
+    [{"say": ("Garrick", "There you go! That's a fight. Come over here, I want a word.")}],
+    [{"say": ("Garrick", "Easy, easy! No harm done. Shake it off and we'll go again.")}],
+    {"money": 0, "gems": 0, "xp": 0}, {"money": 0, "gems": 0, "xp": 0}, (60, 130, 60))
+WARMUP_GOBLIN.tutorial = True
+
+
 WORLD_BOSSES: Dict[str, BossDef] = {BRIARMAW.id: BRIARMAW, ANCIENT_GUARDIAN.id: ANCIENT_GUARDIAN, DROWNED_SOVEREIGN.id: DROWNED_SOVEREIGN, VAULT_WARDEN.id: VAULT_WARDEN,
                                 VAULT_SENTINEL.id: VAULT_SENTINEL, PHASE_STALKER.id: PHASE_STALKER, RIFT_COLOSSUS.id: RIFT_COLOSSUS,
-                                RIFT_HARBINGER.id: RIFT_HARBINGER, SKRAAG.id: SKRAAG}
+                                RIFT_HARBINGER.id: RIFT_HARBINGER, SKRAAG.id: SKRAAG, WARMUP_GOBLIN.id: WARMUP_GOBLIN}
 
 
 # Every boss fights at a SET level, whatever the party's level (Andrew: "bosses should be a set level"). This overrides
@@ -1096,6 +1120,7 @@ WORLD_BOSSES: Dict[str, BossDef] = {BRIARMAW.id: BRIARMAW, ANCIENT_GUARDIAN.id: 
 # `level` a 3D scene passes. A boss not listed here still falls back to party average + level_offset.
 # Retune by feel: just change the numbers.
 BOSS_FIXED_LEVELS: Dict[str, int] = {
+    "warmup_boss": 1,               # Garrick's warm-up spar (battle tutorial), Whispering Wood entrance
     "skraag_boss": 2,               # goblin camp, Whispering Wood (with two level-1 skirmishers)
     "briarmaw_boss": 5,             # Whispering Wood
     "ancient_guardian_boss": 8,     # island ruins cave

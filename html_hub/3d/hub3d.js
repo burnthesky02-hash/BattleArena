@@ -145,13 +145,19 @@
     const cx = m[0] * x + m[4] * y + m[8] * z + m[12], cy = m[1] * x + m[5] * y + m[9] * z + m[13], cw = m[3] * x + m[7] * y + m[11] * z + m[15];
     return { x: (cx / cw * 0.5 + 0.5) * cam.w, y: (1 - (cy / cw * 0.5 + 0.5)) * cam.h, w: cw };
   }
-  function groundAt(sx, sy) {                    // screen px -> point on the y=0 plane (or null)
-    const t = Math.tan(cam.fov * Math.PI / 360), nx = (sx / cam.w * 2 - 1) * t * cam.aspect, ny = (1 - sy / cam.h * 2) * t;
+  function groundAt(sx, sy, vw, vh) {            // screen px -> point on the walkable ground (terrain + decks), or null. vw/vh = the pixel box sx,sy are measured in (defaults to the canvas)
+    vw = vw || cam.w; vh = vh || cam.h;
+    const t = Math.tan(cam.fov * Math.PI / 360), nx = (sx / vw * 2 - 1) * t * cam.aspect, ny = (1 - sy / vh * 2) * t;
     const d = V.norm(V.add(V.add(V.mul(cam.camX, nx), V.mul(cam.camY, ny)), V.mul(cam.camZ, -1)));
     if (d[1] > -0.01) return null;
-    let h = 0, px = 0, pz = 0;
-    for (let k = 0; k < 5; k++) { const s = (h - cam.pos[1]) / d[1]; px = cam.pos[0] + d[0] * s; pz = cam.pos[2] + d[2] * s; h = gh(px, pz); }
-    return { x: px, z: pz };
+    const o = cam.pos, above = (s) => o[1] + d[1] * s - gh(o[0] + d[0] * s, o[2] + d[2] * s);   // >0 while the ray is still above the ground
+    const sMax = Math.min(260, (o[1] + 6) / -d[1] + 40);                                         // far enough to reach the lowest ground (~ -6 m)
+    let a = 0, b = -1;
+    for (let s = 0.5; s <= sMax; s += 0.5) { if (above(s) <= 0) { b = s; break; } a = s; }        // march until the ray dips under the surface (hills occlude what is behind them)
+    if (b < 0) return null;
+    for (let k = 0; k < 24; k++) { const m = (a + b) / 2; if (above(m) > 0) a = m; else b = m; }   // bisect to the crossing
+    const sHit = (a + b) / 2;
+    return { x: o[0] + d[0] * sHit, z: o[2] + d[2] * sHit };
   }
 
   /* ---------- GL: sprite billboards ---------- */
@@ -171,18 +177,57 @@ void main(){
   gl_FragColor = c * u_tint.a;
 }`;
   /* ---------- GL: lit meshes ---------- */
+  const BVS = `
+attribute vec2 a; attribute vec4 i; uniform mat4 u_vp; uniform vec3 u_r, u_cam; varying vec2 v_uv; varying float v_fd;
+void main(){ vec2 p = (a - vec2(0.5, 0.0)) * i.w; gl_Position = u_vp * vec4(i.xyz + u_r * p.x + vec3(0.0, 1.0, 0.0) * p.y, 1.0); v_uv = a; v_fd = length(i.xz - u_cam.xz); }`;
+  const BFS = `
+precision mediump float; uniform sampler2D u_tex; uniform vec3 u_fogc; uniform vec2 u_fogr; varying vec2 v_uv; varying float v_fd;
+void main(){ vec4 c = texture2D(u_tex, vec2(v_uv.x, 1.0 - v_uv.y)); float f = clamp((v_fd - u_fogr.x) / (u_fogr.y - u_fogr.x), 0.0, 1.0) * 0.8; c.rgb = mix(c.rgb, u_fogc * c.a, f); gl_FragColor = c; }`;
   const MVS = `
-attribute vec3 p; attribute vec3 n; attribute vec2 t; attribute vec4 c;
-uniform mat4 u_vp; uniform mat4 u_model; varying vec3 v_n; varying vec2 v_t; varying vec4 v_c; varying float v_d;
-void main(){ gl_Position = u_vp * (u_model * vec4(p, 1.0)); v_n = mat3(u_model) * n; v_t = t; v_c = c; v_d = gl_Position.w; }`;
+attribute vec3 p; attribute vec3 n; attribute vec2 t; attribute vec4 c; attribute vec4 m0; attribute vec4 m1; attribute vec4 m2; attribute vec4 m3;
+uniform mat4 u_vp; uniform float u_wt, u_wa; varying vec3 v_n; varying vec2 v_t; varying vec4 v_c; varying float v_d; varying vec3 v_wp;
+void main(){ mat4 u_model = mat4(m0, m1, m2, m3); vec4 wp = u_model * vec4(p, 1.0);
+  if (u_wa > 0.0) wp.y += u_wa * (sin(wp.x * 0.05 + u_wt * 0.8) * 0.5 + sin(wp.z * 0.043 - u_wt * 0.65) * 0.35 + sin((wp.x + wp.z) * 0.09 + u_wt * 1.3) * 0.15);   // slow swell (the ocean mesh is a coarse 12 m grid, so the fine ripples are done per pixel)
+  gl_Position = u_vp * wp; v_n = mat3(u_model) * n; v_t = t; v_c = c; v_d = gl_Position.w; v_wp = wp.xyz; }`;
   const MFS = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
 precision mediump float;
-uniform sampler2D u_tex; uniform vec4 u_color; uniform vec3 u_emis; uniform float u_cut, u_unlit, u_mode;
-uniform vec3 u_ldir, u_lcol, u_amb, u_fogc; uniform vec2 u_fogr;
-varying vec3 v_n; varying vec2 v_t; varying vec4 v_c; varying float v_d;
+#endif
+uniform sampler2D u_tex; uniform vec4 u_color; uniform vec3 u_emis; uniform float u_cut, u_unlit, u_mode, u_ft;
+uniform vec3 u_ldir, u_lcol, u_amb, u_fogc, u_fcam; uniform vec2 u_fogr;
+varying vec3 v_n; varying vec2 v_t; varying vec4 v_c; varying float v_d; varying vec3 v_wp;
+void wv(vec2 w, vec2 k, float a, float sp, inout float h, inout vec2 g) { float ph = dot(k, w) + u_ft * sp; h += a * sin(ph); g += a * cos(ph) * k; }
 void main(){
+  if (u_mode > 3.5) {                                                            // animated water: 4 = surface (ocean, pond, fountain), 5 = waterfall
+    vec4 wb = texture2D(u_tex, v_t) * u_color; vec3 wc;
+    if (u_mode < 4.5) {
+      vec2 w = v_wp.xz; float h = 0.0; vec2 g = vec2(0.0);
+      wv(w, vec2(0.31, 0.19), 0.50, 1.10, h, g); wv(w, vec2(-0.23, 0.41), 0.40, 1.45, h, g); wv(w, vec2(0.74, -0.52), 0.25, 2.10, h, g);
+      wv(w, vec2(-0.91, -0.67), 0.18, 2.70, h, g); wv(w, vec2(1.60, 1.10), 0.10, 3.60, h, g);
+      vec3 N = normalize(vec3(-g.x * 0.45, 1.0, -g.y * 0.45)); vec3 V = normalize(u_fcam - v_wp);
+      float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0), dif = max(dot(N, -u_ldir), 0.0);
+      vec3 sky = mix(u_fogc, vec3(0.55, 0.78, 1.0), 0.55);
+      wc = wb.rgb * (0.78 + 0.32 * dif);
+      wc = mix(wc, sky, clamp(fres * 0.55 + 0.06, 0.0, 1.0));
+      vec3 Hh = normalize(-u_ldir + V); wc += u_lcol * pow(max(dot(N, Hh), 0.0), 140.0) * 1.3;               // sun glitter
+      wc += vec3(0.16, 0.19, 0.21) * smoothstep(0.92, 1.35, h);                                              // white caps on the crests
+      float shallow = smoothstep(0.30, 0.62, wb.g - wb.b * 0.35);                                           // the ocean texture goes green near the island: caustic shimmer there
+      float cs = sin(w.x * 1.7 + sin(w.y * 1.3 + u_ft * 0.9)) * sin(w.y * 1.5 + cos(w.x * 1.1 - u_ft * 1.1));
+      wc += vec3(0.07, 0.11, 0.10) * pow(abs(cs), 6.0) * shallow;
+    } else {
+      float sc = u_ft * 0.55, wgt = smoothstep(0.78, 0.95, v_t.y);               // streaks run down the fall; the misty foot stays put
+      float p0 = fract(sc), p1 = fract(sc + 0.5), wa = 1.0 - abs(p0 * 2.0 - 1.0);                         // two copies of the streaks, half a cycle apart, cross-faded so the loop has no seam
+      vec3 s1 = mix(texture2D(u_tex, vec2(v_t.x, v_t.y - p1 * 0.5)).rgb, texture2D(u_tex, vec2(v_t.x, v_t.y - p0 * 0.5)).rgb, wa), s0 = texture2D(u_tex, v_t).rgb; wc = mix(s1, s0, wgt) * u_color.rgb;
+      wc += vec3(0.10, 0.12, 0.14) * pow(abs(sin(v_t.x * 40.0 + u_ft * 3.0)), 8.0) * (1.0 - wgt);
+    }
+    wc = mix(wc, u_fogc, clamp((v_d - u_fogr.x) / (u_fogr.y - u_fogr.x), 0.0, 1.0));
+    gl_FragColor = vec4(wc, 1.0); return;
+  }
   vec4 base = texture2D(u_tex, v_t) * u_color * v_c;
   if (u_mode > 0.5 && u_mode < 1.5 && base.a < u_cut) discard;
+  if (u_mode > 2.5 && u_mode < 3.5 && base.a < 0.5) discard;                                     // depth pre-pass of alpha-blended foliage: only the solid texels
   vec3 N = normalize(v_n); if (!gl_FrontFacing) N = -N;
   float ndl = max(dot(N, -u_ldir), 0.0), hemi = N.y * 0.5 + 0.5;
   vec3 col = u_unlit > 0.5 ? base.rgb : base.rgb * (u_amb * (0.6 + 0.4 * hemi) + u_lcol * ndl) + u_emis;
@@ -258,6 +303,8 @@ void main(){
     return p;
   }
   function useSprite() { gl.useProgram(sprog); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); for (let i = 1; i < 4; i++) gl.disableVertexAttribArray(i); }
+  let bprog = null, bbuf = null, bArr = new Float32Array(4 * 512); const BU = {};
+  let instExt = null, instBuf = null, instArr = new Float32Array(16 * 256);
   function useMesh() { gl.useProgram(mprog); for (let i = 0; i < 4; i++) gl.enableVertexAttribArray(i); }
 
   function makeTexture(source, opts) {
@@ -418,6 +465,48 @@ void main(){
     if (v.slice(0, 2) === "S:") return { showIf: v.slice(2) };
     return v[0] === "!" ? { showIf: v.slice(1) } : { hideIf: v };
   }
+  /* animated water: pieces whose model name is an ocean / sea / lake / pond / river / water token get waves + glitter (surface, wk 1), a waterfall gets flowing streaks (wk 2).
+     scene.water = {off:true} disables it, {surface:"regex", fall:"regex"} overrides the name tests. */
+  function waterKind(name, def) {
+    const W = def.water || {}; if (W.off) return 0;
+    const base = String(name).split("/").pop();
+    if (new RegExp(W.fall || "waterfall", "i").test(base)) return 2;
+    if (new RegExp(W.surface || "(^|[_\\W])(ocean|sea|lake|pond|river|water)([_\\W]|$)", "i").test(base)) return 1;
+    return 0;
+  }
+  /* far-LOD impostors: a model is rendered once, side-on, into a 256px texture; beyond scene.lod.dist its pieces become one camera-facing quad each */
+  const IMP = new Map();
+  function impostorFor(mdl, name, models, def) {
+    if (IMP.has(mdl)) return IMP.get(mdl);
+    let res = null, fb = null, rb = null, tex = null;
+    try {
+      const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+      for (const { o } of mdl.gpu) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], o.min[k]); hi[k] = Math.max(hi[k], o.max[k]); }
+      const S0 = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]), cx = (lo[0] + hi[0]) / 2, cy = (lo[1] + hi[1]) / 2, cz = (lo[2] + hi[2]) / 2, N = 256;
+      if (!(S0 > 0)) throw new Error("empty");
+      const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+      const parts = mdl.gpu.map(({ g, o }) => { const m = o.material, t = m.image >= 0 ? mdl.texs[m.image] : null; return { g, mat: m, tex: t, mode: m.alphaMode === "BLEND" ? 2 : m.alphaMode === "MASK" ? 1 : 0, model: I, gk: gkOf(g, m, t) }; });
+      tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, N, N, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, N, N); gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error("fbo");
+      gl.viewport(0, 0, N, N); gl.clearColor(0, 0, 0, 0); gl.depthMask(true); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      useMesh(); gl.uniform1i(MU.u_tex, 0);
+      gl.uniformMatrix4fv(MU.u_vp, false, new Float32Array([2 / S0, 0, 0, 0, 0, -2 / S0, 0, 0, 0, 0, -1 / S0, 0, -2 * cx / S0, 2 * cy / S0, cz / S0, 1]));   // side-on ortho, y flipped so texture row 0 is the top
+      const L = def.light || {}, ld = V.norm(L.dir || [-0.5, -1, -0.35]), lc = L.color || [1, 0.9, 0.75], am = L.ambient || [0.55, 0.5, 0.62];
+      gl.uniform3f(MU.u_ldir, ld[0], ld[1], ld[2]); gl.uniform3f(MU.u_lcol, lc[0], lc[1], lc[2]); gl.uniform3f(MU.u_amb, am[0], am[1], am[2]);
+      gl.uniform3f(MU.u_fogc, 0, 0, 0); gl.uniform2f(MU.u_fogr, 1e6, 2e6);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); BLEND_N(); gl.frontFace(gl.CW);          // the y flip reverses winding; keep gl_FrontFacing (and so the lighting) right
+      drawItems(parts.filter((q) => q.mode !== 2)); gl.depthMask(false); drawItems(parts.filter((q) => q.mode === 2)); gl.depthMask(true); gl.frontFace(gl.CCW);
+      gl.bindTexture(gl.TEXTURE_2D, tex); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      res = { tex, S: S0, cx, cy, cz };
+    } catch (e) { console.warn("[H3D] lod impostor failed for", name, e); }
+    gl.frontFace(gl.CCW); gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height);
+    if (fb) gl.deleteFramebuffer(fb); if (rb) gl.deleteRenderbuffer(rb);
+    IMP.set(mdl, res); return res;
+  }
   async function loadScene(name, onProgress) {
     const def = await (await fetch(BASE + name + ".json", { cache: "no-store" })).json();
     const kit = def.kit || "";
@@ -428,18 +517,24 @@ void main(){
     const models = {};
     await Promise.all(names.map(async (n) => { models[n] = await loadModel(kit + n + ".glb"); onProgress && onProgress(++done / (names.length + 1)); }));
     if (def.terrain && def.terrain.base && def.terrain.mesh && models[def.terrain.mesh]) { try { deformGroundMesh(models[def.terrain.mesh], def); } catch (err) { console.warn("terrain mesh", err); } }
-    const T = def.tile || 4, items = [], cleared = getCleared();
+    const T = def.tile || 4, items = [], cleared = getCleared(), lodRx = def.lod ? new RegExp(def.lod.match || "tree") : null;
     for (const p of def.pieces) {
       let ins = null;                                   // "I:x0,z0,x1,z1" = hidden while the player stands inside that rectangle (roofs of enterable buildings)
       if (typeof p[6] === "string" && p[6].slice(0, 2) === "I:") ins = p[6].slice(2).split(",").map(Number);
       else if (p[6] && !visible(pieceVis(p[6]), cleared)) continue;
-      const [name, x, z, rot, y, sc] = p, mdl = models[name], sv = Array.isArray(sc) ? sc : (sc === undefined || sc === null ? T : sc), sx = Array.isArray(sv) ? sv[0] : sv, s = Array.isArray(sv) ? sv[1] : sv, sz = Array.isArray(sv) ? sv[2] : sv, mm = trs(x, y || 0, z, rot || 0, sv);
+      const [name, x, z, rot, y, sc] = p, mdl = models[name], lodRe = lodRx && lodRx.test(name), sv = Array.isArray(sc) ? sc : (sc === undefined || sc === null ? T : sc), sx = Array.isArray(sv) ? sv[0] : sv, s = Array.isArray(sv) ? sv[1] : sv, sz = Array.isArray(sv) ? sv[2] : sv, mm = trs(x, y || 0, z, rot || 0, sv);
+      let pc = null;
+      if (lodRe) {                                         // far-LOD piece: remember where its impostor stands
+        const im = impostorFor(mdl, name, models, def), s0 = Array.isArray(sv) ? sv[1] : sv;
+        if (im) { const cxw = mm[0] * im.cx + mm[8] * im.cz + mm[12], czw = mm[2] * im.cx + mm[10] * im.cz + mm[14]; pc = { tex: im.tex, S: im.S * s0, o: [cxw, (im.cy - im.S / 2) * s0 + (y || 0), czw], fc: 0 }; }
+      }
       for (const { g, o } of mdl.gpu) {
         const lo = o.min, hi = o.max, cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2;
         const c = [mm[0] * cx + mm[8] * cz + mm[12], (lo[1] + hi[1]) / 2 * s + (y || 0), mm[2] * cx + mm[10] * cz + mm[14]];
         const m = o.material;
         items.push({ g, mat: m, inside: ins, model: new Float32Array(mm), lo, hi, sc: Math.max(sx, sz), inv: affInv(mm), bot: lo[1] * s + (y || 0), center: c, top: hi[1] * s + (y || 0), rad: Math.max((hi[0] - lo[0]) * sx, (hi[2] - lo[2]) * sz) / 2,
-          tex: m.image >= 0 ? mdl.texs[m.image] : null, mode: m.alphaMode === "BLEND" ? 2 : m.alphaMode === "MASK" ? 1 : 0 });
+          tex: m.image >= 0 ? mdl.texs[m.image] : null, mode: m.alphaMode === "BLEND" ? 2 : m.alphaMode === "MASK" ? 1 : 0, pc, wk: waterKind(name, def) });
+        const li = items[items.length - 1]; li.gk = gkOf(g, m, li.tex);
       }
     }
     // sprite textures
@@ -474,11 +569,45 @@ void main(){
     const events = (def.events || []).filter((e) => visible(e, cleared)).map((e) => Object.assign({ w: 3, d: 3, trigger: "touch", inside: false, done: false }, e));
     const skyInfo = await buildSky(def.sky);
     let paint = null; if (def.terrain && def.terrain.paint && def.terrain.paint.data) { try { paint = await buildPaint(def.terrain, decodeTerrain(def.terrain)); } catch (err) { console.warn("terrain paint", err); } }
-    return { name, def, skyInfo, paint, items, npcs, events, sheets, stex, colliders, terrain: decodeTerrain(def.terrain), walk: (def.walk || []).map((w) => Object.assign({}, w)), bounds: def.bounds || { minX: -24, maxX: 24, minZ: -16, maxZ: 16 },
+    return { name, def, lodDist: def.lod ? (+def.lod.dist || 60) : 0, skyInfo, paint, items, npcs, events, sheets, stex, colliders, terrain: decodeTerrain(def.terrain), walk: (def.walk || []).map((w) => Object.assign({}, w)), bounds: def.bounds || { minX: -24, maxX: 24, minZ: -16, maxZ: 16 },
       player: { x: def.spawn ? def.spawn.x : 0, z: def.spawn ? def.spawn.z : 8, face: "south", moving: false, t: 0, target: null, wantNpc: null, h: def.playerHeight || 2.3 } };
   }
 
   /* ---------- drawing ---------- */
+  const WAVE_AMP = 0.35;                                           // metres of swell on big water meshes
+  const GK = new Map(), GID = new WeakMap(); let gidN = 0;          // (geometry, material, texture) -> key: pieces sharing one are drawn as a single instanced call
+  const gid = (o) => { if (!o) return 0; let v = GID.get(o); if (!v) GID.set(o, v = ++gidN); return v; };
+  function gkOf(g, m, tex) { const k = gid(g) + "|" + gid(m) + "|" + gid(tex); let v = GK.get(k); if (v === undefined) GK.set(k, v = k); return v; }
+  function drawItems(list, modeOverride) {
+    if (!list.length) return;
+    const groups = new Map();
+    for (const it of list) { let a = groups.get(it.gk); if (!a) groups.set(it.gk, a = []); a.push(it); }
+    if (instArr.length < list.length * 16) instArr = new Float32Array(list.length * 16 * 2);
+    let o = 0; const starts = [];
+    for (const a of groups.values()) { starts.push(o * 64); for (const it of a) { instArr.set(it.model, o * 16); o++; } }
+    gl.bindBuffer(gl.ARRAY_BUFFER, instBuf); gl.bufferData(gl.ARRAY_BUFFER, instArr.subarray(0, o * 16), gl.DYNAMIC_DRAW);
+    for (let k = 4; k < 8; k++) gl.enableVertexAttribArray(k);
+    let gi = 0;
+    for (const a of groups.values()) {
+      const it = a[0], g = it.g, m = it.mat, base = starts[gi++];
+      gl.bindBuffer(gl.ARRAY_BUFFER, instBuf);
+      for (let k = 0; k < 4; k++) { gl.vertexAttribPointer(4 + k, 4, gl.FLOAT, false, 64, base + k * 16); if (instExt) instExt.vertexAttribDivisorANGLE(4 + k, 1); }
+      gl.bindBuffer(gl.ARRAY_BUFFER, g.vbo);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 48, 0); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 48, 12); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 48, 24); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 48, 32);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, g.ibo);
+      gl.uniform4f(MU.u_color, m.color[0], m.color[1], m.color[2], m.color[3]); gl.uniform3f(MU.u_emis, m.emissive[0], m.emissive[1], m.emissive[2]);
+      gl.uniform1f(MU.u_cut, m.cutoff); gl.uniform1f(MU.u_unlit, m.unlit ? 1 : 0); gl.uniform1f(MU.u_mode, modeOverride || (it.wk ? 3 + it.wk : it.mode)); gl.uniform1f(MU.u_wa, it.wk === 1 && it.rad > 30 ? WAVE_AMP : 0);
+      gl.bindTexture(gl.TEXTURE_2D, it.tex || TEX.white);
+      PERF.tris += g.count / 3 * a.length;
+      if (instExt) { instExt.drawElementsInstancedANGLE(gl.TRIANGLES, g.count, g.itype, 0, a.length); PERF.calls++; }
+      else {                                                       // no instancing extension: constant attributes + one call per piece
+        for (let k = 4; k < 8; k++) gl.disableVertexAttribArray(k);
+        for (const q of a) { for (let k = 0; k < 4; k++) gl.vertexAttrib4f(4 + k, q.model[k * 4], q.model[k * 4 + 1], q.model[k * 4 + 2], q.model[k * 4 + 3]); gl.drawElements(gl.TRIANGLES, g.count, g.itype, 0); PERF.calls++; }
+      }
+    }
+    if (instExt) for (let k = 0; k < 4; k++) instExt.vertexAttribDivisorANGLE(4 + k, 0);
+    for (let k = 4; k < 8; k++) gl.disableVertexAttribArray(k);
+  }
   function drawMap() {
     const d = S.def, L = d.light || {}, F = d.fog || {};
     useMesh(); gl.uniformMatrix4fv(MU.u_vp, false, cam.vp); gl.uniform1i(MU.u_tex, 0);
@@ -489,25 +618,57 @@ void main(){
     const opaque = [], blend = [];
     const pp = S.player;
     const cullD = S.def && S.def.cull;                                                          // scene.cull = metres: pieces farther than this from the player (plus their own radius) are skipped; they are fogged out anyway (big scenes like the Hollow Cave)
+    const vp = cam.vp, fr = [];                                                                          // frustum planes (Gribb-Hartmann) from the column-major view-projection
+    for (const [a, sg] of [[0, 1], [0, -1], [1, 1], [1, -1], [2, 1], [2, -1]]) {
+      let A = vp[3] + sg * vp[a], B = vp[7] + sg * vp[4 + a], C = vp[11] + sg * vp[8 + a], D = vp[15] + sg * vp[12 + a];
+      const n = Math.hypot(A, B, C) || 1; fr.push(A / n, B / n, C / n, D / n);
+    }
+    const lodD = S.lodDist, lodList = [], fcn = (S._fc = (S._fc || 0) + 1), cxp0 = cam.pos[0], czp0 = cam.pos[2];
     for (const it of S.items) {
+      { const c = it.center, r = Math.hypot(it.rad * 1.42, (it.top - it.bot) * 0.5) + 0.5; let out = false;
+        for (let k = 0; k < 24; k += 4) if (fr[k] * c[0] + fr[k + 1] * c[1] + fr[k + 2] * c[2] + fr[k + 3] < -r) { out = true; break; }
+        if (out) continue; }
       if (cullD) { const cx = it.center[0] - pp.x, cz = it.center[2] - pp.z, rr = cullD + it.rad; if (cx * cx + cz * cz > rr * rr) continue; }
+      if (lodD && it.pc) { const pc = it.pc, dx = pc.o[0] - cxp0, dz = pc.o[2] - czp0; if (dx * dx + dz * dz > lodD * lodD) { if (pc.fc !== fcn) { pc.fc = fcn; lodList.push(pc); } continue; } }
       if (it.inside && pp.x > it.inside[0] && pp.x < it.inside[2] && pp.z > it.inside[1] && pp.z < it.inside[3]) continue;
       (it.mode === 2 ? blend : opaque).push(it);
     }
-    const draw = (it) => {
-      const g = it.g, m = it.mat;
-      gl.bindBuffer(gl.ARRAY_BUFFER, g.vbo);
-      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 48, 0); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 48, 12); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 48, 24); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 48, 32);
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, g.ibo);
-      gl.uniformMatrix4fv(MU.u_model, false, it.model);
-      gl.uniform4f(MU.u_color, m.color[0], m.color[1], m.color[2], m.color[3]); gl.uniform3f(MU.u_emis, m.emissive[0], m.emissive[1], m.emissive[2]);
-      gl.uniform1f(MU.u_cut, m.cutoff); gl.uniform1f(MU.u_unlit, m.unlit ? 1 : 0); gl.uniform1f(MU.u_mode, it.mode);
-      gl.bindTexture(gl.TEXTURE_2D, it.tex || TEX.white);
-      gl.drawElements(gl.TRIANGLES, g.count, g.itype, 0);
-    };
-    BLEND_N(); opaque.forEach(draw);
+    PERF.drawn = opaque.length + blend.length; PERF.total = S.items.length; PERF.calls = 0; PERF.tris = 0;
+    gl.uniform1f(MU.u_wt, clock); gl.uniform1f(MU.u_ft, clock); gl.uniform3f(MU.u_fcam, cam.pos[0], cam.pos[1], cam.pos[2]);
+    gl.bindBuffer(gl.ARRAY_BUFFER, instBuf);
+    // far LOD pieces (scene.lod) were removed above; draw them as camera-facing impostors after the solid geometry
+    BLEND_N(); drawItems(opaque);
     if (S.paint) { drawPaint(); gl.uniform1i(MU.u_tex, 0); }
-    if (blend.length) { gl.depthMask(false); blend.forEach(draw); }
+    if (blend.length) {
+      // Alpha-blended meshes (the Kenney trees are BLEND) write no depth, so a sprite drawn afterwards showed through them. Lay down depth
+      // for their solid texels first (colour off), then blend as before. Only trees that can stand between the camera and a character need it.
+      let maxD = 0; const cxp = cam.pos[0], czp = cam.pos[2];
+      maxD = Math.max(maxD, Math.hypot(pp.x - cxp, pp.z - czp)); for (const n of S.npcs) maxD = Math.max(maxD, Math.hypot(n.x - cxp, n.z - czp)); maxD += 4;
+      const near = blend.filter((it) => Math.hypot(it.center[0] - cxp, it.center[2] - czp) - it.rad * 1.42 < maxD);
+      if (near.length) { gl.colorMask(false, false, false, false); gl.depthMask(true); drawItems(near, 3); gl.colorMask(true, true, true, true); }
+      gl.depthMask(false); drawItems(blend);
+    }
+    if (lodList.length) {
+      const right = V.norm([cam.camX[0], 0, cam.camX[2]]);
+      if (instExt) {                                                // one instanced draw per impostor texture
+        if (!bbuf) bbuf = gl.createBuffer();
+        if (bArr.length < lodList.length * 4) bArr = new Float32Array(lodList.length * 8);
+        const byTex = new Map(); for (const pc of lodList) { let a = byTex.get(pc.tex); if (!a) byTex.set(pc.tex, a = []); a.push(pc); }
+        let n = 0; const spans = []; for (const [tx, a] of byTex) { spans.push([tx, n, a.length]); for (const pc of a) { bArr[n * 4] = pc.o[0]; bArr[n * 4 + 1] = pc.o[1]; bArr[n * 4 + 2] = pc.o[2]; bArr[n * 4 + 3] = pc.S; n++; } }
+        gl.useProgram(bprog); gl.disableVertexAttribArray(1); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, bbuf); gl.bufferData(gl.ARRAY_BUFFER, bArr.subarray(0, n * 4), gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(1); instExt.vertexAttribDivisorANGLE(1, 1);
+        gl.uniformMatrix4fv(BU.u_vp, false, cam.vp); gl.uniform3f(BU.u_r, right[0], right[1], right[2]); gl.uniform3f(BU.u_cam, cxp0, 0, czp0); gl.uniform1i(BU.u_tex, 0);
+        const F2 = S.def.fog || {}, fc2 = F2.color || [0.4, 0.28, 0.4]; gl.uniform3f(BU.u_fogc, fc2[0], fc2[1], fc2[2]); gl.uniform2f(BU.u_fogr, F2.near === undefined ? 70 : F2.near, F2.far === undefined ? 190 : F2.far);
+        gl.depthMask(false); BLEND_N();
+        for (const [tx, st, cnt] of spans) { gl.bindTexture(gl.TEXTURE_2D, tx); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 16, st * 16); instExt.drawArraysInstancedANGLE(gl.TRIANGLE_STRIP, 0, 4, cnt); PERF.calls++; }
+        instExt.vertexAttribDivisorANGLE(1, 0); gl.disableVertexAttribArray(1);
+      } else {
+        useSprite(); gl.uniformMatrix4fv(SU.u_vp, false, cam.vp); gl.depthMask(false); BLEND_N();
+        for (const pc of lodList) { drawQuad({ tex: pc.tex, origin: pc.o, right, up: [0, 1, 0], w: pc.S, h: pc.S, ax: 0.5, ay: 0, fogd: Math.hypot(pc.o[0] - cxp0, pc.o[2] - czp0) }); PERF.calls++; }
+      }
+      PERF.lod = lodList.length; PERF.tris += lodList.length * 2;
+    } else PERF.lod = 0;
     useSprite(); gl.uniformMatrix4fv(SU.u_vp, false, cam.vp);
   }
 
@@ -633,7 +794,8 @@ void main(){
   const PF = { cell: 0.75, maxExpand: 60000, rad: 0.7 };
   function pfClear(x0, z0, x1, z1) {                       // straight walk possible? (sampled with a slightly fat body)
     const d = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(d / 0.3));
-    for (let i = 1; i <= n; i++) { const t = i / n; if (blocked(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, PF.rad)) return false; }
+    const rad = blocked(x0, z0, PF.rad) ? 0.55 : PF.rad;     // hugging a wall already (the body is allowed within 0.55): judge the line by the real body, not the fat one
+    for (let i = 1; i <= n; i++) { const t = i / n; if (blocked(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, rad)) return false; }
     return true;
   }
   function findPath(sx, sz, gx, gz) {                      // -> {pts:[{x,z},...], goal:{x,z}}; pts excludes the start and ends at (a reachable stand-in for) the goal
@@ -703,10 +865,12 @@ void main(){
     const ix = k("d") + k("arrowright") - k("a") - k("arrowleft"), iy = k("w") + k("arrowup") - k("s") - k("arrowdown");
     if (ix || iy) { mx = f[0] * iy + r[0] * ix; mz = f[1] * iy + r[1] * ix; p.target = null; p.path = null; p.wantNpc = null; }
     else if (p.target) {
-      while (p.path && p.path.length && Math.hypot(p.path[0].x - p.x, p.path[0].z - p.z) < 0.5) p.path.shift();     // reached a waypoint
+      const reach = Math.max(0.5, (keys.shift ? 11 : 7) * dt * 1.2);
+      while (p.path && p.path.length && Math.hypot(p.path[0].x - p.x, p.path[0].z - p.z) < reach) p.path.shift();     // reached a waypoint (a long frame must not step clean over it)
       const wp = p.path && p.path.length ? p.path[0] : p.target;
       const dx = wp.x - p.x, dz = wp.z - p.z, d = Math.hypot(dx, dz);
-      if (wp === p.target && d < 0.25) { p.target = null; p.path = null; if (p.wantNpc) { const n = p.wantNpc; p.wantNpc = null; interact(n); } } else { mx = dx / d; mz = dz / d; }
+      const stepLen = (keys.shift ? 11 : 7) * dt;
+      if (wp === p.target && (d < 0.25 || d <= stepLen)) { if (d > 0.01 && !blocked(wp.x, wp.z, R)) { p.x = wp.x; p.z = wp.z; } p.target = null; p.path = null; p.moving = false; if (p.wantNpc) { const n = p.wantNpc; p.wantNpc = null; interact(n); } } else { mx = dx / d; mz = dz / d; }
     }
     const len = Math.hypot(mx, mz);
     p.moving = len > 0.01;
@@ -861,7 +1025,7 @@ void main(){
   }
   const CINE_TYPES = new Set(["music", "cine", "wait", "fade", "title", "face", "cam", "follow", "walk"]);
   function skipCine() {
-    if (!script || !script.cineRun || script.skip) return;
+    if (!script || !script.cineRun || script.skip || script.choosing) return;
     script.skip = true; cine.tasks.length = 0; script.lock = false; script.waiting = false; S.player.moving = false; S.player.t = 0;
     if (sayEl) sayEl.style.display = "none"; showTitle("", "", false); stepScript();
   }
@@ -871,10 +1035,37 @@ void main(){
     if (!keepFade) setFade(0, 0.9);
     showTitle("", "", false);
   }
+  /* choice: {type:"choice", who, text, options:[{label, if?, unless?, actions:[...]}]} shows the dialogue box with one button per
+     option (click, or press 1-9). The chosen option's actions are run next; whatever follows the choice in the script is
+     only reached if an option ends without its own `battle` / `warp`, so put each branch's whole tail inside the option. */
+  function clearChoiceUi() {
+    if (!sayEl) return;
+    const box = sayEl.querySelector(".s-choices"); if (box) { box.style.display = "none"; box.innerHTML = ""; }
+    sayEl.classList.remove("choosing");
+  }
+  function showChoice(a) {
+    const sc = script, c = getCleared(), opts = (a.options || []).filter((o) => condOk(o, c));
+    if (!opts.length) { stepScript(); return; }
+    sc.waiting = true; sc.lock = true; sc.choosing = true; sc.skip = false; sc.choiceOpts = opts;      // a skipped cutscene still stops to ask
+    showSay(a.who === null ? "" : (a.who || (sc.owner.name || "")), a.text || "", a.portrait || (sc.owner && sc.owner.portrait));
+    const box = sayEl.querySelector(".s-choices"); box.innerHTML = ""; box.style.display = "flex"; sayEl.classList.add("choosing");
+    opts.forEach((o, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = (i + 1) + ". " + (o.label || "...");
+      b.addEventListener("click", (e) => { e.stopPropagation(); pickChoice(sc, o); });
+      box.appendChild(b);
+    });
+  }
+  function pickChoice(sc, o) {
+    if (script !== sc || !sc.choosing) return;
+    sc.choosing = false; sc.choiceOpts = null; sc.lock = false; sc.waiting = false;
+    clearChoiceUi(); if (O && O.sfx && O.SFX) O.sfx(O.SFX.confirm);
+    sc.queue.unshift(...(o.actions || [])); stepScript();
+  }
   function stepScript() {
     while (script && script.queue.length) {
       const a = script.queue.shift();
       if (!condOk(a, getCleared())) continue;                                                              // conditional step
+      if (a.type === "choice") { showChoice(a); return; }                                                  // {who,text,options:[{label,actions}]}: the player picks, that option's actions run next
       if (CINE_TYPES.has(a.type)) { if (doCine(a)) return; continue; }
       if (a.type === "say" && script.skip) continue;
       if (a.type === "say") {
@@ -1098,6 +1289,7 @@ void main(){
   /* Random encounters: scene.encounters = {rate, level:[lo,hi], pool:[enemy ids], zones:[{x,z,w,d}]}. Walking inside a zone
      counts distance; every ~rate units an ambush starts a wild fight at a level rolled from the range. */
   function encounterStep(dist) {
+    try { if (localStorage.getItem("h3dNoEnc") === "1") return; } catch (e) {}                              // debug menu: random battles off
     const enc = S.def && S.def.encounters; if (!enc || S.encGo || script || S.switching || modalOpen() || !(state && ((state.story_party || state.party) || []).length)) return;
     const p = S.player, zs = enc.zones;
     let zone = null;
@@ -1176,6 +1368,7 @@ void main(){
   }
   function showSay(who, text, portrait) {
     if (!sayEl) return;
+    clearChoiceUi();
     sayEl.querySelector(".s-who").textContent = who || ""; sayEl.querySelector(".s-text").textContent = text || "";
     const img = sayEl.querySelector(".s-pic img"), url = portraitUrl(who, portrait);
     sayEl.classList.remove("has-pic"); img.removeAttribute("src");
@@ -1188,7 +1381,7 @@ void main(){
     sayEl.style.display = "block";
   }
   function buildSayBox() {
-    sayEl = document.createElement("div"); sayEl.className = "h3d-say"; sayEl.innerHTML = '<div class="s-pic"><img alt=""></div><div class="s-who"></div><div class="s-text"></div><div class="s-go">&#9654; [E] / click to continue</div>';
+    sayEl = document.createElement("div"); sayEl.className = "h3d-say"; sayEl.innerHTML = '<div class="s-pic"><img alt=""></div><div class="s-who"></div><div class="s-text"></div><div class="s-choices"></div><div class="s-go">&#9654; [E] / click to continue</div>';
     sayEl.addEventListener("click", (e) => { e.stopPropagation(); advanceScript(); }); ui.appendChild(sayEl);
     hudEls.evhint = document.createElement("div"); hudEls.evhint.className = "h3d-evhint"; ui.appendChild(hudEls.evhint);
   }
@@ -1323,16 +1516,20 @@ void main(){
       const show = p.w > 0 && !far && p.x > -80 && p.x < cam.w + 80 && p.y > -30 && p.y < cam.h + 30 && (!l.showIf || has(getCleared(), l.showIf));
       l.el.style.display = show ? "block" : "none"; if (show) { l.el.style.left = p.x + "px"; l.el.style.top = p.y + "px"; }
     }
+    const UI = S.def.uiRange || {}, TAG_R = UI.tag === undefined ? 14 : +UI.tag, MARK_R = UI.mark === undefined ? 26 : +UI.mark;   // metres: name tags / quest + alert markers only show when the hero is this close (scene.uiRange {tag, mark}; per NPC: tagRange, markRange)
     for (const n of S.npcs) {
       const gy = gh(n.x, n.z), foot = project([n.x, gy + (n.base || 0), n.z]), head = project([n.x, gy + (n.base || 0) + n.h, n.z]);
       const hh = Math.max(20, foot.y - head.y), hw = hh * (n.bossTex ? n.bossTex.aspect : (n.sheet ? Math.min(n.sheet.cw / n.sheet.refH, 1) : 0.5)) * 0.9;
       n.el.style.left = foot.x + "px"; n.el.style.top = foot.y + "px"; n.el.style.zIndex = String(10 + Math.round(foot.y));
       n.hit.style.width = hw + "px"; n.hit.style.height = hh + "px"; n.hit.style.cursor = "pointer";
       n.tag.style.top = (-hh - 4) + "px"; n.alert.style.top = (-hh - 40) + "px"; n.qm.style.top = (-hh - 40) + "px";
-      n.tag.classList.toggle("on", n === showN || n.hover);
+      const nd = Math.hypot(n.x - S.player.x, n.z - S.player.z), tr = n.tagRange === undefined ? TAG_R : +n.tagRange, mr = n.markRange === undefined ? MARK_R : +n.markRange;
+      const tagA = Math.max(0, Math.min(1, (tr - nd) / 3)), markA = Math.max(0, Math.min(1, (mr - nd) / 3)), isOn = n === showN || n.hover;
+      n.tag.classList.toggle("on", isOn);
+      n.tag.style.display = isOn || tagA > 0 ? "" : "none"; n.tag.style.opacity = isOn || tagA >= 1 ? "" : String(0.8 * tagA);
       const line = npcLine(n);
-      n.alert.style.display = n.alertOn ? "block" : "none";
-      n.qm.style.display = n.qmOn && !n.alertOn ? "block" : "none";
+      n.alert.style.display = n.alertOn && markA > 0 ? "block" : "none"; n.alert.style.opacity = markA >= 1 ? "" : String(markA);
+      n.qm.style.display = n.qmOn && !n.alertOn && markA > 0 ? "block" : "none"; n.qm.style.opacity = markA >= 1 ? "" : String(markA);
       const open = n === showN && !modalOpen();
       n.bub.style.display = open ? "block" : "none";
       if (open) {
@@ -1443,6 +1640,10 @@ void main(){
         background:linear-gradient(180deg,#f2d67e,#b8892c); box-shadow:0 3px 12px rgba(0,0,0,.6); } .s-who:empty { display:none; }
       .h3d-say.has-pic .s-who { left:176px; }
       .s-text { font-size:18px; line-height:1.55; margin:0; color:#fff; white-space:pre-wrap; text-shadow:0 1px 2px rgba(0,0,0,.6); }
+      .s-choices { display:none; flex-wrap:wrap; gap:12px; margin-top:16px; }
+      .s-choices button { font:inherit; font-size:16px; font-weight:700; color:#fff; padding:9px 20px; border-radius:10px; cursor:pointer; background:linear-gradient(180deg,#3a3158,#1c1730); border:2px solid var(--gold); box-shadow:0 3px 10px rgba(0,0,0,.6); }
+      .s-choices button:hover, .s-choices button:focus { background:linear-gradient(180deg,#f2d67e,#b8892c); color:#241a05; outline:none; }
+      .h3d-say.choosing { cursor:default; } .h3d-say.choosing .s-go { display:none; }
       .s-go { position:absolute; right:20px; bottom:8px; font-size:12px; color:var(--gold); animation:h3d-blink 1.2s ease-in-out infinite; }
       @keyframes h3d-blink { 50% { opacity:.35; } }
       .h3d-evhint { display:none; position:absolute; left:50%; bottom:46px; transform:translateX(-50%); font-size:13px; font-weight:700; color:#241a05; background:linear-gradient(180deg,#e8c766,#b8892c); padding:6px 16px; border-radius:999px; box-shadow:0 4px 16px rgba(0,0,0,.5); pointer-events:none; }
@@ -1454,9 +1655,55 @@ void main(){
     bar.appendChild(H3.btn); sceneEl.appendChild(bar);
     const vg = document.createElement("div"); vg.id = "h3d-vignette"; sceneEl.insertBefore(vg, sceneEl.firstChild);
   }
+  const QP = new URLSearchParams(location.search), PERF = { drawn: 0, total: 0, calls: 0, tris: 0, lod: 0, cpu: 0, gpu: -1, el: null, txt: null, cv: null, hist: new Float32Array(120), hi: 0, last: 0, acc: 0, n: 0, fps: 0, upd: 0, q: null, qExt: undefined };
+  const perfWanted = () => { if (QP.has("perf")) return QP.get("perf") !== "0"; try { return localStorage.getItem("h3dPerf") === "1"; } catch (e) { return false; } };
+  PERF.on = perfWanted();
+  H3.setPerf = (on) => { PERF.on = !!on; try { localStorage.setItem("h3dPerf", on ? "1" : "0"); } catch (e) {} if (PERF.el) PERF.el.style.display = on ? "block" : "none"; return PERF.on; };
+  H3.perfOn = () => PERF.on;
+  const DPR_CAP = Math.max(0.5, Math.min(3, parseFloat(QP.get("dpr")) || 1.5));                     // render-resolution cap: 1.5 is near-indistinguishable from 2 on hi-dpi screens at ~45% fewer pixels (?dpr=2 to override)
+  function perfGpuBegin() {                                          // EXT_disjoint_timer_query: GPU time of the previous frame's render() (not compositing)
+    if (PERF.qExt === undefined) PERF.qExt = gl.getExtension("EXT_disjoint_timer_query") || null;
+    const e = PERF.qExt; if (!e) return false;
+    if (PERF.q) {
+      if (e.getQueryObjectEXT(PERF.q, e.QUERY_RESULT_AVAILABLE_EXT)) { if (!gl.getParameter(e.GPU_DISJOINT_EXT)) PERF.gpu = e.getQueryObjectEXT(PERF.q, e.QUERY_RESULT_EXT) / 1e6; PERF.q = null; } else return false;   // still pending: skip this frame
+    }
+    PERF.q = e.createQueryEXT(); e.beginQueryEXT(e.TIME_ELAPSED_EXT, PERF.q); return true;
+  }
+  function perfGpuEnd(began) { if (began) PERF.qExt.endQueryEXT(PERF.qExt.TIME_ELAPSED_EXT); }
+  function perfBuild() {
+    const el = PERF.el = document.createElement("div");
+    el.style.cssText = "position:fixed;right:8px;top:8px;z-index:99999;font:11px/1.35 ui-monospace,Consolas,monospace;color:#cfe;background:rgba(8,10,16,.78);border:1px solid rgba(160,255,200,.25);border-radius:6px;padding:6px 8px;pointer-events:none;min-width:190px";
+    PERF.cv = document.createElement("canvas"); PERF.cv.width = 240; PERF.cv.height = 44; PERF.cv.style.cssText = "display:block;width:180px;height:33px;margin-bottom:4px";
+    PERF.txt = document.createElement("div"); PERF.txt.style.whiteSpace = "pre";
+    el.appendChild(PERF.cv); el.appendChild(PERF.txt); document.body.appendChild(el);
+    let rn = "?"; try { const x = gl.getExtension("WEBGL_debug_renderer_info"); if (x) rn = String(gl.getParameter(x.UNMASKED_RENDERER_WEBGL)).replace(/^ANGLE \(/, "").replace(/\)$/, "").split(",").filter((t) => !/^\s*(Direct3D|OpenGL|Vulkan|0x)/i.test(t) && !/^\s*(Direct3D|OpenGL|Vulkan)/i.test(t.trim())).map((t) => t.trim()).slice(0, 2).join(" ").replace(/\s+/g, " ").slice(0, 34); } catch (e) {}
+    PERF.gpuName = rn;
+  }
+  function perfTick(now, cpu) {
+    if (!PERF.on) { if (PERF.el) PERF.el.style.display = "none"; return; }
+    if (!PERF.el) perfBuild(); PERF.el.style.display = "block";
+    const ft = PERF.last ? now - PERF.last : 16.7; PERF.last = now;
+    PERF.hist[PERF.hi = (PERF.hi + 1) % 120] = ft; PERF.cpu += (cpu - PERF.cpu) * 0.1; PERF.acc += ft; PERF.n++;
+    const g = PERF.cv.getContext("2d"), W = 240, H = 44, sc = H / 50;                  // graph: 0-50 ms, lines at 60 and 30 fps
+    g.clearRect(0, 0, W, H);
+    for (let i = 0; i < 120; i++) { const v = PERF.hist[(PERF.hi + 1 + i) % 120]; if (!v) continue; g.fillStyle = v < 18 ? "#5ee38a" : v < 34 ? "#f2c94c" : "#ff6b5e"; const h = Math.min(H, v * sc); g.fillRect(i * 2, H - h, 2, h); }
+    g.fillStyle = "rgba(255,255,255,.28)"; g.fillRect(0, H - 16.7 * sc, W, 1); g.fillRect(0, H - 33.3 * sc, W, 1);
+    if (now - PERF.upd < 250) return; PERF.upd = now;
+    const fps = PERF.n * 1000 / (PERF.acc || 1); PERF.acc = 0; PERF.n = 0; PERF.fps = fps;
+    const sorted = Array.from(PERF.hist).filter((v) => v > 0).sort((a, b) => a - b), p99 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.99))] : 0;
+    const mem = performance && performance.memory ? (performance.memory.usedJSHeapSize / 1048576).toFixed(0) + " MB" : "n/a";
+    const dpr = canvas ? (canvas.width / (cam.w || 1)).toFixed(2) : "?";
+    PERF.txt.textContent = fps.toFixed(0) + " fps   " + (1000 / (fps || 1)).toFixed(1) + " ms   (1% low " + (p99 ? (1000 / p99).toFixed(0) : "-") + " fps)\n" +
+      "cpu render " + PERF.cpu.toFixed(1) + " ms   gpu " + (PERF.gpu >= 0 ? PERF.gpu.toFixed(1) + " ms" : "n/a") + "\n" +
+      "draw calls " + PERF.calls + "   tris " + (PERF.tris >= 1e6 ? (PERF.tris / 1e6).toFixed(2) + "M" : (PERF.tris / 1e3).toFixed(1) + "k") + "\n" +
+      "meshes " + PERF.drawn + "/" + PERF.total + "   lod " + PERF.lod + (instExt ? "   inst" : "   no-inst") + "\n" +
+      "js heap " + mem + "\n" +
+      (canvas ? canvas.width + "x" + canvas.height + " @" + dpr + "x" : "") + "  " + (PERF.gpuName || "") + "\n" +
+      (S ? S.name + "   items " + S.items.length : "");
+  }
   function resize() {
     if (!canvas) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
     cam.w = sceneEl.clientWidth || window.innerWidth; cam.h = sceneEl.clientHeight || window.innerHeight;
     canvas.width = Math.round(cam.w * dpr); canvas.height = Math.round(cam.h * dpr); cam.aspect = cam.w / cam.h;
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -1477,11 +1724,16 @@ void main(){
     stepCine(dt);
     if (!modalOpen() && !scriptActive()) stepPlayer(dt); else if (!(script && script.cineRun && S.player.moving)) S.player.moving = false;
     updateCamera(dt, false);
-    render(now); syncDom(); try { mmDraw(); } catch (e) { if (!MM.err) { MM.err = 1; console.warn('[Hub3D] minimap:', e); } }
+    const pt0 = performance.now(), pg = PERF.on && perfGpuBegin(); render(now); perfGpuEnd(pg); perfTick(now, performance.now() - pt0); syncDom(); try { mmDraw(); } catch (e) { if (!MM.err) { MM.err = 1; console.warn('[Hub3D] minimap:', e); } }
   }
   function bindInput() {
     window.addEventListener("keydown", (e) => {
       if (!H3.on || modalOpen()) return;
+      if (script && script.choosing) {                                                                    // a choice is open: 1-9 picks, everything else is ignored
+        const n = parseInt(e.key, 10), o = script.choiceOpts && script.choiceOpts[n - 1];
+        if (o) { e.preventDefault(); pickChoice(script, o); } else if (e.key === "Escape" || e.key === "e" || e.key === "E" || e.key === "Enter" || e.key === " ") e.preventDefault();
+        return;
+      }
       if (script) { if (e.key === "Escape") { e.preventDefault(); skipCine(); return; } if (e.key === "e" || e.key === "E" || e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!e.repeat) advanceScript(); } return; }
       if (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       const k = e.key.toLowerCase();
@@ -1494,17 +1746,26 @@ void main(){
     window.addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
     let drag = null;
     const host = ui;
-    sceneEl.addEventListener("pointerdown", (e) => { if (!H3.on || e.target.closest(".h3d-hit, .h3d-say, button, .currency-pill, #tut-overlay, #dbg-modal, .debug")) return; drag = { x: e.clientX, y: e.clientY, yaw: cam.goalYaw, pitch: cam.goalPitch, moved: false, id: e.pointerId }; });
+    const CLICK_PX = 10, CLICK_MS = 450;       // a press that moves less than this (or is quick and barely moves) is a click, not a camera drag
+    const pickAt = (e) => { const r = sceneEl.getBoundingClientRect(); return groundAt(e.clientX - r.left, e.clientY - r.top, r.width, r.height); };
+    sceneEl.addEventListener("pointerdown", (e) => {
+      if (!H3.on || e.target.closest(".h3d-hit, .h3d-say, button, .currency-pill, #tut-overlay, #dbg-modal, .debug")) return;
+      // pick the ground NOW: the camera keeps following the hero, so by pointer-up the same screen spot can be a different place
+      drag = { x: e.clientX, y: e.clientY, yaw: cam.goalYaw, pitch: cam.goalPitch, moved: false, id: e.pointerId, btn: e.button, t: performance.now(), ground: e.button === 0 ? pickAt(e) : null };
+    });
     window.addEventListener("pointermove", (e) => {
-      if (!drag || script) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-      if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
+      if (!drag || script || (drag.id !== undefined && e.pointerId !== drag.id)) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) > CLICK_PX) drag.moved = true;
       if (drag.moved) { cam.goalPitch = clamp(drag.pitch + dy * 0.15, 14, 62); cam.goalYaw = drag.yaw - dx * 0.3; }
     });
+    window.addEventListener("pointercancel", () => { drag = null; });
     window.addEventListener("pointerup", (e) => {
-      if (!drag) return; const d = drag; drag = null;
-      if (d.moved || !H3.on || modalOpen() || script) return;
-      const r = sceneEl.getBoundingClientRect(), g = groundAt(e.clientX - r.left, e.clientY - r.top);
-      if (g) setGoal(g.x, g.z, null);
+      if (!drag || (drag.id !== undefined && e.pointerId !== drag.id)) return; const d = drag; drag = null;
+      const dist = Math.hypot(e.clientX - d.x, e.clientY - d.y), quick = performance.now() - d.t < CLICK_MS;
+      if (!H3.on || modalOpen() || script || d.btn !== 0) return;
+      if (d.moved && !(quick && dist <= CLICK_PX * 1.6)) return;            // a real drag (the camera already turned); a quick near-miss still counts as a click
+      const g = d.ground || pickAt(e);
+      if (g) { if (d.moved) { cam.goalYaw = d.yaw; cam.goalPitch = d.pitch; } setGoal(g.x, g.z, null); }
     });
     sceneEl.addEventListener("wheel", (e) => { if (!H3.on || modalOpen() || script) return; e.preventDefault(); cam.goalDist = clamp(cam.goalDist * (1 + Math.sign(e.deltaY) * 0.08), 12, 48); }, { passive: false });
     window.addEventListener("resize", resize);
@@ -1524,9 +1785,9 @@ void main(){
       canvas = document.createElement("canvas"); canvas.id = "h3d-canvas"; canvas.tabIndex = -1;
       gl = canvas.getContext("webgl", { antialias: true, alpha: false, premultipliedAlpha: false });
       if (!gl) throw new Error("WebGL unavailable");
-      sprog = mkProg(SVS, SFS, ["a"]); mprog = mkProg(MVS, MFS, ["p", "n", "t", "c"]); pprog = mkProg(PVS, PFS, ["p", "n"]);
+      sprog = mkProg(SVS, SFS, ["a"]); mprog = mkProg(MVS, MFS, ["p", "n", "t", "c", "m0", "m1", "m2", "m3"]); bprog = mkProg(BVS, BFS, ["a", "i"]); ["u_vp", "u_r", "u_cam", "u_tex", "u_fogc", "u_fogr"].forEach((n) => { BU[n] = gl.getUniformLocation(bprog, n); }); instExt = gl.getExtension("ANGLE_instanced_arrays"); instBuf = gl.createBuffer(); pprog = mkProg(PVS, PFS, ["p", "n"]);
       ["u_vp", "u_o", "u_r", "u_u", "u_size", "u_anchor", "u_tex", "u_rect", "u_flip", "u_tint", "u_fogc", "u_fogr", "u_fogd"].forEach((n) => { SU[n] = gl.getUniformLocation(sprog, n); });
-      ["u_vp", "u_model", "u_tex", "u_color", "u_emis", "u_cut", "u_unlit", "u_mode", "u_ldir", "u_lcol", "u_amb", "u_fogc", "u_fogr"].forEach((n) => { MU[n] = gl.getUniformLocation(mprog, n); });
+      ["u_vp", "u_wt", "u_wa", "u_ft", "u_fcam", "u_tex", "u_color", "u_emis", "u_cut", "u_unlit", "u_mode", "u_ldir", "u_lcol", "u_amb", "u_fogc", "u_fogr"].forEach((n) => { MU[n] = gl.getUniformLocation(mprog, n); });
       ["u_vp", "u_splat", "u_t0", "u_t1", "u_t2", "u_t3", "u_rect", "u_inv", "u_ldir", "u_lcol", "u_amb", "u_fogc", "u_fogr"].forEach((n) => { PU[n] = gl.getUniformLocation(pprog, n); });
       quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
       gl.enable(gl.BLEND); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.activeTexture(gl.TEXTURE0);

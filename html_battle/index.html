@@ -49,6 +49,10 @@
     background: var(--panel-bg); color: #ffd36a; border: 1px dashed #ffd36a99;
     border-radius: 999px; padding: 4px 14px; font-size: 13px; cursor: pointer; }
   #dbg-auto-btn.on { background: #ffd36a; color: #1a1408; border-style: solid; }
+  #dbg-kill-btn { display: none; position: absolute; top: 6px; left: calc(50% + 275px); z-index: 20;
+    background: var(--panel-bg); color: #ff8a7a; border: 1px dashed #ff8a7a99;
+    border-radius: 999px; padding: 4px 14px; font-size: 13px; cursor: pointer; }
+  #dbg-kill-btn:hover { background: #ff8a7a; color: #1a0a08; border-style: solid; }
   #round-label {
     position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
     font-size: 13px; color: var(--text-dim);
@@ -185,6 +189,24 @@
   #command-panel button:hover { background: var(--accent); }
   #command-panel button:disabled { opacity: 0.35; cursor: not-allowed; background: rgba(255,255,255,0.05); }
   #command-panel button.back { color: var(--text-dim); font-size: 12px; }
+
+  /* ---- guided tutorial (Garrick's warm-up): the coach card, the one highlighted button, the locked rest ---- */
+  #coach { position: absolute; top: 46px; left: 50%; transform: translateX(-50%); width: min(620px, 62%); z-index: 70; display: none; pointer-events: none;
+    padding: 18px 20px 14px; border-radius: 12px; color: #fff; font-size: 15px; line-height: 1.5; box-sizing: border-box;
+    background: linear-gradient(180deg, rgba(40,32,64,.97), rgba(14,12,26,.97)); border: 2px solid #e8c766;
+    box-shadow: 0 0 0 3px rgba(0,0,0,.6), 0 12px 36px rgba(0,0,0,.7), 0 0 28px rgba(232,199,102,.2); }
+  #coach .c-tag { position: absolute; left: 16px; top: -13px; padding: 3px 13px; border-radius: 7px; font-size: 12px; font-weight: 800; letter-spacing: .1em; color: #241a05;
+    background: linear-gradient(180deg, #f2d67e, #b8892c); }
+  #coach .c-title { font-weight: 800; color: #ffe27a; margin-bottom: 4px; font-size: 16px; }
+  #coach .c-text { white-space: pre-line; }
+  #coach .c-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; min-height: 8px; }
+  #coach .c-dots { font-size: 12px; color: var(--text-dim); letter-spacing: .2em; }
+  #coach .c-next { pointer-events: auto; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; padding: 7px 18px; border-radius: 8px; border: 2px solid #e8c766; color: #fff; background: linear-gradient(180deg, #3a3158, #1c1730); }
+  #coach .c-next:hover { background: linear-gradient(180deg, #f2d67e, #b8892c); color: #241a05; }
+  @keyframes coach-pulse { 50% { box-shadow: 0 0 0 4px rgba(255,226,122,.55); } }
+  .coach-spot { outline: 3px solid #ffe27a !important; outline-offset: 2px; animation: coach-pulse 1.1s ease-in-out infinite; }
+  #command-panel button.coach-hl { outline: 2px solid #ffe27a; background: rgba(232,199,102,.30); animation: coach-pulse 1.1s ease-in-out infinite; }
+  #command-panel button.coach-lock { opacity: .28; cursor: not-allowed; }
 
   .tooltip {
     display: none; position: fixed; z-index: 900; max-width: 260px;
@@ -398,6 +420,7 @@
     <div id="atb-timeline"></div>
     <button id="auto-btn" onclick="toggleAuto()">Auto: OFF</button>
     <button id="dbg-auto-btn" onclick="toggleDbgAuto()" title="Debug: a full-player bot plays your party (defends braced casts, heals, buffs, focus fires)">Bot: OFF</button>
+    <button id="dbg-kill-btn" onclick="dbgKillEnemies()" title="Debug: defeat every enemy instantly">Kill all</button>
     <div id="connect-banner">Connecting to battle_server.py...</div>
     <div id="log-panel"></div>
     <button id="log-toggle" onclick="toggleLog()">Expand log</button>
@@ -410,6 +433,7 @@
     </div>
 
     <div id="status-panel"></div>
+    <div id="coach"><span class="c-tag">COACH</span><div class="c-title"></div><div class="c-text"></div><div class="c-foot"><span class="c-dots"></span><button class="c-next" type="button">Next &#9654;</button></div></div>
     <div id="skill-tooltip" class="tooltip"></div>
     <div class="dbg-col left"><div class="dbg-panel" id="dbg-enemy"></div><div class="dbg-panel wide" id="dbg-stats-enemy"></div></div>
     <div class="dbg-col right"><div class="dbg-panel" id="dbg-party"></div><div class="dbg-panel wide" id="dbg-stats-party"></div></div>
@@ -1260,6 +1284,7 @@ function setDebugUi(on) {
   document.getElementById("log-panel").classList.toggle("dbg", on);
   document.getElementById("log-toggle").style.display = on ? "block" : "none";
   document.getElementById("dbg-auto-btn").style.display = on ? "block" : "none";
+  document.getElementById("dbg-kill-btn").style.display = on ? "block" : "none";
   if (on && !window.__ptBotLoad) {                 // debug mode only: the playtest bot also drives this page (clicks through dialogue / results)
     window.__ptBotLoad = true;
     const sc = document.createElement("script"); sc.src = "/hub3d/playtest_bot.js"; document.head.appendChild(sc);
@@ -1271,6 +1296,7 @@ function setDebugUi(on) {
   }
 }
 let dbgAutoOn = false;
+function dbgKillEnemies() { send({ type: "debug_kill_enemies" }); }
 function toggleDbgAuto() {
   const want = !dbgAutoOn;
   try { sessionStorage.setItem("dbgAuto", want ? "1" : "0"); } catch (e) {}
@@ -1564,13 +1590,151 @@ function handleNeedCancel(msg) {
   clearTargeting();
 }
 
+/* ---- Guided battle tutorial (Garrick's warm-up) -------------------------------------------------------------
+   The server sends {type:"tutorial"} for the warm-up fight (a lone practice goblin that telegraphs its big hits, a free
+   Potion stock, no rewards). From then on every hero turn gets ONE lesson: only the matching menu button works (it pulses
+   gold, everything else is greyed out) and the coach card says what to press and why. The lesson is chosen from what is
+   happening, not from a script of turn numbers: Attack first, then Defend whenever the goblin is mid-cast, then Skill, then
+   Item, then a free finish. */
+const COACH = { on: false, done: { attack: false, skill: false, defend: false, item: false }, lesson: null, skillName: "", introShown: false, freeShown: false, hint: null };
+const coachEl = () => document.getElementById("coach");
+function coachSpot(sel) {
+  document.querySelectorAll(".coach-spot").forEach((e) => e.classList.remove("coach-spot"));
+  if (sel) document.querySelectorAll(sel).forEach((e) => e.classList.add("coach-spot"));
+}
+function coachShow(title, text, opts) {
+  opts = opts || {};
+  const el = coachEl(); if (!el) return;
+  el.querySelector(".c-title").textContent = title || "";
+  el.querySelector(".c-text").textContent = text || "";
+  el.querySelector(".c-dots").textContent = opts.dots || "";
+  const nx = el.querySelector(".c-next"); nx.style.display = opts.next ? "" : "none"; nx.textContent = opts.nextLabel || "Next ▶"; nx.onclick = opts.next || null;
+  el.style.display = "block"; coachSpot(opts.spot || null);
+}
+function coachHide() { const el = coachEl(); if (el) el.style.display = "none"; coachSpot(null); }
+function coachStart() {
+  COACH.on = true;
+  for (const id of ["auto-btn", "dbg-auto-btn", "dbg-kill-btn"]) { const b = document.getElementById(id); if (b) b.style.display = "none"; }   // no auto-play: the point is to press the buttons yourself
+  if (autoOn) toggleAuto();
+}
+function coachEnemyCasting() {
+  if (!latestState) return null;
+  for (const e of latestState.enemies || []) { const u = atbUnits.get(e.id); if (e.alive && u && u.ph === "casting") return u; }
+  return null;
+}
+function coachPick(state) {
+  const d = COACH.done;
+  if (!d.attack) return "attack";
+  if (!d.defend && coachEnemyCasting()) return "defend";
+  if (!d.skill) return "skill";
+  if (!d.item) return "item";
+  return "free";
+}
+function coachActed(m) {
+  if (!COACH.on) return;
+  if (m.action === "attack") COACH.done.attack = true;
+  else if (m.action === "skill") COACH.done.skill = true;
+  else if (m.action === "item") COACH.done.item = true;
+  else if (m.action === "defend") COACH.done.defend = true;
+  const hints = {
+    attack: ["Nice hit!", "Your gauge empties and refills. Watch the glowing bar under Kael: when it is full it is your turn again. The Turn Order list shows who is next.", "#atb-timeline"],
+    skill: ["Skill used!", "A skill needs a moment to cast, so Kael's bar fills as a cast bar first. Enemies that are hit while winding up get delayed, and you can be hit while you wind up too.", "#atb-timeline"],
+    item: ["Healed up!", "Items are used up for good, so save the strong ones for when you need them. Here the potions are on Garrick.", ""],
+    defend: ["Braced!", "Defend is instant and lasts until your next action. Any hit that lands while you are braced is cut down hard. Watch the Turn Order list for the next wind-up.", "#atb-timeline"],
+  };
+  const h = hints[m.action];
+  COACH.hint = h || null;
+  coachSpot(null);
+  if (h) coachShow(h[0], h[1], { spot: h[2] });
+  else coachHide();
+}
+// the buttons of the current command menu: what kind of menu it is, which one the lesson allows
+function coachRefresh() {
+  const need = currentNeed, L = COACH.lesson;
+  if (!COACH.on || !need || !L) return;
+  const state = need.state, title = document.getElementById("command-title").textContent;
+  const btns = [...document.querySelectorAll("#command-buttons button")];
+  const labels = btns.map((b) => b.textContent.trim());
+  const isTarget = /Choose a target/.test(title);
+  const isMain = !isTarget && /^Attack/.test(labels[0] || "") && labels.some((l) => /^Flee/.test(l));
+  const isSkill = !isTarget && !isMain && labels.some((l) => /\(\d+ MP\)/.test(l));
+  const isItem = !isTarget && !isMain && !isSkill && labels.some((l) => / x\d+$/.test(l));
+  const hero = state.actor_name || "";
+  const hurt = (state.party || []).some((c) => c.name === hero && c.hp < c.max_hp);
+  let allow = () => false, head = "", text = "", spot = "";
+  if (L === "attack") {
+    allow = (l) => /^Attack/.test(l) || isTarget;
+    head = "Attack"; text = "It's your turn! Choose Attack.\nAn attack is free (no MP) and instant. It is your bread and butter.";
+    if (isTarget) text = "Click the goblin (on screen or in the list) to pick your target.";
+  } else if (L === "skill") {
+    if (isMain) { allow = (l) => /^Skill/.test(l); head = "Skills"; text = "Skills hit harder or do special things, but each one costs MP (the blue bar). Open the Skill menu."; }
+    else if (isSkill) { allow = (l) => l.indexOf(COACH.skillName) === 0; head = "Pick " + COACH.skillName; text = "Hover a skill to read what it does. The number in brackets is its MP cost.\nTime freezes while you browse sub-menus, so there is no rush. Choose " + COACH.skillName + "."; }
+    else if (isTarget) { allow = () => true; head = "Target"; text = "Click the goblin to aim the skill at it."; }
+  } else if (L === "item") {
+    if (isMain) { allow = (l) => /^Item/.test(l); head = "Items"; text = (hurt ? "Kael took a hit. Time to heal!" : "Items heal, cure and revive. Kael isn't badly hurt yet, but practice anyway.") + "\nOpen the Item menu."; }
+    else if (isItem) { allow = (l) => /^Potion/.test(l); head = "Use a Potion"; text = "A Potion restores 100 HP. The number is how many are left in the party's bag. Choose Potion."; }
+    else if (isTarget) { allow = (l) => l.indexOf(hero) >= 0; head = "Who to heal?"; text = "Items can target any ally. Choose Kael."; }
+  } else if (L === "defend") {
+    allow = (l) => /^Defend/.test(l); head = "Danger: big attack incoming!";
+    text = "The goblin is charging a heavy blow! Its move name shows up in the Turn Order list while it winds up. A wind-up means a strong attack is coming, and you get a chance to react.\nDefend is instant and lasts until your next action: a braced hero takes far less damage. Choose Defend.";
+    spot = "#atb-timeline";
+  } else if (L === "free") {
+    allow = (l) => !/^Flee/.test(l); head = "Finish him off!";
+    text = "That's the basics: Attack is free, Skills cost MP, Items are limited, and Defend answers a big cast.\nUse whatever you like to finish the goblin. (Fleeing is turned off in practice.)";
+  }
+  const lessonLive = L !== "free";
+  btns.forEach((b, i) => {
+    const l = labels[i], isNav = /^< (Back|Cancel)/.test(l);
+    const ok = isNav || allow(l);
+    if (!ok) { b.disabled = true; b.classList.add("coach-lock"); b.classList.remove("coach-hl"); }
+    else { b.classList.remove("coach-lock"); b.classList.toggle("coach-hl", lessonLive && !isNav && !b.disabled); }
+  });
+  if (COACH.introBusy) return;          // the intro cards own the coach box until they are done
+  if (head && text) coachShow(head, text, { spot });
+}
+let coachObserver = null;
+function coachWatchMenu() {
+  if (coachObserver) return;
+  coachObserver = new MutationObserver(() => coachRefresh());
+  coachObserver.observe(document.getElementById("command-buttons"), { childList: true });
+}
+// called at the end of handleNeedAction, once the main menu is on screen
+function coachTurn(state) {
+  if (!COACH.on) return;
+  COACH.hint = null; coachWatchMenu();
+  COACH.lesson = coachPick(state);
+  if (COACH.lesson === "skill") {
+    const s = (state.available_skills || []).find((k) => k.target === "single_enemy" && state.actor_mp >= k.mp_cost) || (state.available_skills || []).find((k) => state.actor_mp >= k.mp_cost) || (state.available_skills || [])[0];
+    COACH.skillName = s ? s.name : "";
+  }
+  if (COACH.lesson === "free" && !COACH.freeShown) COACH.freeShown = true;
+  if (!COACH.introShown) { COACH.introShown = true; coachIntro(); return; }
+  coachRefresh();
+}
+function coachIntro() {
+  const panel = document.getElementById("command-panel");
+  const pages = [
+    ["Welcome to battle!", "This is Active Time Battle: nobody waits for a turn. Every fighter has a gauge, the thin yellow bar under their name, that fills over time. When yours is full, you act.\nGarrick will tell you exactly what to press. Follow the glowing button.", ".np-atb"],
+    ["The Turn Order list", "This list shows who will act next. Your party is green, enemies are red. If a fighter is winding up a big move, its name shows up here as well.", "#atb-timeline"],
+    ["Health and magic", "The red bar is HP, your life. The blue bar is MP, which skills spend. The yellow bar is your gauge. If a hero's HP hits zero, they are down.", "#status-panel"],
+  ];
+  COACH.introBusy = true; panel.style.visibility = "hidden"; atbPause(true);
+  let i = 0;
+  const show = () => {
+    const last = i === pages.length - 1, pg = pages[i];
+    coachShow(pg[0], pg[1], { spot: pg[2], dots: pages.map((_, k) => (k === i ? "●" : "○")).join(" "), nextLabel: last ? "Let's fight ▶" : "Next ▶",
+      next: () => { if (last) { COACH.introBusy = false; panel.style.visibility = ""; atbPause(false); coachRefresh(); } else { i++; show(); } } });
+  };
+  show();
+}
+
 async function handleNeedAction(actorId, state) {
   state = mergeStaticFields(state, latestState);
   latestState = state; // full snapshot -- includes actor-specific fields too
   layoutAllSprites();
   renderStatusPanel(actorId);
   currentNeed = { actorId, state };
-  if (autoOn) {
+  if (autoOn && !COACH.on) {
     const need = currentNeed;
     setTimeout(() => { if (currentNeed === need) autoAct(); }, 800); // brief beat so the fight stays readable
     return;
@@ -1636,6 +1800,7 @@ async function handleNeedAction(actorId, state) {
     if (actionMsg.action === "defend") playSfx(SFX.block);
     else if (actionMsg.action === "flee") playSfx(SFX.flee);
     else if (actionMsg.action === "item") playSfx(SFX.useItem);
+    if (COACH.on) coachActed(actionMsg);
     send({ type: "action", actor_id: actorId, ...actionMsg });
   }
 
@@ -1691,6 +1856,7 @@ async function handleNeedAction(actorId, state) {
   }
 
   showMainMenu();
+  if (COACH.on) coachTurn(state);
 }
 
 function renderDebugGraphs(state) {
@@ -2179,6 +2345,7 @@ let cashingOut = false;
 let debugBattle = false;
 function handleBattleEnd(msg) {
   const result = msg.result;
+  if (COACH.on) { COACH.on = false; coachHide(); }
   lastBattleResult = result;
   playMusic(MUSIC.main);   // swap straight back to hub music for the results screen (simple cut, no crossfade)
   document.getElementById("command-panel").style.display = "none";
@@ -2213,6 +2380,10 @@ function handleBattleEnd(msg) {
     const r = msg.rewards_paid ? msg.paid : msg;
     rw.textContent = (msg.first_clear ? "FIRST CLEAR BONUS!\n" : "Rematch reward\n") + fmtReward(r)
       + (msg.rewards_paid ? "" : "\n(debug fight - not granted)");
+    sub.textContent = "";
+  }
+  if (msg.tutorial) {                          // Garrick's warm-up: no rewards, no pressure
+    rw.textContent = result === "victory" ? "Warm-up complete!\nGarrick is waiting for you." : "No rewards, no penalty. Try again whenever you like.";
     sub.textContent = "";
   }
   if (msg.debug) {
@@ -2408,6 +2579,7 @@ async function dispatchMessage(msg) {
     case "dialogue": await returnDone; showDialogue(msg.lines || []); break;
     case "fx": handleFx(msg); if (msg.kind === "pause") await wait(msg.ms || 0); break;
     case "debug_auto": handleDbgAuto(msg); break;
+    case "tutorial": coachStart(msg); break;
     case "need_action": await returnDone; handleNeedAction(msg.actor_id, msg.state); break;
     case "battle_end": await returnDone; handleBattleEnd(msg); break;
     case "ladder_status": renderLadderHud(msg); break;

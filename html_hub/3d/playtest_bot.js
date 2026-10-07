@@ -499,13 +499,13 @@
   function buildPanel() {
     if (IS_BATTLE) {
       const b = document.createElement("div");
-      b.style.cssText = "position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:12px sans-serif;color:#ffe27a;background:rgba(20,16,0,.8);border:1px dashed #ffe27a;padding:3px 10px;border-radius:6px;cursor:pointer";
+      b.style.cssText = "position:fixed;top:44px;left:50%;transform:translateX(-50%);z-index:99999;font:12px sans-serif;color:#ffe27a;background:rgba(20,16,0,.8);border:1px dashed #ffe27a;padding:3px 10px;border-radius:6px;cursor:pointer";
       b.textContent = "Playtest bot: " + (cfg.on ? "ON (click to stop)" : "off");
       b.onclick = () => { cfg.on = !cfg.on; save(); b.textContent = "Playtest bot: " + (cfg.on ? "ON (click to stop)" : "off"); };
       document.body.appendChild(b); return;
     }
     panel = document.createElement("div");
-    panel.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:99999;font:12px sans-serif;color:#ffe27a;background:rgba(20,16,0,.86);border:1px dashed #ffe27a;padding:6px 8px;border-radius:8px;max-width:330px";
+    panel.style.cssText = "position:fixed;left:8px;bottom:56px;z-index:99999;font:12px sans-serif;color:#ffe27a;background:rgba(20,16,0,.86);border:1px dashed #ffe27a;padding:6px 8px;border-radius:8px;max-width:330px";
     panel.innerHTML = '<div class="pt-title" style="font-weight:700;margin-bottom:3px;cursor:pointer" title="click to fold">Playtest bot (debug) &#9662;</div><div class="pt-body"><div class="pt-st" style="margin-bottom:5px"></div>' +
       '<button class="pt-go"></button> <button class="pt-fresh" title="Backs up your save, then starts a brand-new game">Fresh run</button> <button class="pt-mode"></button> <button class="pt-watch"></button> <button class="pt-rep">Report</button></div>';
     const fold = (on) => { panel.querySelector(".pt-body").style.display = on ? "none" : "block"; try { localStorage.setItem("ptBotFold", on ? "1" : "0"); } catch (e) { /* ignore */ } };
