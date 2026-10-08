@@ -486,7 +486,7 @@ void main(){
     try {
       const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
       for (const { o } of mdl.gpu) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], o.min[k]); hi[k] = Math.max(hi[k], o.max[k]); }
-      const S0 = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]), cx = (lo[0] + hi[0]) / 2, cy = (lo[1] + hi[1]) / 2, cz = (lo[2] + hi[2]) / 2, N = 256;
+      const S0 = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]), cx = (lo[0] + hi[0]) / 2, cy = (lo[1] + hi[1]) / 2, cz = (lo[2] + hi[2]) / 2, N = Math.max(128, Math.min(1024, (def.lod && +def.lod.res) || 256));
       if (!(S0 > 0)) throw new Error("empty");
       const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
       const parts = mdl.gpu.map(({ g, o }) => { const m = o.material, t = m.image >= 0 ? mdl.texs[m.image] : null; return { g, mat: m, tex: t, mode: m.alphaMode === "BLEND" ? 2 : m.alphaMode === "MASK" ? 1 : 0, model: I, gk: gkOf(g, m, t) }; });
@@ -627,13 +627,13 @@ void main(){
       let A = vp[3] + sg * vp[a], B = vp[7] + sg * vp[4 + a], C = vp[11] + sg * vp[8 + a], D = vp[15] + sg * vp[12 + a];
       const n = Math.hypot(A, B, C) || 1; fr.push(A / n, B / n, C / n, D / n);
     }
-    const lodD = S.lodDist * G.view, lodList = [], fcn = (S._fc = (S._fc || 0) + 1), cxp0 = cam.pos[0], czp0 = cam.pos[2];
+    const lodD = S.lodDist * G.view, lodList = [], fcn = (S._fc = (S._fc || 0) + 1), cxp0 = cam.pos[0], czp0 = cam.pos[2], lodFP = !!(S.def.lod && S.def.lod.from === "player"), lox = lodFP ? pp.x : cxp0, loz = lodFP ? pp.z : czp0;   // lod.from "player": measure from the hero, not the (far, high) camera
     for (const it of S.items) {
       { const c = it.center, r = Math.hypot(it.rad * 1.42, (it.top - it.bot) * 0.5) + 0.5; let out = false;
         for (let k = 0; k < 24; k += 4) if (fr[k] * c[0] + fr[k + 1] * c[1] + fr[k + 2] * c[2] + fr[k + 3] < -r) { out = true; break; }
         if (out) continue; }
       if (cullD) { const cx = it.center[0] - pp.x, cz = it.center[2] - pp.z, rr = cullD + it.rad; if (cx * cx + cz * cz > rr * rr) continue; }
-      if (lodD && it.pc) { const pc = it.pc, dx = pc.o[0] - cxp0, dz = pc.o[2] - czp0; if (dx * dx + dz * dz > lodD * lodD) { if (pc.fc !== fcn) { pc.fc = fcn; lodList.push(pc); } continue; } }
+      if (lodD && it.pc) { const pc = it.pc, dx = pc.o[0] - lox, dz = pc.o[2] - loz; if (dx * dx + dz * dz > lodD * lodD) { if (pc.fc !== fcn) { pc.fc = fcn; lodList.push(pc); } continue; } }
       if (it.inside && pp.x > it.inside[0] && pp.x < it.inside[2] && pp.z > it.inside[1] && pp.z < it.inside[3]) continue;
       (it.mode === 2 ? blend : opaque).push(it);
     }
@@ -1751,14 +1751,14 @@ void main(){
   H3.perfOn = () => PERF.on;
   const DPR_CAP = Math.max(0.5, Math.min(3, parseFloat(QP.get("dpr")) || 1.5));                     // render-resolution cap: 1.5 is near-indistinguishable from 2 on hi-dpi screens at ~45% fewer pixels (?dpr=2 to override)
   /* ---------- graphics settings: Esc menu > Settings stores them in localStorage "rpgSettings" and fires "rpg-settings" ---------- */
-  const G = { res: 1, view: 1, fx: 1, shadows: true, aniso: 8, fps: 0, bright: 1 };
+  const G = { res: 1, view: 1, fx: 1, shadows: true, aniso: 8, fps: 0, bright: 1, auto: true, dyn: 1 };   // dyn = adaptive-resolution multiplier (0.5-1), moved by adaptStep()
   let capT = 0, gfxLast = null;
   const fogN = (F) => (F.near === undefined ? 70 : F.near) * G.view, fogF = (F) => (F.far === undefined ? 190 : F.far) * G.view;   // View distance scales the fog range (and the scene's cull / far-LOD distances)
   function gfxApply(s) {
     if (!s) return; gfxLast = s;
     const num = (v, lo, hi, d) => (typeof v === "number" && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
     G.res = num(s.res, 0.4, 2, 1); G.view = num(s.view, 0.3, 2, 1); G.fx = num(s.fx, 0, 1, 1); G.aniso = num(s.aniso, 1, 16, 8);
-    G.fps = num(s.fps, 0, 240, 0); G.bright = num(s.bright, 0.5, 1.5, 1); G.shadows = s.shadows !== false;
+    G.fps = num(s.fps, 0, 240, 0); G.bright = num(s.bright, 0.5, 1.5, 1); G.shadows = s.shadows !== false; G.auto = s.auto !== false; if (!G.auto) G.dyn = 1;
     if (canvas) { canvas.style.filter = G.bright === 1 ? "" : "brightness(" + G.bright + ")"; if (sceneEl) resize(); }
     if (window.EnvFX && EnvFX.setDensity) EnvFX.setDensity(G.fx);
   }
@@ -1806,7 +1806,7 @@ void main(){
   }
   function resize() {
     if (!canvas) return;
-    const dpr = Math.max(0.35, Math.min(window.devicePixelRatio || 1, DPR_CAP) * G.res);
+    const dpr = Math.max(0.35, Math.min(window.devicePixelRatio || 1, DPR_CAP) * G.res * G.dyn);
     cam.w = sceneEl.clientWidth || window.innerWidth; cam.h = sceneEl.clientHeight || window.innerHeight;
     canvas.width = Math.round(cam.w * dpr); canvas.height = Math.round(cam.h * dpr); cam.aspect = cam.w / cam.h;
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -1820,12 +1820,26 @@ void main(){
     if (on) { resize(); if (S) updateCamera(0.016, true); canvas.focus && canvas.focus(); }
   };
 
+  /* Adaptive resolution: if the average frame time over ~1.5 s is worse than ~36 fps, drop the render scale by 0.1 (floor 0.5); after a few
+     good windows creep back up by 0.05. Hitches (scene loads, a hidden tab) are ignored. Off when the user caps the frame rate below 45. */
+  const AD = { last: 0, n: 0, sum: 0, good: 0, skip: 0 };
+  function adaptStep(now) {
+    const d = now - AD.last; AD.last = now;
+    if (!G.auto || (G.fps && G.fps < 45) || !S || S.switching) { AD.n = 0; AD.sum = 0; return; }
+    if (d > 150 || d <= 0) { AD.n = 0; AD.sum = 0; AD.skip = 3; return; }
+    if (AD.skip > 0) { AD.skip--; return; }
+    AD.n++; AD.sum += d; if (AD.sum < 1500) return;
+    const avg = AD.sum / AD.n; AD.n = 0; AD.sum = 0;
+    if (avg > 28 && G.dyn > 0.5) { G.dyn = Math.max(0.5, Math.round((G.dyn - 0.1) * 100) / 100); AD.good = 0; resize(); }
+    else if (avg < 18.5 && G.dyn < 1) { if (++AD.good >= 4) { AD.good = 0; G.dyn = Math.min(1, Math.round((G.dyn + 0.05) * 100) / 100); resize(); } }
+    else AD.good = 0;
+  }
   function frame(now) {
     requestAnimationFrame(frame);
     if (PERF.on) { PERF.rn = (PERF.rn || 0) + 1; if (!PERF.rt) PERF.rt = now; if (now - PERF.rt >= 500) { PERF.rhz = PERF.rn * 1000 / (now - PERF.rt); PERF.rn = 0; PERF.rt = now; } }   // raw browser rAF rate, independent of what the game draws
     if (!H3.on || !S) return;
     if (G.fps) { const iv = 1000 / G.fps; if (now - capT < iv - 2) return; capT = now - capT > iv * 2 ? now : capT + iv; }   // frame-rate limit
-    const dt = Math.min(0.05, Math.max(0.001, (now - (lastT || now - 16)) / 1000)); lastT = now; clock += dt;
+    const dt = Math.min(0.05, Math.max(0.001, (now - (lastT || now - 16)) / 1000)); lastT = now; clock += dt; adaptStep(now);
     stepCine(dt);
     if (!modalOpen() && !scriptActive()) stepPlayer(dt); else if (!(script && script.cineRun && S.player.moving)) S.player.moving = false;
     updateCamera(dt, false);

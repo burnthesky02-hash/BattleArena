@@ -289,13 +289,6 @@
     border-radius: 8px; padding: 6px 10px; font-size: 11px; cursor: pointer;
   }
 
-  #map-builder-btn {
-    position: absolute; z-index: 3; bottom: 12px; left: 204px;
-    background: rgba(40,80,200,0.75); border: 1px solid rgba(120,160,255,0.6);
-    border-radius: 8px; padding: 6px 10px; font-size: 11px; cursor: pointer;
-  }
-
-
   #map-builder3d-btn {
     position: absolute; z-index: 3; bottom: 12px; left: 300px;
     background: rgba(120,60,200,0.75); border: 1px solid rgba(190,150,255,0.6);
@@ -434,7 +427,6 @@
 
   <div id="debug-btn" style="display:none;">Debug Menu</div>
   <div id="debug-battle-btn" style="display:none;">Battle Debug</div>
-  <div id="map-builder-btn" style="display:none;">Map Builder</div>
   <div id="map-builder3d-btn" style="display:none;">3D Editor</div>
   <div id="help-btn" title="How to play">?</div>
 </div>
@@ -695,7 +687,6 @@
     });
     document.getElementById("debug-btn").style.display = s.debug ? "block" : "none";
     document.getElementById("debug-battle-btn").style.display = s.debug ? "block" : "none";
-    document.getElementById("map-builder-btn").style.display = s.debug ? "block" : "none";
     document.getElementById("map-builder3d-btn").style.display = s.debug ? "block" : "none";    if (window.Hub3D) Hub3D.onState(s);
   }
 
@@ -834,7 +825,6 @@
   });
 
   document.getElementById("debug-battle-btn").addEventListener("click", function () { window.location.href = "/debug"; });
-  document.getElementById("map-builder-btn").addEventListener("click", function () { window.location.href = "/builder"; });
   document.getElementById("map-builder3d-btn").addEventListener("click", function () { window.location.href = "/builder3d"; });
   // ---- Debug menu (only shown when the server runs with --debug) ----
   var dbg = { menu: null, tab: "Economy" };

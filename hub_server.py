@@ -1316,9 +1316,6 @@ class Handler(BaseHTTPRequestHandler):
             with _state_lock:
                 self._send_json(200, _serialize_world_state())
             return
-        if route_path in ("/builder", "/builder/", "/builder/index.html"):
-            self._send_html_file(BUILDER_HTML_DIR, "index.html")
-            return
         if route_path in ("/builder3d", "/builder3d/", "/builder3d/index.html"):
             self._send_html_file(BUILDER_HTML_DIR, "index3d.html")
             return
@@ -1333,36 +1330,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         if route_path == "/api/builder3d/models":
             self._send_json(200, {"models": builder3d_api.list_models(ASSETS_DIR / "3D")})
-            return
-        if route_path == "/api/builder/maps":
-            with _state_lock:
-                self._send_json(200, {"maps": [
-                    {"id": m.id, "name": m.name, "width": m.width(), "height": m.height()}
-                    for m in WORLD_MAPS.values()
-                ]})
-            return
-        if route_path.startswith("/api/builder/maps/"):
-            map_id = route_path[len("/api/builder/maps/"):]
-            with _state_lock:
-                m = WORLD_MAPS.get(map_id)
-                if m is None:
-                    self._send_bytes(404, b"no such map", "text/plain")
-                    return
-                self._send_json(200, world_logic.map_to_dict(m))
-            return
-        if route_path == "/api/builder/meta":
-            with _state_lock:
-                self._send_json(200, {"start_map": world_data.START_MAP,
-                                       "map_ids": sorted(WORLD_MAPS.keys())})
-            return
-        if route_path == "/api/builder/battlers":
-            names = sorted(p.name for p in BATTLERS_DIR.iterdir() if p.is_dir()) if BATTLERS_DIR.is_dir() else []
-            self._send_json(200, {"battlers": names})
-            return
-        if route_path == "/api/builder/world_bosses":
-            self._send_json(200, {"world_bosses": [
-                {"id": b.id, "name": b.name} for b in WORLD_BOSSES.values()
-            ]})
             return
         if route_path == "/api/palette":
             # Both html_overworld (to render tiles/props) and html_builder (to build its brush list
@@ -1503,12 +1470,6 @@ class Handler(BaseHTTPRequestHandler):
             except OSError as exc:  # e.g. a read-only packaged build
                 result = {"ok": False, "error": f"could not write the scene file: {exc}"}
             self._send_json(200 if result.get("ok") else 400, result)
-        elif self.path == "/api/builder/maps":
-            self._handle_builder_save_map()
-        elif self.path == "/api/builder/meta":
-            self._handle_builder_save_meta()
-        elif self.path == "/api/builder/palette":
-            self._handle_builder_save_palette()
         else:
             self._send_bytes(404, b"not found", "text/plain")
 
@@ -2162,72 +2123,6 @@ class Handler(BaseHTTPRequestHandler):
                 pending_world_boss = result["boss_id"]
             self._send_json(200, result)
 
-    def _handle_builder_save_map(self) -> None:
-        """html_builder/index.html's Save button. Validates the posted map (see
-        _validate_builder_map below), writes it to data/maps/<id>.json, and reloads the live
-        WORLD_MAPS registry in place so the change is playable immediately -- no server restart,
-        and no separate "publish" step. A POST here with an id that already exists overwrites that
-        map; any other id creates a new one."""
-        msg = self._read_json_body()
-        err = _validate_builder_map(msg)
-        if err:
-            self._send_json(400, {"ok": False, "error": err})
-            return
-        with _state_lock:
-            map_def = world_logic.map_from_dict(msg)
-            world_logic.save_map_to_dir(world_data.MAPS_DIR, map_def)
-            world_data.reload_world_maps()
-            self._send_json(200, {"ok": True, "map": world_logic.map_to_dict(WORLD_MAPS[map_def.id])})
-
-    def _handle_builder_save_meta(self) -> None:
-        """Sets which map a brand-new save spawns into (data/maps/_meta.json's start_map)."""
-        msg = self._read_json_body()
-        start_map = msg.get("start_map")
-        with _state_lock:
-            if start_map not in WORLD_MAPS:
-                self._send_json(400, {"ok": False, "error": f"no such map: {start_map!r}"})
-                return
-            world_data.MAPS_DIR.mkdir(parents=True, exist_ok=True)
-            world_data.META_PATH.write_text(json.dumps({"start_map": start_map}, indent=2) + "\n", encoding="utf-8")
-            world_data.reload_world_maps()
-            self._send_json(200, {"ok": True, "start_map": world_data.START_MAP})
-
-    def _handle_builder_save_palette(self) -> None:
-        """The Tile Chooser's "Add to Palette" action. Adds one new TileKind or PropKind (never
-        edits/removes an existing one -- a map may already reference it by id), persists the whole
-        palette file, and hot-reloads TILE_PALETTE/PROP_PALETTE in place so it's paintable right
-        away. Returns the full refreshed palette, same shape as GET /api/palette, so the client can
-        just replace its local copy instead of re-fetching."""
-        msg = self._read_json_body()
-        err = _validate_builder_palette_entry(msg)
-        if err:
-            self._send_json(400, {"ok": False, "error": err})
-            return
-        with _state_lock:
-            kind = msg["kind"]
-            if kind == "tile":
-                world_logic.TILE_PALETTE[msg["id"]] = world_logic.TileKind(
-                    id=msg["id"], label=msg["label"], category=msg["category"],
-                    sheet_url=msg["sheet_url"], sheet_w=int(msg["sheet_w"]), sheet_h=int(msg["sheet_h"]),
-                    x=int(msg["x"]), y=int(msg["y"]), size=int(msg["size"]),
-                )
-                world_logic.save_tile_palette()
-                world_logic.reload_tile_palette()
-            else:
-                world_logic.PROP_PALETTE[msg["id"]] = world_logic.PropKind(
-                    id=msg["id"], label=msg["label"], image_url=msg["image_url"],
-                    image_w=int(msg["image_w"]), image_h=int(msg["image_h"]),
-                    height_tiles=float(msg.get("height_tiles", 1.0)), blocking=bool(msg.get("blocking", True)),
-                )
-                world_logic.save_prop_palette()
-                world_logic.reload_prop_palette()
-            self._send_json(200, {
-                "ok": True,
-                "tiles": [world_logic.tile_kind_to_dict(t) for t in world_logic.TILE_PALETTE.values()],
-                "props": [world_logic.prop_kind_to_dict(p) for p in world_logic.PROP_PALETTE.values()],
-            })
-
-
 # ----------------------------------------------------------------------
 # Debug battle: hand-picked heroes/enemies/levels, launched from /debug.
 # Held here until the battle page connects; stays set so "Fight Again"
@@ -2296,90 +2191,6 @@ def _clamp_level(v) -> int:
         return max(1, min(int(v), MAX_LEVEL))
     except (TypeError, ValueError):
         return 1
-
-
-_BUILDER_ID_RE = re.compile(r"^[a-z0-9_]{1,40}$")
-_PALETTE_ID_RE = re.compile(r"^[a-z0-9_]{1,40}$")
-
-
-def _validate_builder_map(msg: dict) -> Optional[str]:
-    """Returns an error string, or None if `msg` (the map builder's POST body) is safe to hand to
-    world_logic.map_from_dict(). Deliberately not exhaustive -- e.g. it doesn't check that a warp
-    actually lands somewhere walkable -- just enough that a malformed save can't corrupt a map file
-    or crash the loader for every other map on the next server start. Tiles are a grid of
-    TILE_PALETTE ids now (not a fixed character legend) -- a cell referencing an id that isn't (or
-    isn't yet) in the palette is still accepted here (it just renders/blocks as "unknown", same as
-    any other unrecognized id -- see MapDef.is_walkable), so painting with a brand-new palette entry
-    never gets rejected by a stale id list."""
-    if not isinstance(msg, dict):
-        return "map must be an object"
-    map_id = msg.get("id")
-    if not isinstance(map_id, str) or not _BUILDER_ID_RE.match(map_id):
-        return "id must be lowercase letters/digits/underscores, 1-40 chars"
-    tiles = msg.get("tiles")
-    if (not isinstance(tiles, list) or not tiles
-            or not all(isinstance(row, list) and row and all(isinstance(c, str) and c for c in row) for row in tiles)):
-        return "tiles must be a non-empty grid of non-empty palette-id strings"
-    width = len(tiles[0])
-    for row in tiles:
-        if len(row) != width:
-            return "every tile row must be the same length"
-    height = len(tiles)
-    spawn = msg.get("spawn") or [1, 1]
-    if (not isinstance(spawn, list) or len(spawn) != 2
-            or not all(isinstance(v, int) for v in spawn)
-            or not (0 <= spawn[0] < width and 0 <= spawn[1] < height)):
-        return "spawn must be an [x, y] pair inside the map"
-    for n in msg.get("npcs") or []:
-        if not isinstance(n, dict) or not n.get("id") or not n.get("name"):
-            return "every NPC needs an id and a name"
-        if not (0 <= n.get("x", -1) < width and 0 <= n.get("y", -1) < height):
-            return f"NPC {n.get('id')!r} is placed outside the map"
-    for w in msg.get("warps") or []:
-        if not isinstance(w, dict) or not w.get("target_map"):
-            return "every warp needs a target_map"
-        if not (0 <= w.get("x", -1) < width and 0 <= w.get("y", -1) < height):
-            return "a warp is placed outside the map"
-    for p in msg.get("props") or []:
-        if not isinstance(p, dict) or not isinstance(p.get("prop_id"), str) or not p.get("prop_id"):
-            return "every prop needs a prop_id"
-        if not (0 <= p.get("x", -1) < width and 0 <= p.get("y", -1) < height):
-            return f"prop {p.get('prop_id')!r} is placed outside the map"
-    return None
-
-
-def _validate_builder_palette_entry(msg: dict) -> Optional[str]:
-    """Returns an error string, or None if `msg` (html_builder's Tile Chooser "Add to Palette" POST
-    body) is safe to store. `kind` picks tile vs. prop; each has its own required fields."""
-    if not isinstance(msg, dict):
-        return "palette entry must be an object"
-    pid = msg.get("id")
-    if not isinstance(pid, str) or not _PALETTE_ID_RE.match(pid):
-        return "id must be lowercase letters/digits/underscores, 1-40 chars"
-    kind = msg.get("kind")
-    if kind not in ("tile", "prop"):
-        return "kind must be 'tile' or 'prop'"
-    if not isinstance(msg.get("label"), str) or not msg["label"].strip():
-        return "label is required"
-    if kind == "tile":
-        if pid in world_logic.TILE_PALETTE:
-            return f"a tile called {pid!r} already exists"
-        if msg.get("category") not in ("floor", "encounter", "blocked"):
-            return "category must be 'floor', 'encounter', or 'blocked'"
-        if not isinstance(msg.get("sheet_url"), str) or not msg["sheet_url"]:
-            return "sheet_url is required"
-        for k in ("sheet_w", "sheet_h", "x", "y", "size"):
-            if not isinstance(msg.get(k), (int, float)):
-                return f"{k} must be a number"
-    else:
-        if pid in world_logic.PROP_PALETTE:
-            return f"a prop called {pid!r} already exists"
-        if not isinstance(msg.get("image_url"), str) or not msg["image_url"]:
-            return "image_url is required"
-        for k in ("image_w", "image_h"):
-            if not isinstance(msg.get(k), (int, float)):
-                return f"{k} must be a number"
-    return None
 
 
 def _validate_debug_setup(msg: dict):

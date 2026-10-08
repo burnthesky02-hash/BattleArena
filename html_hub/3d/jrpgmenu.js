@@ -15,7 +15,7 @@
 
   /* ---------- settings ---------- */
   var SET_KEY = "rpgSettings";
-  function loadSettings() { var d = { music: 0.35, sfx: 0.7, hints: true, res: 1, view: 1, fx: 1, shadows: true, aniso: 8, fps: 0, bright: 1 }; try { var s = JSON.parse(localStorage.getItem(SET_KEY) || "{}"); for (var k in d) if (s[k] != null) d[k] = s[k]; } catch (e) {} return d; }
+  function loadSettings() { var d = { music: 0.35, sfx: 0.7, hints: true, res: 1, view: 1, fx: 1, shadows: true, aniso: 8, fps: 0, bright: 1, auto: true }; try { var s = JSON.parse(localStorage.getItem(SET_KEY) || "{}"); for (var k in d) if (s[k] != null) d[k] = s[k]; } catch (e) {} return d; }
   var settings = loadSettings();
   function applySettings() {
     try { localStorage.setItem(SET_KEY, JSON.stringify(settings)); } catch (e) {}
@@ -228,7 +228,7 @@
     { name: "High",   v: { res: 1,    view: 1,    fx: 1,    shadows: true,  aniso: 8 } },
     { name: "Ultra",  v: { res: 1.5,  view: 1.5,  fx: 1,    shadows: true,  aniso: 16 } }
   ];
-  var SROWS = ["music", "sfx", "hints", "preset", "res", "view", "fx", "shadows", "aniso", "fps", "bright"];
+  var SROWS = ["music", "sfx", "hints", "preset", "res", "auto", "view", "fx", "shadows", "aniso", "fps", "bright"];
   function presetIdx() { for (var p = 0; p < PRESETS.length; p++) { var v = PRESETS[p].v, ok = true; for (var k in v) if (settings[k] !== v[k]) ok = false; if (ok) return p; } return -1; }
   function gIdx(g, v) { var b = 0; for (var i = 1; i < g.vals.length; i++) if (Math.abs(g.vals[i] - v) < Math.abs(g.vals[b] - v)) b = i; return b; }
   function settingsHtml() {
@@ -241,6 +241,7 @@
       if (id === "music") h += row(i, "Music volume", pips(settings.music / 0.7));
       else if (id === "sfx") h += row(i, "Sound effects", pips(settings.sfx));
       else if (id === "hints") h += row(i, "Control hints", '<i data-a="tog">' + (settings.hints ? "On" : "Off") + "</i>");
+      else if (id === "auto") h += row(i, "Adaptive resolution", '<i data-a="tog">' + (settings.auto ? "On" : "Off") + "</i>");
       else if (id === "shadows") h += row(i, "Shadows", '<i data-a="tog">' + (settings.shadows ? "On" : "Off") + "</i>");
       else if (id === "preset") h += row(i, "Quality preset", '<i data-a="dec">&#9664;</i><em class="jm-sv pv">' + (pi < 0 ? "Custom" : PRESETS[pi].name) + '</em><i data-a="inc">&#9654;</i>');
       else h += row(i, g.name, pips(gIdx(g, settings[id]) / (g.vals.length - 1)) + '<em class="jm-sv">' + g.fmt(settings[id]) + "</em>");
@@ -350,7 +351,7 @@
         setTimeout(function () { document.body.innerHTML = '<div style="color:#f3efd8;font:20px sans-serif;text-align:center;margin-top:30vh">The game has closed. You can close this window.</div>'; }, 700);
       }, function () { busy = false; try { window.close(); } catch (e) {} say("Could not reach the game. Close this window to quit.", true); render(); });
     }
-    if (mode === "settings") { var cid = SROWS[sr]; if (cid === "hints" || cid === "shadows" || cid === "preset") adjust(1); }
+    if (mode === "settings") { var cid = SROWS[sr]; if (cid === "hints" || cid === "shadows" || cid === "auto" || cid === "preset") adjust(1); }
   }
   function rankUpSkill(i) {
     if (busy) return;
@@ -383,6 +384,7 @@
     else if (id === "sfx") settings.sfx = Math.max(0, Math.min(1, Math.round((settings.sfx + dir * 0.1) * 10) / 10));
     else if (id === "hints") settings.hints = !settings.hints;
     else if (id === "shadows") settings.shadows = !settings.shadows;
+    else if (id === "auto") settings.auto = !settings.auto;
     else if (id === "preset") { var pi = presetIdx(), n = PRESETS.length; pi = pi < 0 ? (dir > 0 ? 0 : n - 1) : (pi + dir + n) % n; for (var k in PRESETS[pi].v) settings[k] = PRESETS[pi].v[k]; }
     else if (g) settings[id] = g.vals[Math.max(0, Math.min(g.vals.length - 1, gIdx(g, settings[id]) + dir))];
     applySettings(); sfx("hover"); render();

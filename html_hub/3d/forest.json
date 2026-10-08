@@ -1,8 +1,10 @@
 {
  "cull": 115,
  "lod": {
-  "dist": 62,
-  "match": "^(.*/)?tree-(large|shrub)$"
+  "dist": 34,
+  "match": "(^|/)Tree_01$",
+  "res": 512,
+  "from": "player"
  },
  "objectives": [
   {

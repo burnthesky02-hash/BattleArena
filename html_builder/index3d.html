@@ -59,6 +59,7 @@
 <body>
 <div id="app">
   <div id="top">
+    <button id="btnBack" title="Leave the editor and return to the game (asks first if there are unsaved changes)">&larr; Back to Game</button>
     <h1>2.5D Scene Editor</h1>
     <select id="sceneSel" title="Open a scene"></select>
     <button id="btnNew">New scene…</button><button id="btnSave" title="Ctrl+S">Save</button><button id="btnWalk" title="Walk around the scene right here">▶ Play here</button><button id="btnPlay" title="Open the saved scene in the real game">Open in game ↗</button>
@@ -2168,6 +2169,7 @@ function playScene() {
 }
 
 /* ============================== boot ============================== */
+$("#btnBack").onclick = () => { if (dirty && !confirm("You have unsaved changes. Leave the editor without saving?")) return; dirty = false; window.location.href = "/"; };
 $("#btnNew").onclick = newSceneDialog; $("#btnSave").onclick = saveScene; $("#btnPlay").onclick = playScene; $("#btnWalk").onclick = () => (play ? stopPlay() : startPlay()); $("#btnUndo").onclick = undo; $("#btnRedo").onclick = redo;
 $("#sceneSel").onchange = (e) => { const [k, ...r] = e.target.value.split(":"); openScene(k, r.join(":")); };
 $("#snap").onchange = (e) => { grid = parseFloat(e.target.value) || 0; scheduleDraw(); };
