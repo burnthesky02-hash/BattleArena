@@ -39,3 +39,20 @@
 {"n": 39, "t": 1088, "kind": "scene", "msg": "entered island", "ctx": "hub", "scene": "island"}
 {"n": 40, "t": 1088, "kind": "fire", "msg": "island/npc:sq_garg [fight]", "ctx": "hub", "scene": "island"}
 {"n": 41, "t": 1089, "kind": "info", "msg": "resumed after a page change", "ctx": "battle", "scene": "island"}
+{"n": 1, "t": 0, "kind": "start", "msg": "playtest run muyszq3g (main)", "ctx": "hub", "scene": "forest"}
+{"n": 2, "t": 0, "kind": "info", "msg": "fresh run; save backed up to D:\\Battle Arena\\saves\\playtest_backup_20261007_173346", "ctx": "hub", "scene": "forest"}
+{"n": 3, "t": 0, "kind": "info", "msg": "resumed after a page change", "ctx": "hub", "scene": ""}
+{"n": 4, "t": 1, "kind": "scene", "msg": "entered island", "ctx": "hub", "scene": "island"}
+{"n": 5, "t": 1, "kind": "stuck", "msg": "STUCK: no story heroes in the party", "ctx": "hub", "scene": "island"}
+{"n": 6, "t": 11, "kind": "flag", "msg": "st_intro", "ctx": "hub", "scene": "island"}
+{"n": 7, "t": 11, "kind": "stuck", "msg": "STUCK: no story heroes in the party", "ctx": "hub", "scene": "island"}
+{"n": 8, "t": 33, "kind": "stuck", "msg": "STUCK: no story heroes in the party", "ctx": "hub", "scene": "island"}
+{"n": 9, "t": 34, "kind": "stuck", "msg": "STUCK: no story heroes in the party", "ctx": "hub", "scene": "island"}
+{"n": 10, "t": 35, "kind": "stuck", "msg": "STUCK: no story heroes in the party", "ctx": "hub", "scene": "island"}
+{"n": 11, "t": 38, "kind": "stuck", "msg": "STUCK: no story heroes in the party", "ctx": "hub", "scene": "island"}
+{"n": 12, "t": 40, "kind": "stuck", "msg": "STUCK: no story heroes in the party", "ctx": "hub", "scene": "island"}
+{"n": 1, "t": 0, "kind": "start", "msg": "playtest run muywys4k (main)", "ctx": "hub", "scene": "forest"}
+{"n": 2, "t": 0, "kind": "info", "msg": "fresh run; save backed up to D:\\Battle Arena\\saves\\playtest_backup_20261007_192500", "ctx": "hub", "scene": "forest"}
+{"n": 3, "t": 0, "kind": "info", "msg": "resumed after a page change", "ctx": "hub", "scene": ""}
+{"n": 4, "t": 1, "kind": "scene", "msg": "entered island", "ctx": "hub", "scene": "island"}
+{"n": 5, "t": 1, "kind": "stuck", "msg": "STUCK: no story heroes in the party", "ctx": "hub", "scene": "island"}

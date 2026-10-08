@@ -480,7 +480,7 @@
   function applyUserSettings(s) {
     if (!s) return;
     if (s.sfx != null) SFX_VOLUME = s.sfx;
-    if (s.music != null) { MUSIC_VOLUME = s.music; if (_musicEl) _musicEl.volume = MUSIC_VOLUME; }
+    if (s.music != null) { MUSIC_VOLUME = s.music; if (_musicEl) _musicEl.volume = MUSIC_VOLUME; if (_ambEl) _ambEl.volume = Math.min(1, MUSIC_VOLUME * _ambRel); }
   }
   window.addEventListener("rpg-settings", function (e) { applyUserSettings(e.detail); });
   try { applyUserSettings(JSON.parse(localStorage.getItem("rpgSettings") || "null")); } catch (e) {}
@@ -518,7 +518,22 @@
   playMusic(MUSIC_MAIN);
   // Per-scene music (the 3D editor's Music panel stores scene.music = {url, intro?}). No music set = the hub theme.
   var _sceneMusicKey = "main";
-  function setSceneMusic(m) {
+  // Ambient layer (scene.ambient = {url, volume?}): a looping sound bed (waves, wind...) under the music. Its volume is relative to the music volume.
+  var _ambEl = null, _ambKey = null, _ambRel = 0.6;
+  function setAmbient(a) {
+    var key = a && a.url ? a.url : "";
+    if (key === _ambKey) return;
+    _ambKey = key;
+    if (_ambEl) { try { _ambEl.pause(); } catch (e) {} _ambEl = null; }
+    if (!key) return;
+    try {
+      _ambRel = a.volume != null ? a.volume : 0.6;
+      _ambEl = new Audio(key); _ambEl.loop = true; _ambEl.volume = Math.min(1, MUSIC_VOLUME * _ambRel);
+      _ambEl.play()["catch"](function () {});
+    } catch (e) { /* best-effort */ }
+  }
+  function setSceneMusic(m, amb) {
+    if (amb !== undefined) setAmbient(amb);   // undefined (cutscene music swaps) leaves the ambient layer alone
     var key = m && m.url ? (m.intro || "") + "|" + m.url : "main";
     if (key === _sceneMusicKey) return;
     _sceneMusicKey = key;
@@ -537,7 +552,10 @@
     } catch (e) { /* best-effort */ }
   }
   // browsers may block music until the first click/key: retry then
-  function resumeMusic() { if (_musicEl && _musicEl.paused) { try { _musicEl.play()["catch"](function () {}); } catch (e) {} } }
+  function resumeMusic() {
+    if (_musicEl && _musicEl.paused) { try { _musicEl.play()["catch"](function () {}); } catch (e) {} }
+    if (_ambEl && _ambEl.paused) { try { _ambEl.play()["catch"](function () {}); } catch (e) {} }
+  }
   document.addEventListener("pointerdown", resumeMusic); document.addEventListener("keydown", resumeMusic);
   // Generic hover SFX for any clickable control, delegated so it also covers buttons/rows built
   // later by render()/drawDbg() -- mouseover+closest avoids needing a listener per element.

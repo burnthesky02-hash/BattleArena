@@ -7,7 +7,7 @@
   const TAU = Math.PI * 2, R = Math.random;
   const hexRGB = (s, d) => { if (typeof s !== "string" || !/^#?[0-9a-f]{3,6}$/i.test(s)) return d; s = s.replace("#", ""); if (s.length === 3) s = s.replace(/./g, "$&$&"); return [0, 2, 4].map((i) => parseInt(s.substr(i, 2), 16)); };
   const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-  let glowSprite = null;
+  let glowSprite = null, density = 1; const insts = new Set();   // density: the Settings 'Weather & particles' slider (0..1)
   function glow() {
     if (glowSprite) return glowSprite; const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
     r.addColorStop(0, "rgba(255,255,255,1)"); r.addColorStop(0.25, "rgba(255,255,255,.55)"); r.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return (glowSprite = c);
@@ -33,7 +33,7 @@
     const g = cv.getContext("2d");
     let W = 1, H = 1, effects = [], vis = true, raf = 0, last = 0, t = 0, flash = { a: 0, next: 4, seq: [] }, dead = false, lastDraw = true;
     function size() { const r = cv.getBoundingClientRect(), w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height)); if (w !== W || h !== H || cv.width !== w) { W = cv.width = w; H = cv.height = h; effects.forEach((e) => fill(e)); } }
-    function fill(e) { if (e.type === "lightning") return; const n = Math.max(0, Math.round(BASE[e.type] * e.amount * (W * H) / (1280 * 720))); e.p = []; for (let i = 0; i < Math.min(n, 1500); i++) e.p.push(spawn(e, W, H, true)); }
+    function fill(e) { if (e.type === "lightning") return; const n = Math.max(0, Math.round(BASE[e.type] * e.amount * density * (W * H) / (1280 * 720))); e.p = []; for (let i = 0; i < Math.min(n, 1500); i++) e.p.push(spawn(e, W, H, true)); }
     function set(list) {
       effects = (Array.isArray(list) ? list : []).filter((e) => e && typeof e.type === "string" && (BASE[e.type] || e.type === "lightning")).map((e) => ({ type: e.type, amount: Math.max(0, Math.min(1, e.amount == null ? 0.5 : +e.amount)), speed: e.speed > 0 ? +e.speed : 1, wind: +e.wind || 0, col: hexRGB(e.color, DEF_COL[e.type]), custom: !!e.color }));
       size(); effects.forEach(fill); flash = { a: 0, next: 2 + R() * 4, seq: [] };
@@ -78,11 +78,13 @@
       if (cv.clientWidth !== W || cv.clientHeight !== H) size();
       lastDraw = true; g.clearRect(0, 0, W, H);
       flash.a = 0;
-      for (const e of effects) { if (e.type === "lightning") { lightning(e, dt); continue; } step(e, dt); drawE(e); }
+      for (const e of effects) { if (e.type === "lightning") { if (density > 0.05) lightning(e, dt); continue; } step(e, dt); drawE(e); }
       if (flash.a > 0.01) { g.fillStyle = `rgba(215,225,255,${flash.a})`; g.fillRect(0, 0, W, H); }
     }
     raf = requestAnimationFrame(frame);
-    return { set, setVisible(v) { vis = !!v; }, destroy() { dead = true; cancelAnimationFrame(raf); cv.remove(); }, canvas: cv, get count() { return effects.length; } };
+    const refill = () => effects.forEach(fill); insts.add(refill);
+    return { set, setVisible(v) { vis = !!v; }, destroy() { dead = true; insts.delete(refill); cancelAnimationFrame(raf); cv.remove(); }, canvas: cv, get count() { return effects.length; } };
   }
-  window.EnvFX = { create, TYPES: ["rain", "snow", "embers", "dust", "fireflies", "leaves", "lightning"] };
+  function setDensity(v) { v = Math.max(0, Math.min(1, +v)); if (!(v >= 0) || v === density) return; density = v; insts.forEach((f) => f()); }
+  window.EnvFX = { create, setDensity, TYPES: ["rain", "snow", "embers", "dust", "fireflies", "leaves", "lightning"] };
 })();

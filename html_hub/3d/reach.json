@@ -224,6 +224,22 @@
   ],
   "zones": [
    {
+    "x": 12,
+    "z": -239,
+    "w": 22,
+    "d": 22,
+    "safe": true,
+    "cp": 1
+   },
+   {
+    "x": 15,
+    "z": -79,
+    "w": 22,
+    "d": 22,
+    "safe": true,
+    "cp": 1
+   },
+   {
     "x": 0,
     "z": -63,
     "w": 78,
@@ -5271,6 +5287,22 @@
    4.72,
    0,
    1
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_crystal",
+   15,
+   -80,
+   40,
+   0,
+   1.2
+  ],
+  [
+   "/assets/3D/Dungeon/SM_dg_crystal",
+   12,
+   -240,
+   40,
+   0,
+   1.2
   ]
  ],
  "colliders": [
@@ -6253,6 +6285,18 @@
    "z": -275.053,
    "w": 1.17,
    "d": 1.17
+  },
+  {
+   "x": 15,
+   "z": -80,
+   "w": 1.2,
+   "d": 1.2
+  },
+  {
+   "x": 12,
+   "z": -240,
+   "w": 1.2,
+   "d": 1.2
   }
  ],
  "npcs": [
@@ -6473,12 +6517,15 @@
    "w": 3,
    "d": 2.4,
    "trigger": "talk",
-   "prompt": "Rest at the crystal",
+   "prompt": "Rest and save at the crystal",
    "actions": [
     {
      "type": "say",
      "who": "",
-     "text": "Soft light settles over the party. Wounds close and breath comes easy."
+     "text": "Soft light settles over the party. Wounds close and breath comes easy. The crystal hums and remembers this place: it is now your save point."
+    },
+    {
+     "type": "checkpoint"
     },
     {
      "type": "rest"
@@ -6668,12 +6715,15 @@
    "w": 3,
    "d": 2.4,
    "trigger": "talk",
-   "prompt": "Rest at the crystal",
+   "prompt": "Rest and save at the crystal",
    "actions": [
     {
      "type": "say",
      "who": "",
-     "text": "Soft light settles over the party. Wounds close and breath comes easy."
+     "text": "Soft light settles over the party. Wounds close and breath comes easy. The crystal hums and remembers this place: it is now your save point."
+    },
+    {
+     "type": "checkpoint"
     },
     {
      "type": "rest"
@@ -6855,6 +6905,52 @@
      "type": "say",
      "who": "Etched Plate",
      "text": "'THE LAST WARDEN IS NOT A MONSTER. IT IS A LOCK, AND LOCKS DO NOT HATE. THEY ONLY HOLD.'"
+    }
+   ]
+  },
+  {
+   "id": "cp_re_a",
+   "name": "Rest crystal",
+   "x": 15,
+   "z": -78.6,
+   "w": 3,
+   "d": 2.4,
+   "trigger": "talk",
+   "prompt": "Rest and save at the crystal",
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "Soft light settles over the party. Wounds close and breath comes easy. The crystal hums and remembers this place: it is now your save point."
+    },
+    {
+     "type": "checkpoint"
+    },
+    {
+     "type": "rest"
+    }
+   ]
+  },
+  {
+   "id": "cp_re_b",
+   "name": "Rest crystal",
+   "x": 12,
+   "z": -238.6,
+   "w": 3,
+   "d": 2.4,
+   "trigger": "talk",
+   "prompt": "Rest and save at the crystal",
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "Soft light settles over the party. Wounds close and breath comes easy. The crystal hums and remembers this place: it is now your save point."
+    },
+    {
+     "type": "checkpoint"
+    },
+    {
+     "type": "rest"
     }
    ]
   }
@@ -7426,6 +7522,58 @@
     1
    ],
    "showIf": "rc_boss"
+  },
+  {
+   "type": "glow",
+   "x": 17,
+   "z": -78.5,
+   "r": 8,
+   "color": [
+    1,
+    0.8,
+    0.4,
+    0.22
+   ],
+   "cp": 1
+  },
+  {
+   "type": "glow",
+   "x": 15,
+   "z": -80,
+   "r": 7,
+   "color": [
+    0.4,
+    0.85,
+    1,
+    0.26
+   ],
+   "cp": 1
+  },
+  {
+   "type": "glow",
+   "x": 14,
+   "z": -238.5,
+   "r": 8,
+   "color": [
+    1,
+    0.8,
+    0.4,
+    0.22
+   ],
+   "cp": 1
+  },
+  {
+   "type": "glow",
+   "x": 12,
+   "z": -240,
+   "r": 7,
+   "color": [
+    0.4,
+    0.85,
+    1,
+    0.26
+   ],
+   "cp": 1
   }
  ],
  "spawn": {

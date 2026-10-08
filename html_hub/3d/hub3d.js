@@ -138,7 +138,7 @@
     if (cam.lim < 0.999) { target[0] = eye[0] + (target[0] - eye[0]) * cam.lim; target[2] = eye[2] + (target[2] - eye[2]) * cam.lim; }
     const L = lookAt(pos, target, [0, 1, 0]);
     cam.pos = pos; cam.camX = L.x; cam.camY = L.y; cam.camZ = L.z; cam.fwd = V.mul(L.z, -1);
-    cam.vp = mul4(perspective(cam.fov * Math.PI / 180, cam.aspect, 0.5, 220), L.m);
+    cam.vp = mul4(perspective(cam.fov * Math.PI / 180, cam.aspect, 0.5, 220 * Math.max(1, G.view)), L.m);
   }
   function project(p) {
     const m = cam.vp, x = p[0], y = p[1], z = p[2];
@@ -285,7 +285,7 @@ void main(){
     const ld = V.norm(L.dir || [-0.5, -1, -0.35]), lc = L.color || [1, 0.9, 0.75], am = L.ambient || [0.55, 0.5, 0.62], fc = F.color || [0.4, 0.28, 0.4];
     gl.useProgram(pprog); gl.uniformMatrix4fv(PU.u_vp, false, cam.vp);
     gl.uniform3f(PU.u_ldir, ld[0], ld[1], ld[2]); gl.uniform3f(PU.u_lcol, lc[0], lc[1], lc[2]); gl.uniform3f(PU.u_amb, am[0], am[1], am[2]);
-    gl.uniform3f(PU.u_fogc, fc[0], fc[1], fc[2]); gl.uniform2f(PU.u_fogr, F.near === undefined ? 70 : F.near, F.far === undefined ? 190 : F.far);
+    gl.uniform3f(PU.u_fogc, fc[0], fc[1], fc[2]); gl.uniform2f(PU.u_fogr, fogN(F), fogF(F));
     gl.uniform4f(PU.u_rect, P.rect[0], P.rect[1], P.rect[2], P.rect[3]); gl.uniform4f(PU.u_inv, P.inv[0], P.inv[1], P.inv[2], P.inv[3]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, P.splat); gl.uniform1i(PU.u_splat, 0);
     for (let i = 0; i < 4; i++) { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, P.tex[i] || TEX.white); gl.uniform1i(PU["u_t" + i], 1 + i); }
@@ -315,7 +315,7 @@ void main(){
     if (mip) gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, rep ? gl.REPEAT : gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, rep ? gl.REPEAT : gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    if (mip && aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+    if (mip && aniso && G.aniso > 1) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(G.aniso, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
     return t;
   }
   function canvasTex(w, h, draw, opts) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); return makeTexture(c, opts); }
@@ -338,6 +338,10 @@ void main(){
     TEX.ring = canvasTex(256, 256, (g, w, h) => {
       g.strokeStyle = "#fff"; g.lineWidth = 8; g.beginPath(); g.arc(w / 2, h / 2, w / 2 - 14, 0, 7); g.stroke();
       g.strokeStyle = "rgba(255,255,255,.3)"; g.lineWidth = 22; g.beginPath(); g.arc(w / 2, h / 2, w / 2 - 18, 0, 7); g.stroke();
+    });
+    TEX.spark = canvasTex(64, 64, (g, w, h) => {                                                   // 4-point twinkle star with a soft core (ground-item sparkles)
+      const c = w / 2, r = g.createRadialGradient(c, c, 0, c, c, c * 0.5); r.addColorStop(0, "rgba(255,255,255,1)"); r.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = r; g.fillRect(0, 0, w, h);
+      for (const [vx, vy] of [[1, 0], [0, 1]]) { const l = g.createLinearGradient(c - vx * c, c - vy * c, c + vx * c, c + vy * c); l.addColorStop(0, "rgba(255,255,255,0)"); l.addColorStop(0.5, "rgba(255,255,255,.95)"); l.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = l; g.fillRect(vx ? 0 : c - 1.5, vy ? 0 : c - 1.5, vx ? w : 3, vy ? h : 3); }
     });
     TEX.glow = canvasTex(128, 128, (g, w, h) => { const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); r.addColorStop(0, "rgba(255,255,255,.9)"); r.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = r; g.fillRect(0, 0, w, h); });
     TEX.sky = canvasTex(4, 256, (g, w, h) => {
@@ -613,17 +617,17 @@ void main(){
     useMesh(); gl.uniformMatrix4fv(MU.u_vp, false, cam.vp); gl.uniform1i(MU.u_tex, 0);
     const ld = V.norm(L.dir || [-0.5, -1, -0.35]), lc = L.color || [1, 0.9, 0.75], am = L.ambient || [0.55, 0.5, 0.62], fc = F.color || [0.4, 0.28, 0.4];
     gl.uniform3f(MU.u_ldir, ld[0], ld[1], ld[2]); gl.uniform3f(MU.u_lcol, lc[0], lc[1], lc[2]); gl.uniform3f(MU.u_amb, am[0], am[1], am[2]);
-    gl.uniform3f(MU.u_fogc, fc[0], fc[1], fc[2]); gl.uniform2f(MU.u_fogr, F.near === undefined ? 70 : F.near, F.far === undefined ? 190 : F.far);
+    gl.uniform3f(MU.u_fogc, fc[0], fc[1], fc[2]); gl.uniform2f(MU.u_fogr, fogN(F), fogF(F));
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
     const opaque = [], blend = [];
     const pp = S.player;
-    const cullD = S.def && S.def.cull;                                                          // scene.cull = metres: pieces farther than this from the player (plus their own radius) are skipped; they are fogged out anyway (big scenes like the Hollow Cave)
+    const cullD = S.def && S.def.cull ? S.def.cull * G.view : 0;                                                          // scene.cull = metres: pieces farther than this from the player (plus their own radius) are skipped; they are fogged out anyway (big scenes like the Hollow Cave)
     const vp = cam.vp, fr = [];                                                                          // frustum planes (Gribb-Hartmann) from the column-major view-projection
     for (const [a, sg] of [[0, 1], [0, -1], [1, 1], [1, -1], [2, 1], [2, -1]]) {
       let A = vp[3] + sg * vp[a], B = vp[7] + sg * vp[4 + a], C = vp[11] + sg * vp[8 + a], D = vp[15] + sg * vp[12 + a];
       const n = Math.hypot(A, B, C) || 1; fr.push(A / n, B / n, C / n, D / n);
     }
-    const lodD = S.lodDist, lodList = [], fcn = (S._fc = (S._fc || 0) + 1), cxp0 = cam.pos[0], czp0 = cam.pos[2];
+    const lodD = S.lodDist * G.view, lodList = [], fcn = (S._fc = (S._fc || 0) + 1), cxp0 = cam.pos[0], czp0 = cam.pos[2];
     for (const it of S.items) {
       { const c = it.center, r = Math.hypot(it.rad * 1.42, (it.top - it.bot) * 0.5) + 0.5; let out = false;
         for (let k = 0; k < 24; k += 4) if (fr[k] * c[0] + fr[k + 1] * c[1] + fr[k + 2] * c[2] + fr[k + 3] < -r) { out = true; break; }
@@ -659,7 +663,7 @@ void main(){
         gl.bindBuffer(gl.ARRAY_BUFFER, bbuf); gl.bufferData(gl.ARRAY_BUFFER, bArr.subarray(0, n * 4), gl.DYNAMIC_DRAW);
         gl.enableVertexAttribArray(1); instExt.vertexAttribDivisorANGLE(1, 1);
         gl.uniformMatrix4fv(BU.u_vp, false, cam.vp); gl.uniform3f(BU.u_r, right[0], right[1], right[2]); gl.uniform3f(BU.u_cam, cxp0, 0, czp0); gl.uniform1i(BU.u_tex, 0);
-        const F2 = S.def.fog || {}, fc2 = F2.color || [0.4, 0.28, 0.4]; gl.uniform3f(BU.u_fogc, fc2[0], fc2[1], fc2[2]); gl.uniform2f(BU.u_fogr, F2.near === undefined ? 70 : F2.near, F2.far === undefined ? 190 : F2.far);
+        const F2 = S.def.fog || {}, fc2 = F2.color || [0.4, 0.28, 0.4]; gl.uniform3f(BU.u_fogc, fc2[0], fc2[1], fc2[2]); gl.uniform2f(BU.u_fogr, fogN(F2), fogF(F2));
         gl.depthMask(false); BLEND_N();
         for (const [tx, st, cnt] of spans) { gl.bindTexture(gl.TEXTURE_2D, tx); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 16, st * 16); instExt.drawArraysInstancedANGLE(gl.TRIANGLE_STRIP, 0, 4, cnt); PERF.calls++; }
         instExt.vertexAttribDivisorANGLE(1, 0); gl.disableVertexAttribArray(1);
@@ -719,7 +723,7 @@ void main(){
   let fx = null;
   function syncFx() {
     if (!window.EnvFX) return;
-    if (!fx) fx = EnvFX.create(sceneEl, canvas);
+    if (!fx) { fx = EnvFX.create(sceneEl, canvas); if (EnvFX.setDensity) EnvFX.setDensity(G.fx); }
     if (S && !S.fxDone) { S.fxDone = true; fx.set(S.def.fx); }
     fx.setVisible(H3.on);
   }
@@ -729,7 +733,7 @@ void main(){
     gl.depthMask(true); gl.clearColor(ck[0], ck[1], ck[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     useSprite(); gl.uniformMatrix4fv(SU.u_vp, false, cam.vp);
     const F = S.def.fog || {}, fc = F.color || [0.4, 0.28, 0.4];
-    gl.uniform3f(SU.u_fogc, fc[0], fc[1], fc[2]); gl.uniform2f(SU.u_fogr, F.near === undefined ? 70 : F.near, F.far === undefined ? 190 : F.far);
+    gl.uniform3f(SU.u_fogc, fc[0], fc[1], fc[2]); gl.uniform2f(SU.u_fogr, fogN(F), fogF(F));
     gl.disable(gl.DEPTH_TEST); drawSky();
     drawMap();
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);
@@ -743,12 +747,13 @@ void main(){
       drawQuad({ tex: dc.type === "glow" ? TEX.glow : TEX.glyph, origin: [dc.x, gh(dc.x, dc.z) + 0.06, dc.z], right: [c, 0, s], up: [-s, 0, c],
         w: dc.r * 2, h: dc.r * 2, ax: 0.5, ay: 0.5, tint: [col[0] * pulse, col[1] * pulse, col[2] * pulse, 1] });
     }
+    drawSparkles();
     BLEND_N();
     // active NPC ring
     const act = S.active;
     // shadows
     const actors = [{ x: S.player.x, z: S.player.z, w: 1.6 }].concat(S.npcs.map((n) => ({ x: n.x, z: n.z, w: (n.h || 2.3) * 0.7 })));
-    for (const a of actors) drawQuad({ tex: TEX.shadow, origin: [a.x, gh(a.x, a.z) + 0.04, a.z], right: [1, 0, 0], up: [0, 0, -1], w: a.w, h: a.w * 0.55, ax: 0.5, ay: 0.5 });
+    if (G.shadows) for (const a of actors) drawQuad({ tex: TEX.shadow, origin: [a.x, gh(a.x, a.z) + 0.04, a.z], right: [1, 0, 0], up: [0, 0, -1], w: a.w, h: a.w * 0.55, ax: 0.5, ay: 0.5 });
     if (act) { BLEND_ADD(); const p = 0.7 + 0.3 * Math.sin(clock * 6); drawQuad({ tex: TEX.ring, origin: [act.x, gh(act.x, act.z) + 0.08, act.z], right: [1, 0, 0], up: [0, 0, -1], w: 2.6, h: 2.6, ax: 0.5, ay: 0.5, tint: [1, 0.85, 0.4, p] }); BLEND_N(); }
     if (S.player.target) { BLEND_ADD(); const p = 0.6 + 0.4 * Math.sin(clock * 8); drawQuad({ tex: TEX.ring, origin: [S.player.target.x, gh(S.player.target.x, S.player.target.z) + 0.08, S.player.target.z], right: [1, 0, 0], up: [0, 0, -1], w: 1.1, h: 1.1, ax: 0.5, ay: 0.5, tint: [0.6, 0.9, 1, p] }); BLEND_N(); }
 
@@ -896,9 +901,9 @@ void main(){
     } else p.t = 0;
     // nearest NPC in reach
     let best = null, bd = 1e9;
-    for (const n of S.npcs) { const d = Math.hypot(n.x - p.x, n.z - p.z); if (d < (n.reach || 4.6) && d < bd) { best = n; bd = d; } }
+    for (const n of S.npcs) { if (touchOn(n)) continue; const d = Math.hypot(n.x - p.x, n.z - p.z); if (d < (n.reach || 4.6) && d < bd) { best = n; bd = d; } }   // touch NPCs have no [E] prompt
     S.active = best;
-    stepEvents();
+    stepEvents(); stepTouch(); stepSparkle();
   }
   function interact(n) {
     if (!n) return;
@@ -927,6 +932,27 @@ void main(){
   function has(c, spec) { if (!spec) return true; return String(spec).split(",").every((t) => { t = t.trim(); return !t || (t[0] === "!" ? !c.has(t.slice(1)) : c.has(t)); }); }
   function condOk(e, c) { return !((e.if && !has(c, e.if)) || (e.unless && has(c, e.unless)) || (minRankOf(e) && rankOf() < minRankOf(e))); }
   let autorunPending = false;
+  /* ---------- save points and inns ----------
+     Dungeons (scenes with a `restart` prefix) have save points: {type:"checkpoint"} on a campfire / crystal event stores where the
+     party stands (localStorage h3dCp, per scene) and sets the flag "<prefix>cp", so "Restart Dungeon" / the Waking stone (which reset
+     that prefix) drop it again. Warping into a scene that has a live save point asks "continue or start over"; after a defeat the
+     battle page sends the party back with ?sp=1.  Everywhere else a defeat sends them to the nearest inn (?inn=1): INNS maps a scene
+     to the town scene, the spot to stand and the line to show; the party is healed for free (the same server rest as the innkeeper). */
+  const CP_KEY = "h3dCp";
+  const INNS = {
+    island:   { scene: "island",   x: -12.4, z: -3.2,  text: "You wake in a warm bed at the Salty Anchor. Bram has patched everyone up and kept your gear safe." },
+    forest:   { to: "island" }, dungeon: { to: "island" },
+    outside:  { scene: "outside",  x: -16.6, z: -11.2, text: "You come to under the awning of Brea's rest stall. She has bandaged everyone and kept a pallet warm for you." },
+    olympus:  { to: "outside" }, prison: { to: "outside" },
+    asteroid: { scene: "asteroid", x: -26,   z: -19.5, text: "Medics drag you back to the base repair bench and patch the whole party up." },
+    vault:    { to: "asteroid" }, reach: { to: "asteroid" },
+  };
+  function cpFlag(name, def) { return ((def && def.restart) || "") + "cp" + ((def && def.restart) ? "" : "_" + name); }
+  function cpAll() { try { return JSON.parse(localStorage.getItem(CP_KEY) || "{}") || {}; } catch (e) { return {}; } }
+  function cpGet(scene) { const e = cpAll()[scene]; return e && e.flag && getCleared().has(e.flag) && isFinite(e.x) && isFinite(e.z) ? e : null; }
+  function cpSet(scene, x, z, flag) { const a = cpAll(); a[scene] = { x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, flag }; try { localStorage.setItem(CP_KEY, JSON.stringify(a)); } catch (e) {} const c = getCleared(); c.add(flag); setCleared(c); }
+  function cpClear(scene) { const a = cpAll(), e = a[scene]; delete a[scene]; try { localStorage.setItem(CP_KEY, JSON.stringify(a)); } catch (x) {} if (e && e.flag) { const c = getCleared(); c.delete(e.flag); setCleared(c); } }
+  function innFor(scene) { let i = INNS[scene], n = 0; while (i && i.to && n++ < 4) i = INNS[i.to]; return i && i.scene ? i : null; }
   function endScript(noRefresh) {
     const dirty = script && script.dirty; if (script && script.cineRun) cineEnd(script.toBattle); if (script && script.musicChanged && !script.toBattle) applySceneMusic(); script = null; if (sayEl) sayEl.style.display = "none";
     renderQuest();
@@ -1073,7 +1099,15 @@ void main(){
         return;
       }
       if (a.type === "hub") { if (a.action && O) { setVendor(null); savePos(); O.activate(a.action); } continue; }
-      if (a.type === "warp") { endScript(true); switchScene(a.scene, a.x, a.z); return; }
+      if (a.type === "warp") {
+        const cp = !a.fresh && cpGet(a.scene);                                                             // a live save point in the place we are entering: continue there or start over?
+        if (cp) { showChoice({ who: "", text: "A save point in there is still lit. Continue from it?", options: [
+          { label: "Continue from the save point", actions: [{ type: "warp", scene: a.scene, x: cp.x, z: cp.z, fresh: true }] },
+          { label: "Start from the entrance", actions: [{ type: "cpclear", scene: a.scene }, { type: "warp", scene: a.scene, x: a.x, z: a.z, fresh: true }] }] }); return; }
+        endScript(true); switchScene(a.scene, a.x, a.z); return;
+      }
+      if (a.type === "checkpoint") { if (S && S.name) cpSet(S.name, S.player.x, S.player.z, cpFlag(S.name, S.def)); continue; }   // save point: remember where the party stands
+      if (a.type === "cpclear") { cpClear(a.scene || (S && S.name)); continue; }
       if (a.type === "tp") { const pl = S.player; pl.x = a.x; pl.z = a.z; pl.target = null; pl.wantNpc = null; primeEvents(); cam.tx = pl.x; cam.tz = pl.z + 1.5; updateCamera(0.016, true); if (a.fade !== false) flashOff(); continue; }   // same-scene teleport (fades the flash back out)
       if (a.type === "battle") { script.toBattle = true; endScript(true); startBattle(a); return; }
       if (a.type === "flag") { const c = getCleared(); c.add(a.key); setCleared(c); script.dirty = true; continue; }
@@ -1321,7 +1355,61 @@ void main(){
     setTimeout(() => { f.style.transition = "opacity 0.55s linear"; f.style.opacity = "1"; }, 200);       // ...then to black
   }
   function advanceScript() { if (script && script.waiting && !script.lock) { script.waiting = false; if (O && O.sfx && O.SFX) O.sfx(O.SFX.confirm); stepScript(); } }
-  function primeEvents() { const p = S.player; for (const e of (S.events || [])) e.inside = Math.abs(p.x - e.x) <= e.w / 2 && Math.abs(p.z - e.z) <= e.d / 2; }
+  /* ---------- ground-item sparkles: chests and pickups twinkle and chime when the player is near ----------
+     A "talk" event counts as a ground item when it has a `chest` action or its prompt starts with Pick up / Take / Search / Pull / Grab / Collect / Loot.
+     Per-event overrides in the scene JSON: sparkle: false = off, sparkle: true = on for any talk event, sparkleColor: [r,g,b] (0-1). */
+  const SPK_PICK = /^(pick up|take|search|pull|grab|collect|loot)\b/i, SPK_RANGE = 11, SPK_NEAR = 3.5, SPK_SFX = "/assets/SFX/Field_SFX/Item_Sparkle_01.wav";
+  const sparkOn = (e) => e.sparkle !== false && e.trigger === "talk" && (e.sparkle === true || (e.actions || []).some((a) => a.type === "chest") || SPK_PICK.test(e.prompt || ""));
+  const sparkItems = () => { if (S._spkFor !== S.events) { S._spkFor = S.events; S._spk = (S.events || []).filter(sparkOn); } return S._spk; };
+  const spkHash = (n) => { const v = Math.sin(n) * 43758.5453; return v - Math.floor(v); };
+  let spkSfxT = 0;
+  function stepSparkle() {                                         // chime once when walking up to an item (hysteresis: re-arms after 10 m)
+    const p = S.player, now = performance.now();
+    for (const e of sparkItems()) {
+      if (e.once && e.done) continue;
+      const d = Math.hypot(e.x - p.x, e.z - p.z), near = e.spkNear ? d < 10 : d < 6.5;
+      if (near && !e.spkNear && !script && now - spkSfxT > 700 && O && O.sfx) { spkSfxT = now; const sv = gfxLast && typeof gfxLast.sfx === "number" ? gfxLast.sfx : 0.7; O.sfx(SPK_SFX, Math.min(1, sv * 0.6)); }
+      e.spkNear = near;
+    }
+  }
+  function drawSparkles() {                                        // additive glow + rising twinkle stars, fading in from SPK_RANGE to SPK_NEAR metres
+    const list = sparkItems(); if (!list.length) return;
+    const p = S.player, cx = cam.camX, cy = cam.camY, nm = G.fx <= 0 ? 0 : Math.max(2, Math.round(8 * G.fx)); let any = false;
+    for (const e of list) {
+      if (e.once && e.done) continue;
+      const d = Math.hypot(e.x - p.x, e.z - p.z); if (d > SPK_RANGE) continue;
+      const k = Math.min(1, (SPK_RANGE - d) / (SPK_RANGE - SPK_NEAR)), f = k * k * (3 - 2 * k);
+      if (!any) { BLEND_ADD(); any = true; }
+      const chest = (e.actions || []).some((a) => a.type === "chest"), col = e.sparkleColor || (chest ? [1, 0.82, 0.4] : [0.75, 0.95, 1]), y0 = gh(e.x, e.z), seed = e.x * 3.17 + e.z * 1.91;
+      const pulse = 0.75 + 0.25 * Math.sin(clock * 2.6 + seed), gs = 1.7 + 0.25 * Math.sin(clock * 2 + seed);
+      drawQuad({ tex: TEX.glow, origin: [e.x, y0 + 0.6, e.z], right: cx, up: cy, w: gs, h: gs, ax: 0.5, ay: 0.5, tint: [col[0] * 0.32 * f * pulse, col[1] * 0.32 * f * pulse, col[2] * 0.32 * f * pulse, 1] });
+      for (let i = 0; i < nm; i++) {
+        const per = 1.1 + spkHash(seed + i * 7.1) * 1.3, ph = (clock / per + spkHash(seed + i * 3.3)) % 1, a = Math.sin(Math.PI * ph), tw = a * a;
+        const ang = spkHash(seed + i * 5.7) * 6.283 + clock * 0.35, rad = 0.2 + spkHash(seed + i * 9.1) * 0.65;
+        const sz = (0.2 + spkHash(seed + i * 2.9) * 0.3) * (0.55 + 0.45 * tw), rot = clock * 1.6 + spkHash(seed + i * 4.4) * 6.283, cr = Math.cos(rot), sr = Math.sin(rot), b = tw * f * 1.15;
+        drawQuad({ tex: TEX.spark, origin: [e.x + Math.cos(ang) * rad, y0 + 0.25 + ph * 1.2, e.z + Math.sin(ang) * rad],
+          right: [cx[0] * cr + cy[0] * sr, cx[1] * cr + cy[1] * sr, cx[2] * cr + cy[2] * sr], up: [cy[0] * cr - cx[0] * sr, cy[1] * cr - cx[1] * sr, cy[2] * cr - cx[2] * sr],
+          w: sz, h: sz, ax: 0.5, ay: 0.5, tint: [col[0] * b, col[1] * b, col[2] * b, 1] });
+      }
+    }
+  }
+  function primeEvents() { const p = S.player; for (const e of (S.events || [])) e.inside = Math.abs(p.x - e.x) <= e.w / 2 && Math.abs(p.z - e.z) <= e.d / 2; primeTouch(); for (const e of sparkItems()) e.spkNear = Math.hypot(e.x - p.x, e.z - p.z) < 10; }
+  /* Elite enemies (an NPC whose `battle` action has `elite`) start their event when the player walks into them instead of waiting for E.
+     Per-NPC overrides in the scene JSON: touch: false = keep it on E, touch: true = any NPC triggers on touch; touchR = trigger radius in metres (default 1.9).
+     A touch NPC arms only after the player has been outside its radius (arriving next to it, or coming back from a fight, does not re-trigger it). */
+  const isElite = (n) => !!(n.actions && n.actions.some((a) => a.type === "battle" && a.elite && !a.boss));
+  const touchOn = (n) => n.touch === true || (n.touch !== false && isElite(n));
+  const touchIn = (n, p) => Math.hypot(n.x - p.x, n.z - p.z) <= (n.touchR || 1.9);
+  function primeTouch() { const p = S.player; for (const n of (S.npcs || [])) n.touchIn = touchOn(n) && touchIn(n, p); }
+  function stepTouch() {
+    const p = S.player, busy = !!script || !!S.encGo;
+    for (const n of S.npcs) {
+      if (!touchOn(n)) continue;
+      const inside = touchIn(n, p);
+      if (inside && !n.touchIn && !busy) { n.touchIn = true; interact(n); return; }
+      n.touchIn = inside;
+    }
+  }
   function stepEvents() {
     const p = S.player; S.activeEv = null;
     for (const e of (S.events || [])) {
@@ -1339,7 +1427,7 @@ void main(){
       document.body.classList.toggle("h3d-nocolo", !colo);
     } catch (e) {}
   }
-  function applySceneMusic() { applyColosseumUI(); try { if (O && O.music) O.music(S && S.def && S.def.music ? S.def.music : null); } catch (e) {} }   // scene.music = {url, intro?} set in the 3D editor
+  function applySceneMusic() { applyColosseumUI(); try { if (O && O.music) O.music(S && S.def && S.def.music ? S.def.music : null, S && S.def && S.def.ambient ? S.def.ambient : null); } catch (e) {} }   // scene.music = {url, intro?} set in the 3D editor; scene.ambient = {url, volume?} is a looping sound bed under it
   function sceneCam() {                                   // scene.camera = {pitch, dist}: a per-scene default tilt / zoom, applied when the scene changes
     if (!S || cam.free || cam.forScene === S.name) return; cam.forScene = S.name;
     const c = (S.def && S.def.camera) || {}; cam.goalPitch = c.pitch || 33; cam.goalDist = c.dist || 29;
@@ -1503,6 +1591,7 @@ void main(){
   }
   function clickNpc(n) {
     if (modalOpen()) return;
+    if (touchOn(n)) { const dx = S.player.x - n.x, dz = S.player.z - n.z, d = Math.hypot(dx, dz) || 1, stop = Math.min(d, 1.6); setGoal(n.x + dx / d * stop, n.z + dz / d * stop); return; }   // walk into it: touching starts the fight
     if (Math.hypot(n.x - S.player.x, n.z - S.player.z) < (n.reach || 4.6)) { interact(n); return; }
     // walk to a spot in front of them (towards the camera side), then talk
     const dx = S.player.x - n.x, dz = S.player.z - n.z, d = Math.hypot(dx, dz) || 1, stop = Math.min(d, 3.0);
@@ -1661,6 +1750,20 @@ void main(){
   H3.setPerf = (on) => { PERF.on = !!on; try { localStorage.setItem("h3dPerf", on ? "1" : "0"); } catch (e) {} if (PERF.el) PERF.el.style.display = on ? "block" : "none"; return PERF.on; };
   H3.perfOn = () => PERF.on;
   const DPR_CAP = Math.max(0.5, Math.min(3, parseFloat(QP.get("dpr")) || 1.5));                     // render-resolution cap: 1.5 is near-indistinguishable from 2 on hi-dpi screens at ~45% fewer pixels (?dpr=2 to override)
+  /* ---------- graphics settings: Esc menu > Settings stores them in localStorage "rpgSettings" and fires "rpg-settings" ---------- */
+  const G = { res: 1, view: 1, fx: 1, shadows: true, aniso: 8, fps: 0, bright: 1 };
+  let capT = 0, gfxLast = null;
+  const fogN = (F) => (F.near === undefined ? 70 : F.near) * G.view, fogF = (F) => (F.far === undefined ? 190 : F.far) * G.view;   // View distance scales the fog range (and the scene's cull / far-LOD distances)
+  function gfxApply(s) {
+    if (!s) return; gfxLast = s;
+    const num = (v, lo, hi, d) => (typeof v === "number" && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
+    G.res = num(s.res, 0.4, 2, 1); G.view = num(s.view, 0.3, 2, 1); G.fx = num(s.fx, 0, 1, 1); G.aniso = num(s.aniso, 1, 16, 8);
+    G.fps = num(s.fps, 0, 240, 0); G.bright = num(s.bright, 0.5, 1.5, 1); G.shadows = s.shadows !== false;
+    if (canvas) { canvas.style.filter = G.bright === 1 ? "" : "brightness(" + G.bright + ")"; if (sceneEl) resize(); }
+    if (window.EnvFX && EnvFX.setDensity) EnvFX.setDensity(G.fx);
+  }
+  try { gfxApply(JSON.parse(localStorage.getItem("rpgSettings") || "null")); } catch (e) {}
+  window.addEventListener("rpg-settings", (e) => gfxApply(e.detail));
   function perfGpuBegin() {                                          // EXT_disjoint_timer_query: GPU time of the previous frame's render() (not compositing)
     if (PERF.qExt === undefined) PERF.qExt = gl.getExtension("EXT_disjoint_timer_query") || null;
     const e = PERF.qExt; if (!e) return false;
@@ -1693,7 +1796,7 @@ void main(){
     const sorted = Array.from(PERF.hist).filter((v) => v > 0).sort((a, b) => a - b), p99 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.99))] : 0;
     const mem = performance && performance.memory ? (performance.memory.usedJSHeapSize / 1048576).toFixed(0) + " MB" : "n/a";
     const dpr = canvas ? (canvas.width / (cam.w || 1)).toFixed(2) : "?";
-    PERF.txt.textContent = fps.toFixed(0) + " fps   " + (1000 / (fps || 1)).toFixed(1) + " ms   (1% low " + (p99 ? (1000 / p99).toFixed(0) : "-") + " fps)\n" +
+    PERF.txt.textContent = fps.toFixed(0) + " fps   " + (1000 / (fps || 1)).toFixed(1) + " ms   (1% low " + (p99 ? (1000 / p99).toFixed(0) : "-") + " fps)   browser rAF " + (PERF.rhz || 0).toFixed(0) + " Hz" + (G.fps ? "   limit " + G.fps : "") + "\n" +
       "cpu render " + PERF.cpu.toFixed(1) + " ms   gpu " + (PERF.gpu >= 0 ? PERF.gpu.toFixed(1) + " ms" : "n/a") + "\n" +
       "draw calls " + PERF.calls + "   tris " + (PERF.tris >= 1e6 ? (PERF.tris / 1e6).toFixed(2) + "M" : (PERF.tris / 1e3).toFixed(1) + "k") + "\n" +
       "meshes " + PERF.drawn + "/" + PERF.total + "   lod " + PERF.lod + (instExt ? "   inst" : "   no-inst") + "\n" +
@@ -1703,7 +1806,7 @@ void main(){
   }
   function resize() {
     if (!canvas) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+    const dpr = Math.max(0.35, Math.min(window.devicePixelRatio || 1, DPR_CAP) * G.res);
     cam.w = sceneEl.clientWidth || window.innerWidth; cam.h = sceneEl.clientHeight || window.innerHeight;
     canvas.width = Math.round(cam.w * dpr); canvas.height = Math.round(cam.h * dpr); cam.aspect = cam.w / cam.h;
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -1719,7 +1822,9 @@ void main(){
 
   function frame(now) {
     requestAnimationFrame(frame);
+    if (PERF.on) { PERF.rn = (PERF.rn || 0) + 1; if (!PERF.rt) PERF.rt = now; if (now - PERF.rt >= 500) { PERF.rhz = PERF.rn * 1000 / (now - PERF.rt); PERF.rn = 0; PERF.rt = now; } }   // raw browser rAF rate, independent of what the game draws
     if (!H3.on || !S) return;
+    if (G.fps) { const iv = 1000 / G.fps; if (now - capT < iv - 2) return; capT = now - capT > iv * 2 ? now : capT + iv; }   // frame-rate limit
     const dt = Math.min(0.05, Math.max(0.001, (now - (lastT || now - 16)) / 1000)); lastT = now; clock += dt;
     stepCine(dt);
     if (!modalOpen() && !scriptActive()) stepPlayer(dt); else if (!(script && script.cineRun && S.player.moving)) S.player.moving = false;
@@ -1796,7 +1901,7 @@ void main(){
       idxUint = !!gl.getExtension("OES_element_index_uint"); aniso = gl.getExtension("EXT_texture_filter_anisotropic");
       buildTextures(); useSprite();
     } catch (err) { console.warn("[Hub3D] 3D plaza unavailable, staying in 2D:", err); H3.failed = true; return; }
-    sceneEl.insertBefore(canvas, sceneEl.firstChild);
+    sceneEl.insertBefore(canvas, sceneEl.firstChild); if (gfxLast) gfxApply(gfxLast);
     if (!window.EnvFX) { const s = document.createElement("script"); s.src = "/hub3d/envfx.js"; document.head.appendChild(s); }
     H3.ready = true; resize();
     try {
@@ -1806,18 +1911,28 @@ void main(){
         try { await fetch("/api/menu/rest", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }); } catch (e) {}
         try { const u = new URL(location.href); u.searchParams.delete("restart"); history.replaceState(null, "", u); } catch (e) {}
       }
-      const sceneName = q.get("scene") || (back && back.scene) || (((cl) => cl.has("st_space") ? "asteroid" : cl.has("st_free") ? "olympus" : cl.has("st_done") ? "prison" : "island")(getCleared()));
+      let arrive = null;                           // defeat: ?inn=1 -> nearest inn, ?sp=1 -> this dungeon's last save point
+      if (q.get("inn") || q.get("sp")) {
+        const from = q.get("scene") || "island";
+        try { const u = new URL(location.href); u.searchParams.delete("inn"); u.searchParams.delete("sp"); history.replaceState(null, "", u); } catch (e) {}
+        if (q.get("sp")) { const cp = cpGet(from); arrive = { scene: from, x: cp ? cp.x : null, z: cp ? cp.z : null, text: cp ? "You come to beside the last save point you lit, battered but whole." : "You come to back at the entrance, battered but whole." }; }
+        else { const inn = innFor(from); if (inn) arrive = { scene: inn.scene, x: inn.x, z: inn.z, text: inn.text }; }
+        if (arrive) { back = null; try { await fetch("/api/menu/rest", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }); } catch (e) {} }
+      }
+      const sceneName = (arrive && arrive.scene) || q.get("scene") || (back && back.scene) || (((cl) => cl.has("st_space") ? "asteroid" : cl.has("st_free") ? "olympus" : cl.has("st_done") ? "prison" : "island")(getCleared()));
       S = null;
       const loaded = await loadScene(sceneName, null);
       S = loaded; sceneCam(); buildDom(); buildSayBox(); bindInput(); applySceneMusic();
       if (q.get("cam")) { const c = q.get("cam").split(",").map(Number); cam.free = true; cam.tx = c[0]; cam.tz = c[1]; cam.goalYaw = c[2] || 0; cam.goalPitch = c[3] || 30; cam.goalDist = c[4] || 25; }
       if (back && back.scene === sceneName && !q.get("at") && isFinite(back.x) && isFinite(back.z)) { S.player.x = back.x; S.player.z = back.z; if (back.face) S.player.face = back.face; if (!cam.free && isFinite(back.yaw)) { cam.goalYaw = back.yaw; if (isFinite(back.pitch)) cam.goalPitch = back.pitch; if (isFinite(back.dist)) cam.goalDist = back.dist; } }
       if (q.get("at")) { const c = q.get("at").split(",").map(Number); S.player.x = c[0]; S.player.z = c[1]; }
+      if (arrive && arrive.x != null) { S.player.x = arrive.x; S.player.z = arrive.z; }
       primeEvents();
       if (!cam.free) { cam.tx = S.player.x; cam.tz = S.player.z + 1.5; }
       updateCamera(0.016, true);
       if (state) H3.onState(state);
       hudEls.load.classList.add("done"); runAutorun();
+      if (arrive && !script) setTimeout(() => { if (!script && S && !S.switching) say("", arrive.text); }, 600);
     } catch (err) { console.warn("[Hub3D] could not build the plaza:", err); H3.failed = true; H3.ready = false; document.body.classList.remove("h3d"); if (hudEls.load) hudEls.load.textContent = "Plaza failed: " + (err && err.message || err); return; }
     requestAnimationFrame(frame);
     let saved = null; try { saved = localStorage.getItem("hubView"); } catch (e) {}

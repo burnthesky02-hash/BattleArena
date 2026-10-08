@@ -5303,6 +5303,31 @@
     }
    ],
    "reach": 4
+  },
+  {
+   "id": "cp_inn_brea",
+   "name": "Brea",
+   "title": "Rest stall",
+   "sprite": "Yulia",
+   "x": -16.6,
+   "z": -14,
+   "h": 2.4,
+   "tint": [
+    1.1,
+    1,
+    0.9,
+    1
+   ],
+   "actions": [
+    {
+     "type": "say",
+     "who": "Brea",
+     "text": "Bruised? Everyone is, coming out of that gate. There is a pallet behind the awning, and the soup is hot. No charge for a fighter."
+    },
+    {
+     "type": "rest"
+    }
+   ]
   }
  ],
  "events": [

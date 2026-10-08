@@ -15,7 +15,7 @@
 
   /* ---------- settings ---------- */
   var SET_KEY = "rpgSettings";
-  function loadSettings() { var d = { music: 0.35, sfx: 0.7, hints: true }; try { var s = JSON.parse(localStorage.getItem(SET_KEY) || "{}"); for (var k in d) if (s[k] != null) d[k] = s[k]; } catch (e) {} return d; }
+  function loadSettings() { var d = { music: 0.35, sfx: 0.7, hints: true, res: 1, view: 1, fx: 1, shadows: true, aniso: 8, fps: 0, bright: 1 }; try { var s = JSON.parse(localStorage.getItem(SET_KEY) || "{}"); for (var k in d) if (s[k] != null) d[k] = s[k]; } catch (e) {} return d; }
   var settings = loadSettings();
   function applySettings() {
     try { localStorage.setItem(SET_KEY, JSON.stringify(settings)); } catch (e) {}
@@ -212,10 +212,40 @@
   function quitHtml() {
     return '<div class="jm-panel jm-center"><div class="jm-big">Quit the game?</div><div class="jm-empty">Anything you have not saved is lost.</div><div class="jm-yn"><div class="jm-row' + (yes === 0 ? " cur" : "") + '" data-a="yn" data-i="0">Yes, quit</div><div class="jm-row' + (yes === 1 ? " cur" : "") + '" data-a="yn" data-i="1">No</div></div></div>';
   }
+  /* Graphics rows. Values are stored flat in rpgSettings; hub3d.js / battle3d.js / envfx.js read them from the "rpg-settings" event (and from localStorage on load). */
+  var PCT = function (v) { return Math.round(v * 100) + "%"; };
+  var GS = {
+    res:    { name: "Render resolution", vals: [0.5, 0.75, 1, 1.25, 1.5], fmt: PCT },
+    view:   { name: "View distance", vals: [0.5, 0.75, 1, 1.25, 1.5], fmt: PCT },
+    fx:     { name: "Weather & particles", vals: [0, 0.25, 0.5, 0.75, 1], fmt: function (v) { return v ? PCT(v) : "Off"; } },
+    aniso:  { name: "Texture filtering", vals: [1, 2, 4, 8, 16], fmt: function (v) { return v === 1 ? "Off" : v + "x"; } },
+    fps:    { name: "Frame rate limit", vals: [30, 45, 60, 90, 120, 0], fmt: function (v) { return v ? v + " fps" : "Unlimited"; } },
+    bright: { name: "Brightness", vals: [0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3], fmt: PCT }
+  };
+  var PRESETS = [
+    { name: "Low",    v: { res: 0.75, view: 0.5,  fx: 0.25, shadows: false, aniso: 1 } },
+    { name: "Medium", v: { res: 1,    view: 0.75, fx: 0.5,  shadows: true,  aniso: 4 } },
+    { name: "High",   v: { res: 1,    view: 1,    fx: 1,    shadows: true,  aniso: 8 } },
+    { name: "Ultra",  v: { res: 1.5,  view: 1.5,  fx: 1,    shadows: true,  aniso: 16 } }
+  ];
+  var SROWS = ["music", "sfx", "hints", "preset", "res", "view", "fx", "shadows", "aniso", "fps", "bright"];
+  function presetIdx() { for (var p = 0; p < PRESETS.length; p++) { var v = PRESETS[p].v, ok = true; for (var k in v) if (settings[k] !== v[k]) ok = false; if (ok) return p; } return -1; }
+  function gIdx(g, v) { var b = 0; for (var i = 1; i < g.vals.length; i++) if (Math.abs(g.vals[i] - v) < Math.abs(g.vals[b] - v)) b = i; return b; }
   function settingsHtml() {
     function row(i, name, val) { return '<div class="jm-row' + (i === sr ? " cur" : "") + '" data-a="set" data-i="' + i + '"><b>' + name + '</b><span class="jm-slide">' + val + "</span></div>"; }
-    function sl(v) { var n = Math.round(v * 10), s = ""; for (var i = 0; i < 10; i++) s += '<u class="' + (i < n ? "on" : "") + '"></u>'; return '<i data-a="dec">&#9664;</i>' + s + '<i data-a="inc">&#9654;</i>'; }
-    return '<div class="jm-panel jm-center wide"><div class="jm-ptitle">Settings</div>' + row(0, "Music volume", sl(settings.music / 0.7)) + row(1, "Sound effects", sl(settings.sfx)) + row(2, "Control hints", '<i data-a="tog">' + (settings.hints ? "On" : "Off") + "</i>") + '<div class="jm-empty">&uarr;&darr; choose &middot; &larr;&rarr; change</div></div>';
+    function pips(f) { var n = Math.round(f * 10), s = ""; for (var i = 0; i < 10; i++) s += '<u data-p="' + i + '" class="' + (i < n ? "on" : "") + '"></u>'; return '<i data-a="dec">&#9664;</i>' + s + '<i data-a="inc">&#9654;</i>'; }
+    var h = '<div class="jm-panel jm-center wide jm-set"><div class="jm-ptitle">Settings</div>', pi = presetIdx();
+    for (var i = 0; i < SROWS.length; i++) {
+      var id = SROWS[i], g = GS[id];
+      if (id === "preset") h += '<div class="jm-ptitle jm-gsub">Graphics</div>';
+      if (id === "music") h += row(i, "Music volume", pips(settings.music / 0.7));
+      else if (id === "sfx") h += row(i, "Sound effects", pips(settings.sfx));
+      else if (id === "hints") h += row(i, "Control hints", '<i data-a="tog">' + (settings.hints ? "On" : "Off") + "</i>");
+      else if (id === "shadows") h += row(i, "Shadows", '<i data-a="tog">' + (settings.shadows ? "On" : "Off") + "</i>");
+      else if (id === "preset") h += row(i, "Quality preset", '<i data-a="dec">&#9664;</i><em class="jm-sv pv">' + (pi < 0 ? "Custom" : PRESETS[pi].name) + '</em><i data-a="inc">&#9654;</i>');
+      else h += row(i, g.name, pips(gIdx(g, settings[id]) / (g.vals.length - 1)) + '<em class="jm-sv">' + g.fmt(settings[id]) + "</em>");
+    }
+    return h + '<div class="jm-empty">&uarr;&darr; choose &middot; &larr;&rarr; change &middot; Texture filtering applies when the next scene loads</div></div>';
   }
   function render() {
     if (!root || !st) return;
@@ -234,7 +264,7 @@
     var hint = { main: "Choose a command", items: ph === "target" ? "Use on whom?" : "Pick an item", magic: ph === "caster" ? "Whose abilities?" : ph === "skills" ? "Healing spells can be cast here" : "Cast on whom?", equip: ph === "hero" ? "Choose a hero" : ph === "slot" ? "Choose a slot" : "Choose gear", status: ph === "view" ? "Rank up skills with talent points" : "Choose a hero", quests: "Enter: track / untrack  \u00b7  \u2190 \u2192: filter", save: "", quit: "", settings: "" }[mode] || "";
     root.innerHTML = '<div class="jm-wrap"><div class="jm-head"><div class="jm-title">' + TITLES[mode] + '</div><div class="jm-sub">' + (msg ? '<span class="' + (msgBad ? "bad" : "good") + '">' + esc(msg) + "</span>" : esc(hint)) +
       '</div><div class="jm-back" data-a="back">Esc &middot; ' + (mode === "main" ? "Close" : "Back") + '</div></div><div class="jm-left">' + left + infoHtml() + '</div><div class="jm-right">' + right + "</div></div>";
-    var cur = root.querySelector(".jm-list .cur, .jm-col .cur"); if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest" });
+    var cur = root.querySelector(".jm-list .cur, .jm-col .cur, .jm-set .cur"); if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest" });
   }
 
   /* ---------- actions ---------- */
@@ -320,7 +350,7 @@
         setTimeout(function () { document.body.innerHTML = '<div style="color:#f3efd8;font:20px sans-serif;text-align:center;margin-top:30vh">The game has closed. You can close this window.</div>'; }, 700);
       }, function () { busy = false; try { window.close(); } catch (e) {} say("Could not reach the game. Close this window to quit.", true); render(); });
     }
-    if (mode === "settings") { if (sr === 2) adjust(1); }
+    if (mode === "settings") { var cid = SROWS[sr]; if (cid === "hints" || cid === "shadows" || cid === "preset") adjust(1); }
   }
   function rankUpSkill(i) {
     if (busy) return;
@@ -348,9 +378,21 @@
     sfx("decline"); render();
   }
   function adjust(dir) {
-    if (sr === 0) settings.music = Math.max(0, Math.min(0.7, Math.round((settings.music / 0.7 + dir * 0.1) * 10) / 10 * 0.7));
-    else if (sr === 1) settings.sfx = Math.max(0, Math.min(1, Math.round((settings.sfx + dir * 0.1) * 10) / 10));
-    else if (sr === 2) settings.hints = !settings.hints;
+    var id = SROWS[sr], g = GS[id];
+    if (id === "music") settings.music = Math.max(0, Math.min(0.7, Math.round((settings.music / 0.7 + dir * 0.1) * 10) / 10 * 0.7));
+    else if (id === "sfx") settings.sfx = Math.max(0, Math.min(1, Math.round((settings.sfx + dir * 0.1) * 10) / 10));
+    else if (id === "hints") settings.hints = !settings.hints;
+    else if (id === "shadows") settings.shadows = !settings.shadows;
+    else if (id === "preset") { var pi = presetIdx(), n = PRESETS.length; pi = pi < 0 ? (dir > 0 ? 0 : n - 1) : (pi + dir + n) % n; for (var k in PRESETS[pi].v) settings[k] = PRESETS[pi].v[k]; }
+    else if (g) settings[id] = g.vals[Math.max(0, Math.min(g.vals.length - 1, gIdx(g, settings[id]) + dir))];
+    applySettings(); sfx("hover"); render();
+  }
+  function setPip(p) {   // click on one of the 10 pips of the current row
+    var id = SROWS[sr], g = GS[id];
+    if (id === "music") settings.music = (p + 1) / 10 * 0.7;
+    else if (id === "sfx") settings.sfx = (p + 1) / 10;
+    else if (g) settings[id] = g.vals[Math.round(p / 9 * (g.vals.length - 1))];
+    else return;
     applySettings(); sfx("hover"); render();
   }
   function move(dx, dy) {
@@ -367,7 +409,7 @@
     else if (ctx === "quests/view") { if (dy) qz = wrap(qz + dy, qv.length); else if (dx) { qf = wrap(qf + dx, QF.length); qz = 0; } }
     else if (ctx === "bestiary/view") { if (!bst) return; bz = wrap(bz + dy + dx * 6, bst.entries.length); }
     else if (ctx === "save/confirm") yes = wrap(yes + dx + dy, 2);
-    else if (ctx === "settings/rows") { if (dy) sr = wrap(sr + dy, 3); else if (dx) return adjust(dx); }
+    else if (ctx === "settings/rows") { if (dy) sr = wrap(sr + dy, SROWS.length); else if (dx) return adjust(dx); }
     else return;
     msg = ""; sfx("hover"); render();
   }
@@ -406,7 +448,7 @@
     if (a === "yn") { yes = i; return confirm(); }
     if (a === "sk") { ski = i; return rankUpSkill(i); }
     if (a === "skrow") { ski = i; sfx("hover"); return render(); }
-    if (a === "set") { sr = i; var d = e.target.getAttribute("data-a"); if (d === "dec") return adjust(-1); if (d === "inc") return adjust(1); if (d === "tog") return adjust(1); render(); return; }
+    if (a === "set") { sr = i; var pp = e.target.getAttribute("data-p"); if (pp != null) return setPip(parseInt(pp, 10)); var d = e.target.getAttribute("data-a"); if (d === "dec") return adjust(-1); if (d === "inc") return adjust(1); if (d === "tog") return adjust(1); render(); return; }
     if (a === "dec" || a === "inc" || a === "tog") { var row = t.closest("[data-i]"); sr = row ? parseInt(row.getAttribute("data-i"), 10) : sr; return adjust(a === "dec" ? -1 : 1); }
   }
 
@@ -472,6 +514,7 @@
       ".jm-bbody{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:8px}.jm-bart{display:flex;align-items:flex-end;justify-content:center;min-height:0;border-radius:8px;background:radial-gradient(ellipse at 50% 80%,rgba(255,230,140,.16),rgba(0,0,0,.25))}",
       ".jm-bart img{max-width:100%;max-height:100%;object-fit:contain}.jm-bart img.sil{filter:brightness(0) opacity(.55)}.jm-binfo{min-width:0;min-height:0;overflow:auto}",
       ".jm-yn{display:flex;gap:16px}.jm-yn .jm-row{min-width:120px;justify-content:center;font-size:20px}",
+      ".jm-set{justify-content:flex-start!important;overflow-y:auto;min-height:0;box-sizing:border-box;padding-top:12px!important;padding-bottom:12px!important}.jm-set .jm-row{position:relative;padding:4px 12px 4px 22px;font-size:clamp(13px,1.9vh,17px)}.jm-set .jm-row.cur::before{position:absolute;left:6px;margin:0}.jm-set .jm-slide u{cursor:pointer}.jm-gsub{margin-top:10px;border-top:1px solid #e8c76655;padding-top:8px}.jm-sv{font-style:normal;min-width:78px;text-align:right;font-size:.85em;color:#cfe9f3}.jm-sv.pv{min-width:120px;text-align:center}",
       ".jm-slide{display:flex;align-items:center;gap:4px}.jm-slide u{display:inline-block;width:14px;height:16px;border:1px solid #e8c76688;border-radius:3px;background:#03131c}.jm-slide u.on{background:linear-gradient(180deg,#ffe9a0,#d8a63a)}.jm-slide i{font-style:normal;cursor:pointer;color:#e8c766;padding:0 6px}",
       "@media(max-width:820px){.jm-bgrid,.jm-bbody{grid-template-columns:1fr}.jm-wrap{grid-template-columns:1fr;grid-template-rows:auto auto 1fr;inset:1vh 1vw}.jm-head{grid-column:1}.jm-left{flex-direction:row}.jm-cols{grid-template-columns:1fr}.jm-cards{grid-template-columns:repeat(2,1fr)}}"
     ].join("\n");

@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "money": 1818,
+  "gems": 72,
+  "equipment_shards": 13,
+  "inventory": {
+    "potion": 10,
+    "hi_potion": 2,
+    "ether": 2,
+    "antidote": 3,
+    "phoenix_down": 1
+  },
+  "equipment_instances": {
+    "be449f23ce25": {
+      "base_id": "moonlit_wand",
+      "bonus_stats": {},
+      "upgrade_level": 0
+    },
+    "4ee8195c6d69": {
+      "base_id": "serrated_kris",
+      "bonus_stats": {},
+      "upgrade_level": 0
+    },
+    "ad33f5aea68b": {
+      "base_id": "knights_blade",
+      "bonus_stats": {},
+      "upgrade_level": 0
+    }
+  },
+  "equipment_stash": [
+    "be449f23ce25",
+    "4ee8195c6d69",
+    "ad33f5aea68b"
+  ],
+  "legacy_instances": {},
+  "legacy_stash": [],
+  "characters": [
+    {
+      "id": "e647a7d7",
+      "name": "Kael",
+      "class_id": "melee_dps",
+      "equipped": {
+        "weapon": null,
+        "offhand": null,
+        "armor": null,
+        "helmet": null,
+        "boots": null,
+        "accessory": null
+      },
+      "level": 2,
+      "xp": 79,
+      "rarity": "mythic",
+      "stars": 1,
+      "shards": 0,
+      "skill_ranks": {},
+      "equipped_legacies": [],
+      "wounded_runs_remaining": 0,
+      "formation": "middle",
+      "hp": 49,
+      "mp": 6,
+      "away": false
+    }
+  ],
+  "active_party": [],
+  "cleared_bosses": [],
+  "bestiary": {},
+  "arena_team_bought": false,
+  "rank": 1,
+  "renown": 0,
+  "tickets": {
+    "common": 1,
+    "premium": 0
+  },
+  "world_map": "haven_town",
+  "world_x": 6,
+  "world_y": 7,
+  "world_facing": "up"
+}

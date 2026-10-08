@@ -2440,11 +2440,20 @@ function handleBattleEnd(msg) {
   // dungeon, start it over from the entrance. (The server already put everyone's HP/MP back to how it was.)
   const againBtn = document.getElementById("btn-again"), restartBtn = document.getElementById("btn-restart");
   againBtn.textContent = "Fight Again"; againBtn.onclick = function () { location.reload(); }; restartBtn.style.display = "none";
+  hubBtn.onclick = returnToHub;
   if (msg.hub3d && result === "defeat" && !msg.debug) {
-    const hasRestart = !!new URLSearchParams(window.location.search).get("restart");
+    // Defeat in a 3D scene: dungeons (they carry a `restart` prefix) offer the last save point or a full restart; everywhere
+    // else the party is carried to the nearest inn / rest stop (hub3d.js INNS) and patched up for free.
+    const DQ = new URLSearchParams(window.location.search), hasRestart = !!DQ.get("restart"), dscene = DQ.get("scene") || "olympus";
     againBtn.textContent = "Retry Battle"; againBtn.style.display = ""; againBtn.onclick = retryBattle;
-    if (hasRestart) { restartBtn.style.display = ""; document.getElementById("btn-hub").style.display = "none"; }
-    else { hubBtn.textContent = { olympus: "Back to the Colosseum", asteroid: "Back to the Base", vault: "Back to the Base" }[new URLSearchParams(window.location.search).get("scene")] || "Back to the Village"; }
+    hubBtn.style.display = "";
+    if (hasRestart) {
+      restartBtn.style.display = "";
+      hubBtn.textContent = "Return to Save Point"; hubBtn.onclick = function () { returnAfterDefeat("sp"); };
+    } else {
+      hubBtn.textContent = { asteroid: "Return to the Base", vault: "Return to the Base", reach: "Return to the Base" }[dscene] || "Return to the Inn";
+      hubBtn.onclick = function () { returnAfterDefeat("inn"); };
+    }
   }
   cashingOut = msg.can_continue;
   if (msg.paid && msg.paid.levelups && msg.paid.levelups.length && !msg.debug) {
@@ -2516,6 +2525,13 @@ function retryBattle() {
   document.getElementById("btn-again").disabled = true;
   fetch("/api/world/hub_battle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ retry: true }) })
     .then(function () { location.reload(); }, function () { location.reload(); });
+}
+// Defeat in a 3D scene: back to the scene's last save point (sp) or the nearest inn (inn); hub3d.js reads the flag, moves the party
+// there and heals them.
+function returnAfterDefeat(kind) {
+  const P = new URLSearchParams(window.location.search);
+  document.getElementById("btn-hub").disabled = true;
+  window.location.href = HUB_URL + "?view=3d&scene=" + encodeURIComponent(P.get("scene") || "olympus") + "&" + kind + "=1";
 }
 function restartDungeon() {
   const P = new URLSearchParams(window.location.search);

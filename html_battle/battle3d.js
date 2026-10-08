@@ -414,9 +414,21 @@ void main(){
   }
   B3D.mapInfo = () => ({ id: mapId, ready: !!curMap, list: mapList });
 
+  /* graphics settings from the hub's Esc menu (localStorage "rpgSettings"): render resolution, shadows, brightness, particle density */
+  const G = { res: 1, shadows: true, bright: 1, fx: 1 };
+  function gfxApply(s) {
+    if (!s) return;
+    const num = (v, lo, hi, d) => (typeof v === "number" && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
+    G.res = num(s.res, 0.4, 2, 1); G.bright = num(s.bright, 0.5, 1.5, 1); G.fx = num(s.fx, 0, 1, 1); G.shadows = s.shadows !== false;
+    if (canvas) { canvas.style.filter = G.bright === 1 ? "" : "brightness(" + G.bright + ")"; if (gl) resize(); }
+    if (window.EnvFX && EnvFX.setDensity) EnvFX.setDensity(G.fx);
+  }
+  const gfxReload = () => { try { gfxApply(JSON.parse(localStorage.getItem("rpgSettings") || "null")); } catch (e) {} };
+  gfxReload(); window.addEventListener("storage", (ev) => { if (ev.key === "rpgSettings") gfxReload(); });
+
   function resize() {
     if (!canvas) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.max(0.35, Math.min(window.devicePixelRatio || 1, 2) * G.res);
     cam.w = window.innerWidth; cam.h = window.innerHeight;
     canvas.width = Math.round(cam.w * dpr); canvas.height = Math.round(cam.h * dpr);
     cam.aspect = cam.w / cam.h;
@@ -515,7 +527,7 @@ void main(){
   let fx = null, fxFor = undefined;
   function syncFx() {
     if (!window.EnvFX) return;
-    if (!fx) fx = EnvFX.create(stageEl, canvas);
+    if (!fx) { fx = EnvFX.create(stageEl, canvas); if (EnvFX.setDensity) EnvFX.setDensity(G.fx); }
     if (fxFor !== curMap) { fxFor = curMap; fx.set(curMap ? curMap.def.fx : null); }
     fx.setVisible(B3D.on);
   }
@@ -537,7 +549,7 @@ void main(){
 
     // blob shadows
     BLEND_NORMAL();
-    for (const s of sprites) {
+    if (G.shadows) for (const s of sprites) {
       const g = geom(s), hw = g.H / PX, ko = s.anchor.classList.contains("ko");
       drawQuad({ tex: TEX.shadow, origin: [g.wx, 0.02, g.wz], right: [1, 0, 0], up: [0, 0, -1], w: hw * 0.85, h: hw * 0.42, ax: 0.5, ay: 0.5, tint: [1, 1, 1, ko ? 0.5 : 1] });
     }
