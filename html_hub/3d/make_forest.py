@@ -70,7 +70,7 @@ def make_loot(tier, rg):
 lrng = random.Random(77); NCH = [0]
 def chest(x, z, tier, rot=0):
     NCH[0] += 1; key = "fc_%d" % NCH[0]
-    put(KEN + "detail-crate", x, z, rot, 0, 5.0, key); put(KEN + "detail-crate-small", x, z, rot, 0, 5.0, "!" + key); block(x, z, 1.6, 1.6)
+    put("/assets/3D/Generated/SM_TreasureChest", x, z, rot, 0, 1.0, key); block(x, z, 1.6, 1.6)
     EV.append(dict(id=key, name="Treasure chest", x=round(x, 2), z=round(z, 2), w=4.2, d=4.2, trigger="talk", prompt="Open the chest", hideIf=key,
                    actions=[dict(type="flag", key=key), dict(type="chest", loot=make_loot(tier, lrng))]))
 def note(key, name, x, z, text, who="Torn page"):

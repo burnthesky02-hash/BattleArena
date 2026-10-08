@@ -167,7 +167,7 @@ def make_loot(tier, rg):
 CHESTS = []
 def chest(x, z, tier, rot=None):
     key = "dc_%d" % (len(CHESTS) + 1); rot = rng.choice([0, 90, 180, 270]) if rot is None else rot; CHESTS.append((key, x, z, tier))
-    put("detail-crate", x, z, rot, 0, 5.0, key, pre=KEN); put("detail-crate-small", x, z, rot, 0, 5.0, "!" + key, pre=KEN); block(x, z, 1.6, 1.6)
+    put("SM_TreasureChest", x, z, rot, 0, 1.0, key, pre="/assets/3D/Generated/"); block(x, z, 1.6, 1.6, key)      # the chest (and its blocker) vanish once opened
     EV.append(dict(id=key, name="Treasure chest", x=round(x, 2), z=round(z, 2), w=4.2, d=4.2, trigger="talk", prompt="Open the chest", hideIf=key,
                    actions=[dict(type="flag", key=key), dict(type="chest", loot=make_loot(tier, rng))])); reserve(x, z, 2.4)
 
@@ -796,13 +796,13 @@ for (i, j) in F:
             if (i + di, j + dj) not in F: blocked.add((i + di, j + dj))
 wallc = {c for c in blocked if any((c[0] + di, c[1] + dj) in F for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)))}
 wr = random.Random(555)
-WALLS = ("SM_cv_wall_a", "SM_cv_wall_b", "SM_cv_wall_c")
+WALLS = ("SM_cv_wall_rock",) * 3                      # user's Cave-Wall mesh (Assets/3D/Generated), decimated + sized 4x6x4 -> SM_cv_wall_rock.glb
 for c in sorted(wallc):
     h = (c[0] * 73856093 ^ c[1] * 19349663) & 0xFFFF
     sc = 1.05 + ((h >> 8) % 6) * .07; sy = 0.85 + ((h >> 13) % 9) * .11
     jx = (((h >> 3) % 7) - 3) * .22; jz = (((h >> 6) % 7) - 3) * .22
     put(WALLS[h % 3], X(c[0]) + jx, X(c[1]) + jz, (0, 90, 180, 270)[(h >> 4) % 4], 0, [round(sc, 3), round(sy, 3), round(sc, 3)])
-    if (h >> 11) % 7 == 0: put("SM_cv_wall_tall", X(c[0]), X(c[1]), (0, 90, 180, 270)[(h >> 5) % 4], 0, 1.0)
+    if (h >> 11) % 7 == 0: put("SM_cv_wall_rock", X(c[0]), X(c[1]), (0, 90, 180, 270)[(h >> 5) % 4], 0, [1.0, 1.5, 1.0])
 rows = {}
 for (i, j) in blocked: rows.setdefault(j, []).append(i)
 for j, xs in rows.items():
@@ -823,7 +823,7 @@ def glb_image(path):
     b = open(path, "rb").read(); jl = struct.unpack("<I", b[12:16])[0]; js = json.loads(b[20:20 + jl]); bl = struct.unpack("<I", b[20 + jl:24 + jl])[0]
     bin0 = 20 + jl + 8; bv = js["bufferViews"][js["images"][0]["bufferView"]]
     return b[bin0 + bv["byteOffset"]: bin0 + bv["byteOffset"] + bv["byteLength"]]
-FLOOR_IMG = open(os.path.join(ASSET, "tex_floor.jpg"), "rb").read()
+FLOOR_IMG = open(os.path.join(ASSET, "tex_floor_cave.jpg"), "rb").read()      # user's Generated/Textures/Cave-Floor.webp made seamless (512 px)
 WATER_IMG = glb_image(os.path.join(ASSET, "SM_cv_water.glb"))
 def quads(cells, y, uvs):
     pos, uv, idx = [], [], []
@@ -839,10 +839,10 @@ chunks = {}
 for c in F:
     if c not in WATER: chunks.setdefault((c[0] // 16, c[1] // 16), []).append(c)
 for (ci, cj), cells in sorted(chunks.items()):
-    p, n, uv, idx = quads(cells, 0.0, 6.0); nm = "floor_%d_%d" % (ci, cj)
+    p, n, uv, idx = quads(cells, 0.0, 18.0); nm = "floor_%d_%d" % (ci, cj)
     write_glb(os.path.join(ASSET, nm + ".glb"), p, n, idx, nm, uv=uv, img=FLOOR_IMG, color=(.6, .56, .54, 1))
     put(nm, 0, 0, 0, 0, 1)
-p, n, uv, idx = quads(WATER, -1.5, 6.0)
+p, n, uv, idx = quads(WATER, -1.5, 18.0)
 write_glb(os.path.join(ASSET, "floor_lakebed.glb"), p, n, idx, "floor_lakebed", uv=uv, img=FLOOR_IMG, color=(.28, .4, .5, 1)); put("floor_lakebed", 0, 0, 0, 0, 1)
 p, n, uv, idx = quads(WATER, -0.35, 2.0)
 write_glb(os.path.join(ASSET, "floor_lake.glb"), p, n, idx, "floor_lake", uv=uv, img=WATER_IMG, color=(1, 1, 1, .78), alpha="BLEND", double=True); put("floor_lake", 0, 0, 0, 0, 1)
@@ -861,7 +861,7 @@ for (c, rt) in POOLLANE: put("SM_floor_plank_01", X(c[0]), X(c[1]), rt, 0.06, 1.
 def build_gate(g):
     z = X(g["cj"]); x0 = X(g["ci"]); key = g["key"]
     for l, i in enumerate((-1, 0, 1)):
-        put("SM_cv_wall_" + "abc"[(i + 1) % 3], x0 + X(i), z, 90 * (i + 1), 0, 1.0, key)
+        put("SM_cv_wall_rock", x0 + X(i), z, 90 * (i + 1), 0, 1.0, key)
     block(x0, z, 12, 4, key)
     for (dx, nm), rt in zip(((-4.3, "SM_rock_02"), (3.6, "SM_rock_03"), (0.4, "SM_rock_01")), g["rot"]): put(nm, x0 + dx, z + 2.6, rt, 0, 1.4, key)
     if g["glowcol"]: DEC.append(dict(type="glyph", x=round(x0, 3), z=round(z + 2.4, 2), r=4.0, spin=20, color=g["glowcol"], hideIf=key))

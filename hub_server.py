@@ -133,6 +133,7 @@ from game import legacy as legacy_logic
 from game import party as party_logic
 from game import save_system
 from game import shop as shop_logic
+from game import fishing as fishing_logic
 from data.classes import CLASS_ARCHETYPES
 from data.enemy_pool import ENEMY_ARCHETYPES, ENEMY_IDS
 from data.hero_skills import skill_ids_for, STAPLE_SKILL_INDEX
@@ -1270,6 +1271,11 @@ class Handler(BaseHTTPRequestHandler):
             with _state_lock:
                 self._send_json(200, _serialize_debug_menu())
             return
+        if route_path == "/api/fishing":                                   # the fishing mini-game's HUD / tackle shop / fish log
+            q = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            with _state_lock:
+                self._send_json(200, fishing_logic.view(player_state, (q.get("spot") or ["pier"])[0]))
+            return
         if route_path == "/api/shop":
             global current_shop_key
             with _state_lock:
@@ -1450,6 +1456,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_pass_time()
         elif self.path == "/api/story/game":
             self._handle_story_game()
+        elif self.path.startswith("/api/fishing/"):
+            self._handle_fishing(self.path.rsplit("/", 1)[1])
         elif self.path == "/api/story/slave":
             story_slave = bool(self._read_json_body().get("slave"))
             self._send_json(200, {"ok": True, "slave": story_slave})
@@ -1967,6 +1975,28 @@ class Handler(BaseHTTPRequestHandler):
         lead = str(body.get("text") or "")[:90] or "You open the chest and find"
         msg = (lead + ": " + ", ".join(found) + ".") if found else "The chest is empty."
         self._send_json(200, {"ok": bool(found), "message": msg})
+
+    def _handle_fishing(self, action: str) -> None:
+        """POST /api/fishing/<cast|result|buy|equip> -- the rules live in game/fishing.py (this only moves JSON and saves)."""
+        body = self._read_json_body()
+        spot = str(body.get("spot") or "pier")
+        with _state_lock:
+            if action == "cast":
+                out = fishing_logic.cast(player_state, spot, body.get("dist"))
+            elif action == "result":
+                out = fishing_logic.result(player_state, str(body.get("ticket") or ""), str(body.get("outcome") or "lost"))
+            elif action == "buy":
+                out = fishing_logic.buy(player_state, spot, str(body.get("kind") or ""), str(body.get("id") or ""), body.get("packs") or 1)
+            elif action == "equip":
+                out = fishing_logic.equip(player_state, str(body.get("kind") or ""), str(body.get("id") or ""))
+            else:
+                self._send_json(404, {"ok": False, "message": "Unknown fishing action."})
+                return
+            if out.get("ok"):
+                save_system.save_game(player_state)
+            if action in ("buy", "equip"):
+                out["view"] = fishing_logic.view(player_state, spot)
+        self._send_json(200, out)
 
     def _handle_story_game(self) -> None:
         """Little activities in the 3D scenes. Body {game: "fish"} (free, random catch) or {game: "dice", stake: 100}

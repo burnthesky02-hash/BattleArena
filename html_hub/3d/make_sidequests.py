@@ -40,8 +40,8 @@ def battle(key, pool, rel, elite=0, **cond):
     return a
 
 
-def game(kind, stake=0):
-    return dict(type="game", game=kind, stake=stake)
+def game(kind, stake=0, **extra):
+    return dict(type="game", game=kind, stake=stake, **extra)
 
 
 def npc(id, name, title, sprite, x, z, tint, actions=None, line=None, h=2.3, **cond):
@@ -208,7 +208,7 @@ def chest_event(sc, cid, x, z, loot, model, text="You open the chest and find"):
     x, z = sc.spot(x, z, r=1.2)
     sc.add("events", event(cid, "Treasure chest", "Open the chest", x, z,
                            [flag(key), chest(loot, text)], w=3.4, d=3.4, hideIf=key))
-    sc.prop(model, x, z, cond="!" + key)
+    sc.d["pieces"].append(["/assets/3D/Generated/SM_TreasureChest", x, z, round((x * 7.3 + z * 3.1) % 6.28, 2), round(sc.gh(x, z), 3) if sc.T else 0, 1.0, key])   # new chest model, gone once opened
     return x, z
 
 
@@ -273,7 +273,7 @@ def island():
         showIf="sq_net", hideIf="sq_net_done"))
     # a fishing spot at the end of Pua's pier
     sc.add("events", event("fish1", "Fishing spot", "Drop a line", fx - 1.4, fz + 1.8,
-                           [say("", "You cast a line off the pier and wait."), game("fish")], w=4, d=3))
+                           [say("", "A weathered fishing pier juts out over the water."), game("fish", spot="pier", scene="fish_pier")], w=4, d=3))
     # --- Old Tane: goblin brute at the fence ---
     farmer = next(n for n in d["npcs"] if n["id"] == "farmer"); farmer["showIf"] = "sq_fence_done"
     tx, tz = farmer["x"], farmer["z"]
@@ -340,7 +340,7 @@ def forest():
         flag("sq_alpha_r"), chest(dict(gold=420, equipment=["serrated_kris"], items=dict(hi_potion=1)), "In the pack")]))
     # a fishing hole by the ranger camp pool
     x, z = sc.spot(13, 0, r=1.0)
-    sc.add("events", event("fish2", "Fishing hole", "Drop a line", x, z, [say("", "You find a quiet bend in the pool and cast a line."), game("fish")]))
+    sc.add("events", event("fish2", "Fishing hole", "Drop a line", x, z, [say("", "A quiet pool, perfect for a line."), game("fish", spot="pond", scene="fish_pond")]))
     for cid, (x, z), loot in [("c1", (-30, 36), dict(gold=150, items=dict(potion=2))), ("c2", (40, -30), dict(gold=300, shards=5, gems=2)),
                               ("c3", (-10, -30), dict(gold=210, items=dict(antidote=2, potion=2)))]:
         chest_event(sc, cid, x, z, loot, "detail-crate")

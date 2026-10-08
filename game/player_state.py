@@ -74,6 +74,9 @@ class PlayerState:
     world_x: int = 0
     world_y: int = 0
     world_facing: str = "down"
+    # The fishing mini-game (game/fishing.py): owned rods, bait packs, the fish log. A plain dict so the shape can grow;
+    # game.fishing.fstate() fills in defaults, so an old save (no key) just means "nothing caught yet, driftwood rod".
+    fishing: Dict[str, object] = field(default_factory=dict)
 
     def add_tickets(self, won: Dict[str, int]) -> None:
         for k, n in (won or {}).items():

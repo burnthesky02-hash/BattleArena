@@ -906,7 +906,7 @@ void main(){
     stepEvents(); stepTouch(); stepSparkle();
   }
   function interact(n) {
-    if (!n) return;
+    if (!n || (S && S.switching)) return;
     if (n.actions && n.actions.length) { if (O && O.sfx && O.SFX) O.sfx(O.SFX.confirm); runActions(n); return; }
     if (!n.action) return;
     if (O && O.sfx && O.SFX) O.sfx(O.SFX.confirm);
@@ -921,7 +921,7 @@ void main(){
   let script = null, sayEl = null;
   const scriptActive = () => !!script;
   function runActions(owner) {
-    if (script || !owner || !owner.actions || !owner.actions.length) return;
+    if (script || !owner || !owner.actions || !owner.actions.length || (S && S.switching)) return;      // S.switching: the scene is reloading after a flag change / warp, so the old chest or npc must not fire again
     script = { owner, queue: owner.actions.slice(), waiting: false }; if (owner.once) owner.done = true; stepScript();
   }
   /* conditions shared by actions and autorun entries: if / unless = flags, minRank = the player's ladder rank (a number, or the
@@ -1099,6 +1099,10 @@ void main(){
         return;
       }
       if (a.type === "hub") { if (a.action && O) { setVendor(null); savePos(); O.activate(a.action); } continue; }
+      if (a.type === "warp" && a.scene === "@return") {                                                    // back to wherever the fishing trip started
+        let r = null; try { r = JSON.parse(sessionStorage.getItem("h3dFishReturn") || "null"); } catch (e) {}
+        script.queue.unshift(r && r.scene ? { type: "warp", scene: r.scene, x: r.x, z: r.z, fresh: true } : { type: "warp", scene: "island", fresh: true }); continue;
+      }
       if (a.type === "warp") {
         const cp = !a.fresh && cpGet(a.scene);                                                             // a live save point in the place we are entering: continue there or start over?
         if (cp) { showChoice({ who: "", text: "A save point in there is still lit. Continue from it?", options: [
@@ -1113,8 +1117,18 @@ void main(){
       if (a.type === "end") { script.queue.length = 0; continue; }                                         // drop the rest of this script (a declined offer)
       if (a.type === "game" && !a.ok) {                                                                    // gambling / mini-games always ask first
         const st = a.stake | 0, fish = a.game === "fish";
-        showChoice({ who: "", text: fish ? "Cast a line?" : "Throw the dice for " + st + " gold?", options: [
-          { label: fish ? "Fish" : "Play (" + st + "g)", actions: [Object.assign({}, a, { ok: true })] }, { label: "Not now", actions: [{ type: "end" }] }] }); return;
+        showChoice({ who: "", text: fish ? "Go fishing?" : "Throw the dice for " + st + " gold?", options: [
+          { label: fish ? "Go fishing" : "Play (" + st + "g)", actions: [Object.assign({}, a, { ok: true })] }, { label: "Not now", actions: [{ type: "end" }] }] }); return;
+      }
+      if (a.type === "game" && a.game === "fish" && a.scene) {                                             // the fishing mini-game has its own 3D scene: remember where we stood, go there
+        try { sessionStorage.setItem("h3dFishReturn", JSON.stringify({ scene: S.name, x: S.player.x, z: S.player.z })); } catch (e) {}
+        endScript(true); switchScene(a.scene); return;
+      }
+      if (a.type === "fishing") {                                                                          // {op:"start"|"shop"|"log"}: handled by fishing.js; the script waits while a panel is open
+        const sc = script; sc.waiting = true; sc.lock = true;
+        const done = () => { sc.lock = false; sc.waiting = false; if (script === sc) stepScript(); };
+        if (window.Fishing && Fishing.inScene) { Fishing.run(a, done); return; }
+        done(); continue;
       }
       if (a.type === "flag" && /_q$/.test(a.key || "") && !a.ok) {                                         // quest givers (flag "<quest>_q" = accepted) ask before taking the quest
         showChoice({ who: "", text: "Take on this request?", options: [
@@ -1169,8 +1183,11 @@ void main(){
     location.href = "/battle?return=hub3d&scene=" + encodeURIComponent(S.name || "olympus") + (a.key ? "&key=" + encodeURIComponent(a.key) : "") + (S.def && S.def.restart ? "&restart=" + encodeURIComponent(S.def.restart) : "");
   }
   async function restParty(url, body) {
+    const sc = script; if (sc) sc.lock = true;                         // E / click cannot skip past the action while the server is still answering
     let text = "You rest a while.";
     try { const r = await (await fetch(url || "/api/menu/rest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })).json(); if (r && r.message) text = r.message; if (O && O.refresh) O.refresh(); } catch (e) { text = "You try to rest, but nothing happens."; }
+    if (sc) sc.lock = false;
+    if (sc && script !== sc) return;                                 // the script was skipped / ended meanwhile: do not pop the text up after the event is over
     if (O && O.sfx && O.SFX) O.sfx(O.SFX.confirm);
     showSay("", text);
   }
@@ -1453,7 +1470,7 @@ void main(){
       if (old) { try { Object.values(old.stex || {}).forEach((t) => gl.deleteTexture(t)); if (old.skyInfo && old.skyInfo.tex) gl.deleteTexture(old.skyInfo.tex); } catch (e) {} }
       if (x != null) S.player.x = x; if (z != null) S.player.z = z;
       primeEvents(); buildDom(); sayEl = null; buildSayBox(); cam.free = false; cam.tx = S.player.x; cam.tz = S.player.z + 1.5; updateCamera(0.016, true);
-      if (state) H3.onState(state); hudEls.load.classList.add("done"); applySceneMusic(); try { O && O.refresh && O.refresh(); } catch (e) {} runAutorun();
+      if (state) H3.onState(state); hudEls.load.classList.add("done"); applySceneMusic(); try { O && O.refresh && O.refresh(); } catch (e) {} fishSceneChanged(); runAutorun();
     } catch (err) { console.warn("[Hub3D] warp failed:", err); flashOff(); if (old) old.switching = false; if (hudEls.load) { hudEls.load.textContent = "Could not load scene: " + name; setTimeout(() => hudEls.load.classList.add("done"), 1500); } }
   }
   /* Dialogue box: a big framed panel with a speaker name plate and, for heroes / important NPCs, a portrait frame.
@@ -1490,8 +1507,18 @@ void main(){
   /* The Esc menu may open only when nothing else is going on: no dialogue / event script, no scene change or loading
      screen, no tutorial or debug modal. */
   H3.pos = () => (S && S.player ? { scene: S.name, x: S.player.x, z: S.player.z } : null);   // test / debug hook
+  /* The fishing mini-game (html_hub/3d/fishing.js) lives in scenes that carry a `fishing` block; it gets this small API. */
+  H3.fx = { leave: () => { let r = null; try { r = JSON.parse(sessionStorage.getItem("h3dFishReturn") || "null"); } catch (e) {} if (S && S.switching) return; if (r && r.scene) switchScene(r.scene, r.x, r.z); else switchScene("island"); }, S: () => S, cam, project, gh, refresh: () => { try { O && O.refresh && O.refresh(); } catch (e) {} }, sfxVol: () => (gfxLast && typeof gfxLast.sfx === "number" ? gfxLast.sfx : 0.7) };
+  function fishSceneChanged() {
+    try {
+      if (S && S.def && S.def.fishing) {
+        if (window.Fishing) Fishing.enter(H3.fx);
+        else if (!H3.fishLoading) { H3.fishLoading = true; const sc = document.createElement("script"); sc.src = BASE + "fishing.js?v=1"; sc.onload = () => { H3.fishLoading = false; if (S && S.def && S.def.fishing && window.Fishing) Fishing.enter(H3.fx); }; sc.onerror = () => { H3.fishLoading = false; console.warn("[Hub3D] fishing.js failed to load"); }; document.head.appendChild(sc); }
+      } else if (window.Fishing && Fishing.inScene) Fishing.leave();
+    } catch (e) { console.warn("[Hub3D] fishing hook:", e); }
+  }
   H3.canOpenMenu = function () {
-    if (!H3.on || !S || script || S.switching || modalOpen()) return false;
+    if (!H3.on || !S || script || S.switching || modalOpen() || (window.Fishing && Fishing.locked())) return false;
     return !(hudEls.load && !hudEls.load.classList.contains("done"));
   };
 
@@ -1862,8 +1889,9 @@ void main(){
     if (G.fps) { const iv = 1000 / G.fps; if (now - capT < iv - 2) return; capT = now - capT > iv * 2 ? now : capT + iv; }   // frame-rate limit
     const dt = Math.min(0.05, Math.max(0.001, (now - (lastT || now - 16)) / 1000)); lastT = now; clock += dt; adaptStep(now);
     stepCine(dt);
-    if (!modalOpen() && !scriptActive()) stepPlayer(dt); else if (!(script && script.cineRun && S.player.moving)) S.player.moving = false;
+    if (!modalOpen() && !scriptActive() && !(window.Fishing && Fishing.locked())) stepPlayer(dt); else if (!(script && script.cineRun && S.player.moving)) S.player.moving = false;
     updateCamera(dt, false);
+    if (window.Fishing && Fishing.active) { try { Fishing.update(dt); } catch (e) { if (!Fishing.err) { Fishing.err = 1; console.warn("[fishing]", e); } } }   // the fishing mini-game draws its overlay with this frame's camera
     const pt0 = performance.now(), pg = PERF.on && perfGpuBegin(); render(now); perfGpuEnd(pg); perfTick(now, performance.now() - pt0); syncDom(); try { mmDraw(); } catch (e) { if (!MM.err) { MM.err = 1; console.warn('[Hub3D] minimap:', e); } }
   }
   function bindInput() {
@@ -1889,7 +1917,7 @@ void main(){
     const CLICK_PX = 10, CLICK_MS = 450;       // a press that moves less than this (or is quick and barely moves) is a click, not a camera drag
     const pickAt = (e) => { const r = sceneEl.getBoundingClientRect(); return groundAt(e.clientX - r.left, e.clientY - r.top, r.width, r.height); };
     sceneEl.addEventListener("pointerdown", (e) => {
-      if (!H3.on || e.target.closest(".h3d-hit, .h3d-say, button, .currency-pill, #tut-overlay, #dbg-modal, .debug")) return;
+      if (!H3.on || (window.Fishing && Fishing.active) || e.target.closest(".h3d-hit, .h3d-say, button, .currency-pill, #tut-overlay, #dbg-modal, .debug")) return;
       // pick the ground NOW: the camera keeps following the hero, so by pointer-up the same screen spot can be a different place
       drag = { x: e.clientX, y: e.clientY, yaw: cam.goalYaw, pitch: cam.goalPitch, moved: false, id: e.pointerId, btn: e.button, t: performance.now(), ground: e.button === 0 ? pickAt(e) : null };
     });
@@ -1907,7 +1935,7 @@ void main(){
       const g = d.ground || pickAt(e);
       if (g) { if (d.moved) { cam.goalYaw = d.yaw; cam.goalPitch = d.pitch; } setGoal(g.x, g.z, null); }
     });
-    sceneEl.addEventListener("wheel", (e) => { if (!H3.on || modalOpen() || script) return; e.preventDefault(); cam.goalDist = clamp(cam.goalDist * (1 + Math.sign(e.deltaY) * 0.08), 12, 48); }, { passive: false });
+    sceneEl.addEventListener("wheel", (e) => { if (!H3.on || modalOpen() || script || (window.Fishing && Fishing.active)) return; e.preventDefault(); cam.goalDist = clamp(cam.goalDist * (1 + Math.sign(e.deltaY) * 0.08), 12, 48); }, { passive: false });
     window.addEventListener("resize", resize);
   }
 
@@ -1957,7 +1985,7 @@ void main(){
       const sceneName = (arrive && arrive.scene) || q.get("scene") || (back && back.scene) || (((cl) => cl.has("st_space") ? "asteroid" : cl.has("st_free") ? "olympus" : cl.has("st_done") ? "prison" : "island")(getCleared()));
       S = null;
       const loaded = await loadScene(sceneName, null);
-      S = loaded; sceneCam(); buildDom(); buildSayBox(); bindInput(); applySceneMusic();
+      S = loaded; sceneCam(); buildDom(); buildSayBox(); bindInput(); applySceneMusic(); fishSceneChanged();
       if (q.get("cam")) { const c = q.get("cam").split(",").map(Number); cam.free = true; cam.tx = c[0]; cam.tz = c[1]; cam.goalYaw = c[2] || 0; cam.goalPitch = c[3] || 30; cam.goalDist = c[4] || 25; }
       if (back && back.scene === sceneName && !q.get("at") && isFinite(back.x) && isFinite(back.z)) { S.player.x = back.x; S.player.z = back.z; if (back.face) S.player.face = back.face; if (!cam.free && isFinite(back.yaw)) { cam.goalYaw = back.yaw; if (isFinite(back.pitch)) cam.goalPitch = back.pitch; if (isFinite(back.dist)) cam.goalDist = back.dist; } }
       if (q.get("at")) { const c = q.get("at").split(",").map(Number); S.player.x = c[0]; S.player.z = c[1]; }

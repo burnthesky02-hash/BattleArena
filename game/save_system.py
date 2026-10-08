@@ -70,6 +70,7 @@ def save_game(state: PlayerState, path: str = SAVE_PATH) -> None:
         "world_x": state.world_x,
         "world_y": state.world_y,
         "world_facing": state.world_facing,
+        "fishing": state.fishing,
     }
     tmp_path = path + ".tmp"
     with open(tmp_path, "w") as f:
@@ -212,6 +213,8 @@ def load_game(path: str = SAVE_PATH) -> PlayerState:
         world_x=int(data.get("world_x", 0)),
         world_y=int(data.get("world_y", 0)),
         world_facing=data.get("world_facing", "down"),
+        # fishing is new as of the fishing mini-game -- an old save has none (game/fishing.py fstate() supplies defaults).
+        fishing=dict(data.get("fishing") or {}),
     )
 
 
