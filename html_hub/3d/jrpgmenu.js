@@ -200,6 +200,7 @@
       if (q.status !== "done") d += '<div class="jm-skill"><b>Objective</b><br><small>' + esc(q.text) + (q.count ? " (" + q.count[0] + "/" + q.count[1] + ")" : "") + "</small></div>";
       d += '<div class="jm-skill"><b>Story</b><br><small>' + esc(q.summary) + "</small></div>";
       if (q.status !== "done") d += '<div class="jm-row jm-qtrack' + (q.tracked ? " on" : "") + '" data-a="qtrack">' + (q.tracked ? "&#9670; Tracked &mdash; Enter to stop tracking" : "&#9671; Not tracked &mdash; Enter to track") + "</div>";
+      if (q.status !== "done" && window.Hub3D && Hub3D.debugOn && Hub3D.debugOn()) d += '<div class="jm-row jm-qtrack jm-qdbg" data-a="qdone">[Debug] Complete this quest (C)</div>';
       d += "</div>";
     } else d = '<div class="jm-empty">Quests you accept appear here. Tracked quests are listed on the screen while you explore.</div>';
     var leg = (window.Hub3D && Hub3D.markLegend) ? Hub3D.markLegend() : [];
@@ -415,6 +416,11 @@
     else return;
     msg = ""; sfx("hover"); render();
   }
+  function debugQuestDone() {
+    var cq = qv[qz];
+    if (!cq || cq.status === "done" || !(window.Hub3D && Hub3D.debugOn && Hub3D.debugOn() && Hub3D.debugComplete)) { sfx("denied"); return; }
+    Hub3D.debugComplete(cq.id); sfx("confirm"); render();
+  }
   function cycleHero() { var n = party().length; if (n < 2 || !(mode === "equip" && ph !== "hero" || mode === "status" && ph === "view")) return; ci = (ci + 1) % n; ski = 0; render(); sfx("hover"); }
 
   /* ---------- input ---------- */
@@ -433,6 +439,7 @@
     else if (k === "arrowright" || k === "d") move(1, 0);
     else if (k === "enter" || k === "e" || k === " ") { if (!e.repeat) confirm(); }
     else if (k === "q" || k === "tab") cycleHero();
+    else if (k === "c" && mode === "quests") debugQuestDone();
   }
   function onClick(e) {
     var t = e.target.closest("[data-a]"); if (!t || !isOpen) return;
@@ -445,6 +452,7 @@
     if (a === "qz") { qz = i; sfx("hover"); return render(); }
     if (a === "qf") { qf = i; qz = 0; sfx("hover"); return render(); }
     if (a === "qtrack") return confirm();
+    if (a === "qdone") return debugQuestDone();
     if (a === "slot") { if (ph === "pick") ph = "slot"; si = i; ph = "slot"; return confirm(); }
     if (a === "pick") { pi = i; return confirm(); }
     if (a === "yn") { yes = i; return confirm(); }
@@ -509,7 +517,7 @@
       ".jm-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}.jm-center.wide{align-items:stretch;padding:20px 8%}.jm-big{font-size:26px;font-weight:700;color:#ffe9a0}",
       ".jm-qtabs{display:flex;gap:8px;margin:0 0 8px}.jm-qtabs span{cursor:pointer;padding:2px 12px;border:1px solid rgba(232,199,102,.3);border-radius:999px;font-size:13px;opacity:.7}.jm-qtabs span.on{opacity:1;border-color:#e8c766;color:#e8c766}",
       ".jm-qk{display:inline-block;font-style:normal;font-size:11px;font-weight:800;padding:0 5px;border-radius:4px}.jm-qk.main{background:#ffd23f;color:#2a1d00}.jm-qk.side{background:#4fb3ff;color:#04223a}",
-      ".jm-qtrack{margin-top:10px;text-align:center}.jm-qtrack.on{border-color:#e8c766}",
+      ".jm-qtrack{margin-top:10px;text-align:center}.jm-qdbg{border-color:#e0455a;color:#ff9b9b}.jm-qtrack.on{border-color:#e8c766}",
       ".jm-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:11px;opacity:.85}.jm-legend span{display:inline-flex;align-items:center;gap:5px}.jm-legend i{display:inline-block;min-width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;font-style:normal;font-size:10px;font-weight:900}",
       ".jm-bestiary{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}.jm-bgrid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(150px,.8fr) 2.2fr;gap:12px}",
       ".jm-blist{border-right:1px solid #e8c76655;padding-right:6px}.jm-bdetail{min-width:0;min-height:0;display:flex;flex-direction:column}.jm-bhead{padding:2px 6px 8px;border-bottom:1px solid #e8c76655}",

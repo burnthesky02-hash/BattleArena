@@ -1110,6 +1110,16 @@ void main(){
       if (a.type === "cpclear") { cpClear(a.scene || (S && S.name)); continue; }
       if (a.type === "tp") { const pl = S.player; pl.x = a.x; pl.z = a.z; pl.target = null; pl.wantNpc = null; primeEvents(); cam.tx = pl.x; cam.tz = pl.z + 1.5; updateCamera(0.016, true); if (a.fade !== false) flashOff(); continue; }   // same-scene teleport (fades the flash back out)
       if (a.type === "battle") { script.toBattle = true; endScript(true); startBattle(a); return; }
+      if (a.type === "end") { script.queue.length = 0; continue; }                                         // drop the rest of this script (a declined offer)
+      if (a.type === "game" && !a.ok) {                                                                    // gambling / mini-games always ask first
+        const st = a.stake | 0, fish = a.game === "fish";
+        showChoice({ who: "", text: fish ? "Cast a line?" : "Throw the dice for " + st + " gold?", options: [
+          { label: fish ? "Fish" : "Play (" + st + "g)", actions: [Object.assign({}, a, { ok: true })] }, { label: "Not now", actions: [{ type: "end" }] }] }); return;
+      }
+      if (a.type === "flag" && /_q$/.test(a.key || "") && !a.ok) {                                         // quest givers (flag "<quest>_q" = accepted) ask before taking the quest
+        showChoice({ who: "", text: "Take on this request?", options: [
+          { label: "Accept", actions: [Object.assign({}, a, { ok: true })] }, { label: "Not now", actions: [{ type: "end" }] }] }); return;
+      }
       if (a.type === "flag") { const c = getCleared(); c.add(a.key); setCleared(c); script.dirty = true; continue; }
       if (a.type === "flash") { script.waiting = true; script.lock = true; flashOn(); const sc = script; setTimeout(() => { sc.lock = false; sc.waiting = false; if (script === sc) stepScript(); }, 1300); return; }
       if (a.type === "rest") { script.waiting = true; restParty(); return; }
@@ -1632,6 +1642,17 @@ void main(){
 
   /* ---------- state from the hub ---------- */
   H3.quests = questViews; H3.setTracked = setTracked;
+  H3.debugOn = () => !!(state && state.debug);
+  /* debug mode only (quest log, C key / button): mark a quest finished by setting its accept, ready, step-count and done flags. Gives no rewards: those come from the turn-in. */
+  H3.debugComplete = function (id) {
+    if (!(state && state.debug) || !questDb) return false;
+    const q = questDb.quests.find((x) => x.id === id); if (!q) return false;
+    const c = getCleared(), add = (spec) => String(spec || "").split(",").forEach((t) => { t = t.trim(); if (t && t[0] !== "!") c.add(t); });
+    add(q.accept); add(q.ready); (q.steps || []).forEach((st) => (st.count || []).forEach((k) => c.add(k))); add(q.done);
+    setCleared(c); renderQuest(); updateMarks();
+    if (S && S.name && !S.switching) switchScene(S.name, S.player.x, S.player.z, true);       // re-filter npcs / pieces that depend on the flags
+    return true;
+  };
   H3.isStory = () => !!(S && S.def && S.def.story);   // story scene: the hub shows the story party, not the Colosseum one
   H3.onState = function (s) {
     state = s;
@@ -1959,6 +1980,7 @@ void main(){
     return {
       S: () => S, script: () => script, state: () => state, cleared: getCleared, setCleared, has, condOk, visible, interact, run: runActions,
       advance: advanceScript, skip: skipCine, switchScene, startBattle, findPath, stepEvents, primeEvents, modalOpen, endAmbush,
+      choose: (i) => { const o = script && script.choosing && script.choiceOpts && script.choiceOpts[i || 0]; if (o) pickChoice(script, o); return !!o; },
       encounter: encounterStep, say: () => sayEl, hudLoaded: () => !!(hudEls.load && hudEls.load.classList.contains("done")),
     };
   };

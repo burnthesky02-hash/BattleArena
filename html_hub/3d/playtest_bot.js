@@ -187,6 +187,7 @@
   }
   function sayVisible() { const el = api.say(); return !!el && el.style.display !== "none" && el.offsetParent !== null; }
   function handleScript(sc) {
+    if (sc.choosing) { api.choose && api.choose(0); progress(); return; }                                // first option = accept / play / continue
     if (cfg.watch === false && sc.cineRun && !sc.skip) { api.skip(); return; }
     if (sc.waiting && !sc.lock) {
       if (!sayWaitSince) sayWaitSince = now();
