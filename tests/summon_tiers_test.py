@@ -28,7 +28,7 @@ def test_common_costs_odds_and_tickets():
     print("common summon: PASS", counts)
 
 def test_target_rate_up():
-    for name, rar in (("Kael", "mythic"), ("Bran", "common"), ("Zara", "epic")):
+    for name, rar in (("Kenji", "mythic"), ("Bran", "common"), ("Zara", "epic")):
         r = random.Random(11); hits = tier = 0; st = fresh(gems=10**9)
         for _ in range(30000):
             res = summon_character_batch(st, 1, r, target=name)[2][0]
@@ -38,12 +38,12 @@ def test_target_rate_up():
     # non-target tier unaffected (uniform among 5 => ~20%)
     r = random.Random(3); st = fresh(gems=10**9); hits = tier = 0
     for _ in range(30000):
-        res = summon_character_batch(st, 1, r, target="Kael")[2][0]
+        res = summon_character_batch(st, 1, r, target="Kenji")[2][0]
         if res.rarity == "common": tier += 1; hits += res.character.name == "Bran"
     assert abs(hits / tier - 0.2) < 0.03
     assert not summon_character_batch(fresh(gems=999), 1, target="Nobody")[0]
     st = fresh(gems=0); st.tickets = {"common": 0, "premium": 10}
-    ok, *_ = summon_character_batch(st, 10, target="Kael", pay="ticket"); assert ok and st.tickets["premium"] == 0
+    ok, *_ = summon_character_batch(st, 10, target="Kenji", pay="ticket"); assert ok and st.tickets["premium"] == 0
     st.tickets["premium"] = 1; assert summon_equipment_batch(st, EQUIPMENT, 1, pay="ticket")[0] and st.tickets["premium"] == 0
     assert not summon_equipment_batch(st, EQUIPMENT, 1, pay="ticket")[0]
     print("target rate-up + tickets: PASS")

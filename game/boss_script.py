@@ -277,7 +277,7 @@ class BossRunner:
 
         for step in steps:
             if "if_party" in step and not any(h.name == step["if_party"] and h.alive for h in self._heroes()):
-                continue        # e.g. a line only Kael speaks: skipped when he is not in the fight
+                continue        # e.g. a line only Kenji speaks: skipped when he is not in the fight
             if "say" in step:
                 s = step["say"]
                 line = {"speaker": s[0], "text": s[1]}

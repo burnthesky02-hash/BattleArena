@@ -24,15 +24,92 @@ SAVE_PATH = os.path.join(SAVE_DIR, "save1.json")
 SAVE_FORMAT_VERSION = 1
 
 
-def save_exists(path: str = SAVE_PATH) -> bool:
-    return os.path.isfile(path)
+# ---- save slots (title screen: Continue / New Game / Load). Slot 1 is the old single save (save1.json). ----
+SLOT_COUNT = 3
+CURRENT_SLOT_FILE = os.path.join(SAVE_DIR, "current_slot.txt")
 
 
-def save_game(state: PlayerState, path: str = SAVE_PATH) -> None:
+def slot_path(n: int) -> str:
+    return os.path.join(SAVE_DIR, f"save{int(n)}.json")
+
+
+def client_path(n: int) -> str:
+    """Browser-side progress (story flags, checkpoints, last position) kept next to the slot's save."""
+    return os.path.join(SAVE_DIR, f"save{int(n)}.client.json")
+
+
+def _read_current_slot() -> int:
+    try:
+        with open(CURRENT_SLOT_FILE) as f:
+            n = int(f.read().strip())
+        if 1 <= n <= SLOT_COUNT:
+            return n
+    except (OSError, ValueError):
+        pass
+    return 1
+
+
+_current_slot = _read_current_slot()
+
+
+def get_slot() -> int:
+    return _current_slot
+
+
+def set_slot(n: int) -> None:
+    """Make slot n the one every default-path save_game / load_game / save_exists call uses."""
+    global _current_slot
+    n = int(n)
+    if not 1 <= n <= SLOT_COUNT:
+        raise ValueError(f"no such save slot: {n}")
+    _current_slot = n
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    with open(CURRENT_SLOT_FILE, "w") as f:
+        f.write(str(n))
+
+
+def current_path() -> str:
+    return slot_path(_current_slot)
+
+
+def slot_summary(n: int) -> dict:
+    """What the title screen shows for a slot (read straight from the JSON, no full load)."""
+    p = slot_path(n)
+    out = {"slot": n, "exists": False}
+    if not os.path.isfile(p):
+        return out
+    try:
+        with open(p) as f:
+            d = json.load(f)
+        chars = d.get("characters") or []
+        lead = chars[0] if chars else {}
+        out.update({"exists": True, "hero": RENAMED_HEROES.get(lead.get("name", ""), lead.get("name", "")), "level": max([c.get("level", 1) for c in chars] or [1]),
+                    "heroes": len(chars), "rank": d.get("rank"), "gold": d.get("money", 0), "gems": d.get("gems", 0),
+                    "difficulty": d.get("difficulty") if d.get("difficulty") in ("easy", "normal", "hard") else "normal",
+                    "saved_at": os.path.getmtime(p)})
+        try:
+            with open(client_path(n)) as f:
+                last = json.loads(json.load(f).get("h3dLast") or "null") or {}
+            out["scene"] = last.get("scene", "")
+        except (OSError, ValueError, TypeError, AttributeError):
+            out["scene"] = ""
+    except (OSError, ValueError):
+        out["exists"] = False
+        out["broken"] = True
+    return out
+
+
+def save_exists(path: str = None) -> bool:
+    return os.path.isfile(path or current_path())
+
+
+def save_game(state: PlayerState, path: str = None) -> None:
+    path = path or current_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     data = {
         "version": SAVE_FORMAT_VERSION,
         "money": state.money,
+        "difficulty": state.difficulty,
         "gems": state.gems,
         "equipment_shards": state.equipment_shards,
         "inventory": state.inventory,
@@ -110,7 +187,12 @@ def _migrate_equipment(data: dict) -> tuple:
     return instances, stash_ids, equipped_migration
 
 
-def load_game(path: str = SAVE_PATH) -> PlayerState:
+# Heroes renamed after saves existed (Oct 9): an old save still has the old names.
+RENAMED_HEROES = {"Kael": "Kenji", "Sera": "Miya"}
+
+
+def load_game(path: str = None) -> PlayerState:
+    path = path or current_path()
     with open(path) as f:
         data = json.load(f)
     migrating = "equipment_instances" not in data
@@ -126,7 +208,7 @@ def load_game(path: str = SAVE_PATH) -> PlayerState:
         return {slot: equipped_migration.get(val) if val else None for slot, val in raw.items()}
 
     characters = [
-        PlayerCharacter(id=c["id"], name=c["name"], class_id=c["class_id"], equipped=_equipped_for(c),
+        PlayerCharacter(id=c["id"], name=RENAMED_HEROES.get(c["name"], c["name"]), class_id=c["class_id"], equipped=_equipped_for(c),
                          # level/xp are new as of the level-curve pass -- default to level 1/0 XP so a
                          # save written before this stage still loads (an old file simply won't have
                          # the keys, not a version bump; SAVE_FORMAT_VERSION only tracks breaking changes).
@@ -155,7 +237,7 @@ def load_game(path: str = SAVE_PATH) -> PlayerState:
                          # outside the Colosseum) -- an old save has neither, and None means "full".
                          hp=(None if c.get("hp") is None else int(c["hp"])),
                          mp=(None if c.get("mp") is None else int(c["mp"])),
-                         # away is new as of the Sera infirmary story beat -- an old save has no such key: nobody is away.
+                         # away is new as of the Miya infirmary story beat -- an old save has no such key: nobody is away.
                          away=bool(c.get("away", False)))
         for c in data.get("characters", [])
     ]
@@ -171,7 +253,7 @@ def load_game(path: str = SAVE_PATH) -> PlayerState:
         }
         stash = list(data.get("equipment_stash", []))
     legacy_instances = {
-        iid: LegacyItem(instance_id=iid, hero_name=rec.get("hero_name", ""),
+        iid: LegacyItem(instance_id=iid, hero_name=RENAMED_HEROES.get(rec.get("hero_name", ""), rec.get("hero_name", "")),
                         hero_class_id=rec.get("hero_class_id", ""),
                         rarity=rec.get("rarity", "common"), bonuses=dict(rec.get("bonuses", {})))
         for iid, rec in data.get("legacy_instances", {}).items()
@@ -215,9 +297,11 @@ def load_game(path: str = SAVE_PATH) -> PlayerState:
         world_facing=data.get("world_facing", "down"),
         # fishing is new as of the fishing mini-game -- an old save has none (game/fishing.py fstate() supplies defaults).
         fishing=dict(data.get("fishing") or {}),
+        difficulty=data.get("difficulty") if data.get("difficulty") in ("easy", "normal", "hard") else "normal",
     )
 
 
-def delete_save(path: str = SAVE_PATH) -> None:
+def delete_save(path: str = None) -> None:
+    path = path or current_path()
     if os.path.isfile(path):
         os.remove(path)

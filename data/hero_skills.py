@@ -55,7 +55,7 @@ HERO_SKILLS: Dict[str, List[str]] = {
     "Vex": ["twin_fangs", "savage_cut", "rending_strike"],
     "Thorne": ["whirling_blades", "brutal_combo", "blood_for_power"],
     "Rhea": ["storm_of_blades", "dragon_fang", "executioners_edge"],
-    "Kael": ["blade_dance", "ascendant_strike", "skyfall_slash"],
+    "Kenji": ["blade_dance", "ascendant_strike", "skyfall_slash"],
     # ranged_dps
     "Sylas": ["sting_shot", "snipe", "quick_shot"],
     "Nadia": ["crippling_arrow", "double_tap", "venom_volley"],
@@ -73,7 +73,7 @@ HERO_SKILLS: Dict[str, List[str]] = {
     "Dassin": ["purify", "circle_of_care", "cleansing_light"],
     "Mira": ["radiant_touch", "sanctuary", "aegis_blessing"],
     "Osric": ["lifebinder", "hymn_of_mercy", "rally_cry"],
-    "Sera": ["divine_touch", "aura_of_life", "seras_grace"],
+    "Miya": ["divine_touch", "aura_of_life", "seras_grace"],
 }
 
 

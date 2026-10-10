@@ -1007,26 +1007,26 @@ BRIARMAW.script["rules"] = [
     {"id": "rend", "skill": "briarmaw_rend", "target": "highest_hp", "when": {"target_hp_above": 0.6, "target_eta_below": 3.0}, "cooldown": 2},
 ]
 
-# First-boss pointers: Kael's thoughts as the fight goes (each once, only when Kael is in the party). `if_party` / `party_has` keep
+# First-boss pointers: Kenji's thoughts as the fight goes (each once, only when Kenji is in the party). `if_party` / `party_has` keep
 # them out of fights without him; the triggers are checked after every action (game/boss_script.py).
 BRIARMAW.script["intro"] = list(BRIARMAW.script["intro"]) + [
-    {"say": ("Kael", "(A guardian this size won't fall to one lucky swing. Watch what it does each round, and keep my HP up.)"), "if_party": "Kael"}]
-_K = lambda text: [{"say": ("Kael", "(" + text + ")")}]
+    {"say": ("Kenji", "(A guardian this size won't fall to one lucky swing. Watch what it does each round, and keep my HP up.)"), "if_party": "Kenji"}]
+_K = lambda text: [{"say": ("Kenji", "(" + text + ")")}]
 BRIARMAW.script["triggers"] = list(BRIARMAW.script["triggers"]) + [
-    {"id": "tip_poison", "when": {"any_hero_has_status": "poison", "party_has": "Kael"}, "steps": _K(
+    {"id": "tip_poison", "when": {"any_hero_has_status": "poison", "party_has": "Kenji"}, "steps": _K(
         "Poison. It eats a little HP at the start of every turn until it wears off. Nothing to cure it, so I have to out-heal it.")},
-    {"id": "tip_thorns", "when": {"every_n_rounds": 3, "from": 3, "party_has": "Kael"}, "steps": _K(
+    {"id": "tip_thorns", "when": {"every_n_rounds": 3, "from": 3, "party_has": "Kenji"}, "steps": _K(
         "The ground itself is lashing out! Every third round the thorns rise and I can't dodge them. Best to heal up before they land.")},
     {"id": "teach_counter", "when": {"round_at_least": 4}, "steps": [{"force_skill": {"skill": "counter_stance", "target": "all"}}]},
-    {"id": "tip_counter", "when": {"boss_has_status": "counter", "party_has": "Kael"}, "steps": _K(
+    {"id": "tip_counter", "when": {"boss_has_status": "counter", "party_has": "Kenji"}, "steps": _K(
         "He's bracing, roots coiling around him. If I swing now he'll throw the hit right back. Better to Defend and wait it out.")},
-    {"id": "tip_countered", "when": {"flag": "countered", "party_has": "Kael"}, "steps": _K(
+    {"id": "tip_countered", "when": {"flag": "countered", "party_has": "Kenji"}, "steps": _K(
         "Argh! I walked right into that. Next time I wait until the stance drops before I attack.")},
-    {"id": "tip_low_hp", "when": {"any_hero_hp_below": 0.4, "party_has": "Kael"}, "steps": _K(
+    {"id": "tip_low_hp", "when": {"any_hero_hp_below": 0.4, "party_has": "Kenji"}, "steps": _K(
         "I'm in trouble. He goes for the kill when I'm low. Potion first, then back to the fight.")},
-    {"id": "tip_bark", "when": {"hp_below": 0.5, "party_has": "Kael"}, "steps": _K(
+    {"id": "tip_bark", "when": {"hp_below": 0.5, "party_has": "Kenji"}, "steps": _K(
         "His bark is thickening. My hits will land softer for a while, but he's hurting. Keep at it.")},
-    {"id": "tip_regrow", "when": {"hp_below": 0.25, "party_has": "Kael"}, "steps": _K(
+    {"id": "tip_regrow", "when": {"hp_below": 0.25, "party_has": "Kenji"}, "steps": _K(
         "He's healing himself! Don't let up. Finish it before he can regrow.")},
 ]
 
@@ -1049,13 +1049,13 @@ SKRAAG = _guardian(
      {"id": "bone_smash", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
         {"announce": "BONE SMASH"}, {"log": "Skraag hoists his bone club high over his head..."},
         {"force_skill": {"skill": "crushing_blow", "target": "highest_hp", "cast": 2.5, "brace": 1.2}}]},
-     {"id": "tip_smash", "when": {"every_n_rounds": 4, "from": 3, "party_has": "Kael"}, "steps": [
-        {"say": ("Kael", "(He's winding up a big one! Defend now or it'll flatten somebody!)")}]},
+     {"id": "tip_smash", "when": {"every_n_rounds": 4, "from": 3, "party_has": "Kenji"}, "steps": [
+        {"say": ("Kenji", "(He's winding up a big one! Defend now or it'll flatten somebody!)")}]},
      {"id": "rage", "when": {"hp_below": 0.5}, "steps": [
         {"shake": True}, {"say": ("Chieftain Skraag", "Ow! Skraag is MAD now!")},
         {"apply_status": {"target": "boss", "status": "atk_up", "duration": 5}}]},
-     {"id": "tip_rage", "when": {"hp_below": 0.5, "party_has": "Kael"}, "steps": [
-        {"say": ("Kael", "(He's wounded and angry. Keep hitting, and don't let anyone drop low.)")}]}],
+     {"id": "tip_rage", "when": {"hp_below": 0.5, "party_has": "Kenji"}, "steps": [
+        {"say": ("Kenji", "(He's wounded and angry. Keep hitting, and don't let anyone drop low.)")}]}],
     [{"say": ("Chieftain Skraag", "Skraag... smash... Two-legs... too sharp...")}],
     [{"say": ("Chieftain Skraag", "Hee hee! Nobody beats Skraag! Not ever!")}],
     {"money": 120, "gems": 3, "xp": 45}, {"money": 40, "gems": 1, "xp": 15}, (70, 150, 60))
@@ -1091,7 +1091,7 @@ RIFT_HARBINGER = _guardian(
 # PRACTICE GOBLIN -- Garrick's warm-up spar, the guided battle tutorial at the mouth of the Whispering Wood
 # (html_hub/3d/forest.json autorun -> {type:"battle", boss:"warmup_boss"}). A weak, patient goblin: it winds up a telegraphed
 # Crushing Blow every other round so the coach (html_battle/index.html, COACH) can teach Defend against a cast bar. `tutorial`
-# switches on hub_server's tutorial mode (Kael alone, free Potions, no rewards, HP/MP restored afterwards).
+# switches on hub_server's tutorial mode (Kenji alone, free Potions, no rewards, HP/MP restored afterwards).
 # ======================================================================
 WARMUP_GOBLIN = _guardian(
     "warmup_boss", "Practice Goblin", "Battlers/Enemies/Goblin-Skirmisher.png", 1.3,

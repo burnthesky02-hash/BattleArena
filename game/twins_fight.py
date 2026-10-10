@@ -535,12 +535,12 @@ class TwinsRunner(BossRunner):
 
 def build_twin_members(bdef, level: int):
     """Builds the two TwinCombatants (Ronan first, then Selene) for a `runner == "twins"` BossDef."""
-    from data.leveling import apply_growth
+    from data.leveling import apply_growth, power_mult
     out = []
     for m in bdef.members:
-        stats = apply_growth(m.base_stats, m.growth, level)
+        stats = apply_growth(m.base_stats, m.growth, level, enemy=True)
         stats.max_hp = max(1, round(stats.max_hp * m.hp_mult))
         out.append(TwinCombatant(name=m.name, is_enemy=True, base_stats=stats, skill_ids=list(m.skill_ids),
                                  resistances=dict(m.resistances), persona=m.persona, sprite_color=m.sprite_color,
-                                 formation="front", is_melee=True))
+                                 formation="front", is_melee=True, power_mult=power_mult(level)))
     return out

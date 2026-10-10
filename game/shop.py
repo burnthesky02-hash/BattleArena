@@ -26,7 +26,11 @@ argument, always a catalog id) or an instance id (equip_from_stash/unequip's
 argument, always an instance id).
 
 equip_from_stash hard-blocks a class from equipping a subtype/weight it
-can't use (engine.equipment.class_can_equip), per Andrew.
+can't use (engine.equipment.class_can_equip), per Andrew. What a hero can wield is
+PlayerCharacter.weapon_types/offhand_types (class set + hero extras like Kenji's dual blades).
+
+Dual blades fill both hands: equipping them empties the off-hand slot (that item goes back to the stash), and an
+off-hand can't be equipped while they're worn (unequip the blades first) -- see _offhand_block below.
 
 Every function returns (ok: bool, message: str) -- ok says whether
 anything changed, message is a ready-to-display reason either way, so a UI
@@ -36,7 +40,7 @@ mode.
 from typing import Dict, Tuple
 
 from data.summon_pool import EQUIPMENT_SALVAGE_YIELD
-from engine.equipment import Equipment, class_can_equip
+from engine.equipment import Equipment, class_can_equip, occupies_offhand
 from engine.items import Item
 from game.equipment_instances import new_instance
 from game.player_state import PlayerState
@@ -77,6 +81,17 @@ def _find_character(player_state: PlayerState, character_id: str) -> "PlayerChar
     return next((c for c in player_state.characters if c.id == character_id), None)
 
 
+def _offhand_block(character: PlayerCharacter, item: Equipment, equipment_db: Dict[str, Equipment]) -> str:
+    """A refusal message when `item` is an off-hand and the hero's weapon (dual blades) already fills both hands,
+    else an empty string."""
+    if item.slot != "offhand":
+        return ""
+    blades = character.offhand_locked_by(equipment_db)
+    if blades is None:
+        return ""
+    return f"{character.name} is wielding {blades.name} in both hands -- unequip it to use an off-hand."
+
+
 def equip_from_stash(player_state: PlayerState, character_id: str, instance_id: str,
                       equipment_db: Dict[str, Equipment]) -> Tuple[bool, str]:
     """Moves instance_id out of the unequipped stash and onto character_id,
@@ -93,16 +108,24 @@ def equip_from_stash(player_state: PlayerState, character_id: str, instance_id: 
         return False, f"You don't own a {item.name}."
 
     archetype = character.archetype
-    if not class_can_equip(item, archetype.weapon_types, archetype.offhand_types, archetype.armor_weight):
+    if not class_can_equip(item, character.weapon_types, character.offhand_types, archetype.armor_weight):
         return False, f"{character.name} ({archetype.name}) can't equip {item.name}."
+    blocked = _offhand_block(character, item, equipment_db)
+    if blocked:
+        return False, blocked
 
-    previous = character.equip(instance_id, equipment_db)
+    old_offhand_id = character.equipped.get("offhand") if occupies_offhand(item) else None
+    displaced = character.equip_displaced(instance_id, equipment_db)
 
     player_state.take_from_stash(instance_id)
-    if previous:
-        player_state.return_to_stash(previous)
+    for old_id in displaced:
+        player_state.return_to_stash(old_id)
 
-    return True, f"Equipped {item.name} on {character.name}."
+    text = f"Equipped {item.name} on {character.name}."
+    if old_offhand_id:
+        off = equipment_db.get(old_offhand_id)
+        text += f" {off.name if off else 'The off-hand item'} went to the stash (it uses both hands)."
+    return True, text
 
 
 def buy_and_equip(player_state: PlayerState, equipment_id: str, character_id: str,
@@ -120,9 +143,13 @@ def buy_and_equip(player_state: PlayerState, equipment_id: str, character_id: st
         return False, "Unknown character."
     if item.cost > 0:
         archetype = character.archetype
-        if not class_can_equip(item, archetype.weapon_types, archetype.offhand_types, archetype.armor_weight):
+        if not class_can_equip(item, character.weapon_types, character.offhand_types, archetype.armor_weight):
             return False, f"{character.name} ({archetype.name}) can't equip {item.name}."
+        blocked = _offhand_block(character, item, resolve_db())
+        if blocked:
+            return False, blocked
     old_id = character.equipped.get(item.slot)
+    old_offhand_id = character.equipped.get("offhand") if occupies_offhand(item) else None
     stash_before = set(player_state.equipment_stash)
     ok, msg = buy_equipment(player_state, equipment_id, catalog_db)
     if not ok:
@@ -132,12 +159,15 @@ def buy_and_equip(player_state: PlayerState, equipment_id: str, character_id: st
         return True, msg + " (it is in your stash)"
     edb = resolve_db()
     old_name = edb[old_id].name if old_id and old_id in edb else None
+    old_offhand_name = edb[old_offhand_id].name if old_offhand_id and old_offhand_id in edb else None
     ok2, msg2 = equip_from_stash(player_state, character_id, new_ids[0], edb)
     if not ok2:
         return True, f"{msg} It is in your stash ({msg2})"
     text = f"Bought {item.name} for {item.cost} money and equipped it on {character.name}."
     if old_name:
         text += f" {old_name} went to the stash."
+    if old_offhand_name:
+        text += f" {old_offhand_name} went to the stash too (it uses both hands)."
     return True, text
 
 

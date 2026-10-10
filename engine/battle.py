@@ -17,6 +17,7 @@ from typing import Callable, Dict, List, Optional
 
 from engine.combatant import Combatant
 from engine.actions import Action
+from data.leveling import scale_item_heal
 from engine.skills import Skill, MAX_SKILL_RANK, mp_cost_at_rank, power_at_rank, status_duration_bonus_at_rank
 from engine.items import Item
 from engine.status_effects import get_status
@@ -341,11 +342,11 @@ class BattleEngine:
         for target in targets[:1] if item.target == TargetType.SINGLE_ALLY else targets:
             if item.revive:
                 if not target.alive:
-                    target.revive(item.heal_hp)
+                    target.revive(scale_item_heal(item.heal_hp, target.max_hp))
                     self.log(f"  {target.name} is revived with {target.hp} HP!")
                 continue
             if item.heal_hp:
-                healed = target.heal(item.heal_hp)
+                healed = target.heal(scale_item_heal(item.heal_hp, target.max_hp))
                 self.log(f"  {target.name} recovers {healed} HP.")
             if item.heal_mp:
                 restored = target.restore_mp(item.heal_mp)

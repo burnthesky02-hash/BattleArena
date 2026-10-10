@@ -64,8 +64,8 @@
     },
     {
      "type": "say",
-     "who": "Kael",
-     "text": "...Where is Sera? The healer who was with me. What did you do with her?"
+     "who": "Kenji",
+     "text": "...Where is Miya? The healer who was with me. What did you do with her?"
     },
     {
      "type": "say",
@@ -1896,7 +1896,7 @@
    "id": "shop",
    "name": "Whisper",
    "title": "Smuggler",
-   "sprite": "Kael",
+   "sprite": "Kenji",
    "x": -26,
    "z": 15.4,
    "line": "Psst. Nothing here fell off a cart. Much. Care to browse?",
@@ -1913,7 +1913,7 @@
    "id": "summon",
    "name": "Hanna",
    "title": "Cell-block seer",
-   "sprite": "Sera",
+   "sprite": "Miya",
    "x": 10.5,
    "z": 18,
    "line": "The old glyph under my cell still answers. Pay the toll and see who comes.",
@@ -1993,7 +1993,7 @@
    "id": "pr3",
    "name": "Little Joss",
    "title": "Prisoner",
-   "sprite": "Kael",
+   "sprite": "Kenji",
    "x": 8,
    "z": -4.2,
    "tint": [

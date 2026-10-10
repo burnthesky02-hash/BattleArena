@@ -109,7 +109,7 @@ class World:
         self.quests = quests
         self.flags: Set[str] = set()
         self.rank = start_rank
-        self.party: Dict[str, bool] = {"Kael": True}       # name -> in story party (away=False)
+        self.party: Dict[str, bool] = {"Kenji": True}       # name -> in story party (away=False)
         self.scene: Optional[str] = None
         self.trace: List[dict] = []                         # story beats in order
         self.seen_visible: Dict[str, Set[str]] = {s: set() for s in scenes}   # trigger ids ever visible

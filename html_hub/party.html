@@ -143,7 +143,7 @@
 <body>
 <div id="topbar">
   <h1>Choose Your Party</h1>
-  <a href="/">&larr; Back to Colosseum</a>
+  <a href="/">&larr; Exit</a>
 </div>
 <div id="challenge-banner" style="display:none;margin:0 24px 8px;padding:8px 14px;border:1px solid #ff9a9a;border-radius:10px;background:rgba(160,30,40,0.35);font-weight:700;letter-spacing:0.04em;"></div>
 <div id="status"></div>
@@ -555,6 +555,12 @@
       }
     })
     .catch(function () { setStatus("Could not reach the hub server."); });
+    // Esc leaves the screen (closing any popup first)
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape" || ev.defaultPrevented) return;
+    var t = ev.target && ev.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA") { ev.target.blur(); return; }
+    window.location.href = "/";
+  }, true);
 })();
 </script>
 </body>

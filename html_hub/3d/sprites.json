@@ -11,16 +11,16 @@
    "footY": 240.0,
    "refH": 240.0
   },
-  "Kael": {
-   "file": "npc/Kael.webp",
+  "Kenji": {
+   "file": "npc/Kenji.webp",
    "cols": 6,
    "rows": 6,
    "count": 36,
-   "cw": 231,
-   "ch": 241,
-   "footX": 115.3,
-   "footY": 240.0,
-   "refH": 240.0
+   "cw": 146,
+   "ch": 245,
+   "footX": 82.2,
+   "footY": 242.7,
+   "refH": 200.4
   },
   "Lyra": {
    "file": "npc/Lyra.webp",
@@ -33,6 +33,17 @@
    "footY": 240.6,
    "refH": 240.0
   },
+  "Miya": {
+   "file": "npc/Miya.webp",
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 228,
+   "ch": 245,
+   "footX": 110.7,
+   "footY": 242.2,
+   "refH": 239.9
+  },
   "Rook": {
    "file": "npc/Rook.webp",
    "cols": 6,
@@ -42,17 +53,6 @@
    "ch": 240,
    "footX": 104.5,
    "footY": 240.0,
-   "refH": 240.0
-  },
-  "Sera": {
-   "file": "npc/Sera.webp",
-   "cols": 6,
-   "rows": 6,
-   "count": 36,
-   "cw": 261,
-   "ch": 241,
-   "footX": 130.3,
-   "footY": 241.5,
    "refH": 240.0
   },
   "Yulia": {
@@ -65,52 +65,200 @@
    "footX": 54.9,
    "footY": 240.9,
    "refH": 240.0
+  },
+  "Blacksmith": {
+   "file": "npc/Townsfolk-Blacksmith.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 192,
+   "ch": 384,
+   "footX": 96.0,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Dockmaster": {
+   "file": "npc/Townsfolk-Dockmaster.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 117,
+   "ch": 384,
+   "footX": 58.5,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Elder": {
+   "file": "npc/Townsfolk-Elder.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 145,
+   "ch": 384,
+   "footX": 72.5,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Farmer": {
+   "file": "npc/Townsfolk-Farmer.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 177,
+   "ch": 384,
+   "footX": 88.5,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Ferryman": {
+   "file": "npc/Townsfolk-Ferryman.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 168,
+   "ch": 384,
+   "footX": 84.0,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Fisherman": {
+   "file": "npc/Townsfolk-Fisherman.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 237,
+   "ch": 384,
+   "footX": 118.5,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Gambler": {
+   "file": "npc/Townsfolk-Gambler.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 141,
+   "ch": 384,
+   "footX": 70.5,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Innkeeper": {
+   "file": "npc/Townsfolk-Innkeeper.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 139,
+   "ch": 384,
+   "footX": 69.5,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Mayor": {
+   "file": "npc/Townsfolk-Mayor.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 126,
+   "ch": 384,
+   "footX": 63.0,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Ranger": {
+   "file": "npc/Townsfolk-Ranger.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 233,
+   "ch": 384,
+   "footX": 116.5,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Shopkeeper": {
+   "file": "npc/Townsfolk-Shopkeeper.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 126,
+   "ch": 384,
+   "footX": 63.0,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Townee": {
+   "file": "npc/Townsfolk-Townee.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 129,
+   "ch": 384,
+   "footX": 64.5,
+   "footY": 382.0,
+   "refH": 384.0
+  },
+  "Warden": {
+   "file": "npc/Townsfolk-Warden.webp",
+   "cols": 1,
+   "rows": 1,
+   "count": 1,
+   "cw": 144,
+   "ch": 384,
+   "footX": 72.0,
+   "footY": 382.0,
+   "refH": 384.0
   }
  },
  "walk": {
   "south": {
-   "file": "npc/Walk-South.webp",
-   "cols": 4,
-   "rows": 4,
-   "count": 16,
-   "cw": 147,
-   "ch": 245,
-   "footX": 73.3,
-   "footY": 243.7,
-   "refH": 240.0
+   "file": "npc/Kenji-Walk-South.webp",
+   "fps": 14,
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 86,
+   "ch": 250,
+   "footX": 42.6,
+   "footY": 243.2,
+   "refH": 199.6
   },
   "north": {
-   "file": "npc/Walk-North.webp",
-   "cols": 4,
-   "rows": 4,
-   "count": 16,
-   "cw": 142,
-   "ch": 240,
-   "footX": 71.0,
-   "footY": 240.0,
-   "refH": 239.1
+   "file": "npc/Kenji-Walk-North.webp",
+   "fps": 14,
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 89,
+   "ch": 258,
+   "footX": 42.4,
+   "footY": 253.5,
+   "refH": 199.4
   },
   "east": {
-   "file": "npc/Walk-East.webp",
-   "cols": 4,
-   "rows": 4,
-   "count": 16,
-   "cw": 176,
-   "ch": 247,
-   "footX": 88.2,
-   "footY": 245.6,
-   "refH": 244.7
+   "file": "npc/Kenji-Walk-East.webp",
+   "fps": 20,
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 111,
+   "ch": 250,
+   "footX": 44.5,
+   "footY": 247.2,
+   "refH": 199.8
   },
   "west": {
-   "file": "npc/Walk-West.webp",
-   "cols": 4,
-   "rows": 4,
-   "count": 16,
-   "cw": 183,
-   "ch": 246,
-   "footX": 91.5,
-   "footY": 242.8,
-   "refH": 242.8
+   "file": "npc/Kenji-Walk-East.webp",
+   "fps": 20,
+   "cols": 6,
+   "rows": 6,
+   "count": 36,
+   "cw": 111,
+   "ch": 250,
+   "footX": 44.5,
+   "footY": 247.2,
+   "refH": 199.8,
+   "flip": true
   }
  },
  "refH": 240

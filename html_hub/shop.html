@@ -173,7 +173,7 @@
   </div>
   <div class="right">
     <span class="purse"><span class="coin">$</span><span id="money">--</span></span>
-    <a class="back" href="/">&larr; Back to Colosseum</a>
+    <a class="back" href="/">&larr; Exit</a>
   </div>
 </div>
 
@@ -455,6 +455,12 @@
       .catch(function () { playSfx(SFX.denied); toast("Could not reach the hub server.", false); });
   }
 
+  // Esc leaves the screen (closing any popup first)
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape" || ev.defaultPrevented) return;
+    var t = ev.target && ev.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA") { ev.target.blur(); return; }
+    window.location.href = "/";
+  }, true);
   document.getElementById("sort-select").addEventListener("change", function (ev) { sortMode = ev.target.value; renderList(false); });
   document.getElementById("q").addEventListener("input", function (ev) { query = ev.target.value; renderList(false); renderDetail(false); });
   document.addEventListener("keydown", function (ev) {
@@ -474,7 +480,7 @@
       data = d;
       if (d.vendor) {
         document.querySelector("#top h1").textContent = d.vendor.name;
-        document.querySelector("#top .sub").textContent = d.vendor.note + (d.vendor.for_heroes ? " (Stocked for " + d.vendor.for_heroes.join(" and ") + ".)" : "");
+        document.querySelector("#top .sub").textContent = d.vendor.note;
       }
       render(false);
     })

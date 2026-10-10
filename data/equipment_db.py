@@ -62,7 +62,7 @@ _add(
     _e("blade_of_the_underdog", "Blade of the Underdog", "weapon", "sword", "epic", 0, {"atk": 12, "luk": 4}, "Won in a fight nobody thought it would survive."),
     _e("flameheart_blade", "Flameheart Blade", "weapon", "sword", "legendary", 0, {"atk": 18, "mag": 6}, "Said to have been forged in a dying star."),
     _e("duskbreaker", "Duskbreaker", "weapon", "sword", "legendary", 0, {"atk": 19, "def_": 5}, "Cuts a line the dark can't cross."),
-    _e("kaels_edge", "Kael's Edge", "weapon", "sword", "mythic", 0, {"atk": 26, "spd": 6, "luk": 6}, "Kael's own blade, worn smooth by a thousand bouts."),
+    _e("kaels_edge", "Kenji's Edge", "weapon", "sword", "mythic", 0, {"atk": 26, "spd": 6, "luk": 6}, "Kenji's own blade, worn smooth by a thousand bouts."),
 )
 
 # --- axe (tank, melee_dps) ----------------------------------------------
@@ -101,7 +101,22 @@ _add(
     _e("cutthroats_favor", "Cutthroat's Favor", "weapon", "dagger", "epic", 0, {"atk": 12, "luk": 5}, "Every gambler's lucky blade, eventually."),
     _e("vexs_bite", "Vex's Bite", "weapon", "dagger", "legendary", 0, {"atk": 16, "spd": 7}, "Named for the duelist who never dropped it."),
     _e("whisper_of_ruin", "Whisper of Ruin", "weapon", "dagger", "legendary", 0, {"atk": 15, "luk": 8, "spd": 3}, "You hear it a half-second after you feel it."),
-    _e("kaels_shadow_twin", "Kael's Shadow-Twin", "weapon", "dagger", "mythic", 0, {"atk": 20, "spd": 9, "luk": 6}, "A second blade to match his sword, just as feared."),
+    _e("kaels_shadow_twin", "Kenji's Shadow-Twin", "weapon", "dagger", "mythic", 0, {"atk": 20, "spd": 9, "luk": 6}, "A second blade to match his sword, just as feared."),
+)
+
+# --- dual blades (Kenji only; fills BOTH hands -- the off-hand slot is empty while worn) -----------------
+# Each pair is worth roughly a weapon plus an off-hand of the same tier, but all of it offense: Kenji gives up
+# the buckler's defense for the extra attack. Shop prices are in the same ballpark as a weapon + a buckler.
+_add(
+    _e("iron_twin_blades", "Iron Twin Blades", "weapon", "dual_blades", "common", 95, {"atk": 6, "spd": 1}, "Two plain blades, one in each hand. A fighter's first real pair."),
+    _e("duelists_pair", "Duelist's Pair", "weapon", "dual_blades", "common", 110, {"atk": 7, "luk": 1}, "Matched steel, balanced for fast, back-to-back strikes."),
+    _e("twin_falchions", "Twin Falchions", "weapon", "dual_blades", "rare", 230, {"atk": 11, "spd": 3}, "Curved for a fast draw and a faster follow-up."),
+    _e("stormcutter_pair", "Stormcutter Pair", "weapon", "dual_blades", "rare", 245, {"atk": 12, "luk": 2, "spd": 1}, "They hum when swung together."),
+    _e("crescent_fangs", "Crescent Fangs", "weapon", "dual_blades", "epic", 0, {"atk": 17, "spd": 5}, "Two curved blades that always seem to find the same gap."),
+    _e("razorwind_pair", "Razorwind Pair", "weapon", "dual_blades", "epic", 0, {"atk": 18, "luk": 5}, "You hear the wind split a moment before the cut lands."),
+    _e("eclipse_twins", "Eclipse Twins", "weapon", "dual_blades", "legendary", 0, {"atk": 24, "spd": 8}, "One blade drinks the light, the other gives it back."),
+    _e("dawn_and_dusk", "Dawn and Dusk", "weapon", "dual_blades", "legendary", 0, {"atk": 25, "luk": 6, "spd": 5}, "A matched pair, forged at opposite ends of the same day."),
+    _e("kaels_twin_edges", "Kenji's Twin Edges", "weapon", "dual_blades", "mythic", 0, {"atk": 34, "spd": 10, "luk": 8}, "Kenji's own pair -- two edges that feel like they were cut from one blade."),
 )
 
 # --- bow (ranged_dps) -----------------------------------------------------
@@ -140,7 +155,7 @@ _add(
     _e("wraithglass_wand", "Wraithglass Wand", "weapon", "wand", "epic", 0, {"mag": 11, "max_mp": 14}, "Faintly translucent -- you can almost see the spell forming."),
     _e("wand_of_the_last_light", "Wand of the Last Light", "weapon", "wand", "legendary", 0, {"mag": 15, "res": 8}, "Never goes dark, no matter how deep the arena's shadows get."),
     _e("seraphs_wandrest", "Seraph's Wandrest", "weapon", "wand", "legendary", 0, {"mag": 14, "max_mp": 22}, "Passed down through generations of battle-clerics."),
-    _e("seras_mercy_wand", "Sera's Mercy Wand", "weapon", "wand", "mythic", 0, {"mag": 19, "res": 10, "max_mp": 18}, "Sera's own wand -- no champion under her care has ever fallen."),
+    _e("seras_mercy_wand", "Miya's Mercy Wand", "weapon", "wand", "mythic", 0, {"mag": 19, "res": 10, "max_mp": 18}, "Miya's own wand -- no champion under her care has ever fallen."),
 )
 
 # --- tome (support) --------------------------------------------------------

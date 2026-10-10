@@ -15,7 +15,7 @@
 
   /* ---------- settings ---------- */
   var SET_KEY = "rpgSettings";
-  function loadSettings() { var d = { music: 0.35, sfx: 0.7, hints: true, res: 1, view: 1, fx: 1, shadows: true, aniso: 8, fps: 0, bright: 1, auto: true }; try { var s = JSON.parse(localStorage.getItem(SET_KEY) || "{}"); for (var k in d) if (s[k] != null) d[k] = s[k]; } catch (e) {} return d; }
+  function loadSettings() { var d = { music: 0.35, sfx: 0.7, hints: true, res: 1, view: 1, fx: 1, shadows: true, aniso: 8, fps: 0, bright: 1, auto: true, perf: false }; try { var s = JSON.parse(localStorage.getItem(SET_KEY) || "{}"); for (var k in d) if (s[k] != null) d[k] = s[k]; } catch (e) {} return d; }
   var settings = loadSettings();
   function applySettings() {
     try { localStorage.setItem(SET_KEY, JSON.stringify(settings)); } catch (e) {}
@@ -45,9 +45,15 @@
   function usable(it) { return !it.revive && !it.cure_status && (it.heal_hp > 0 || it.heal_mp > 0); }
   function allSkills(h) { return (h && h.skills) || []; }
   function castable(s) { return s && s.kind === "heal"; }
+  function slotText(h, s) {                                  // what a slot shows: the item, or "both hands" while dual blades fill the off-hand
+    var e = h.equipped[s];
+    if (e) return esc(e.name);
+    return s === "offhand" && h.offhand_locked_by ? "<em>(both hands)</em>" : "&mdash;";
+  }
   function candidates() {
     var h = hero(ci); if (!h) return [];
     var slot = st.slots[si], out = [];
+    if (slot === "offhand" && h.offhand_locked_by) return out;      // dual blades fill both hands: unequip them first
     if (h.equipped[slot]) out.push({ unequip: true });
     st.stash.filter(function (s) { return s.slot === slot; }).forEach(function (s) { s.ok = canEquip(h, s); out.push(s); });
     return out;
@@ -69,7 +75,7 @@
       var next = p.xp_next == null ? "MAX" : Math.max(0, p.xp_next - p.xp);
       var sel = act && i === ci, dim = mode === "magic" && ph === "target" && false;
       h += '<div class="jm-card' + (sel ? " sel" : "") + (act ? " pick" : "") + (p.hp <= 0 ? " ko" : "") + '" data-a="card" data-i="' + i + '">' +
-        '<img src="' + esc(p.portrait) + '" onerror="this.style.display=\'none\'" alt="">' +
+        '<img src="' + esc(p.card || p.portrait) + '"' + (p.card ? ' style="object-position:' + esc(p.card_pos || "50% 0") + '"' : "") + ' onerror="this.style.display=\'none\'" alt="">' +
         '<div class="jm-cinfo"><div class="jm-cls">' + esc(p.class_name) + '</div><div class="jm-nm">' + esc(p.name) + '</div>' +
         '<div class="jm-lv"><b>LV</b> ' + p.level + '</div><div class="jm-nx">Next level <b>' + next + (next === "MAX" ? "" : " XP") + '</b></div>' +
         bar("hp", "HP", p.hp, p.stats.max_hp) + bar("mp", "MP", p.mp, p.stats.max_mp) + "</div></div>";
@@ -103,7 +109,8 @@
   }
   function delta(h, slot, c) {
     var cur = (h.equipped[slot] && h.equipped[slot].bonuses) || {}, nw = c ? (c.unequip ? {} : (c.bonuses || {})) : cur, out = {};
-    STATS.forEach(function (s) { out[s[0]] = (nw[s[0]] || 0) - (cur[s[0]] || 0); });
+    var off = (slot === "weapon" && c && !c.unequip && c.subtype === "dual_blades" && h.equipped.offhand && h.equipped.offhand.bonuses) || {};   // dual blades empty the off-hand
+    STATS.forEach(function (s) { out[s[0]] = (nw[s[0]] || 0) - (cur[s[0]] || 0) - (off[s[0]] || 0); });
     return out;
   }
   function equipHtml() {
@@ -111,13 +118,12 @@
     var o = '<div class="jm-panel jm-detail"><div class="jm-dhead"><img src="' + esc(h.portrait) + '" onerror="this.style.display=\'none\'" alt=""><div><div class="jm-cls">' + esc(h.class_name) + '</div><div class="jm-nm">' + esc(h.name) + ' <small>LV ' + h.level + '</small></div></div><div class="jm-hint">Q / Tab: next hero</div></div><div class="jm-cols">';
     o += '<div class="jm-col"><div class="jm-ptitle">Equipment</div>';
     st.slots.forEach(function (s, i) {
-      var e = h.equipped[s];
-      o += '<div class="jm-row' + (i === si ? " cur" : "") + (ph === "pick" && i !== si ? " off" : "") + '" data-a="slot" data-i="' + i + '"><b>' + SLOT_LABEL[s] + "</b><span>" + (e ? esc(e.name) : "&mdash;") + "</span></div>";
+      o += '<div class="jm-row' + (i === si ? " cur" : "") + (ph === "pick" && i !== si ? " off" : "") + '" data-a="slot" data-i="' + i + '"><b>' + SLOT_LABEL[s] + "</b><span>" + slotText(h, s) + "</span></div>";
     });
     o += '</div><div class="jm-col"><div class="jm-ptitle">' + SLOT_LABEL[slot] + ' &middot; stash</div><div class="jm-scroll">';
     if (ph === "pick") {
       var list = candidates();
-      if (!list.length) o += '<div class="jm-empty">Nothing to equip here.</div>';
+      if (!list.length) o += '<div class="jm-empty">' + (slot === "offhand" && h.offhand_locked_by ? esc(h.offhand_locked_by) + " fills both hands. Unequip it to use an off-hand." : "Nothing to equip here.") + "</div>";
       list.forEach(function (it, i) {
         o += '<div class="jm-row' + (i === pi ? " cur" : "") + (it.unequip || it.ok ? "" : " dim") + '" data-a="pick" data-i="' + i + '">' + (it.unequip ? "<span>&ndash; Unequip &ndash;</span>" : "<span>" + esc(it.name) + "</span><em>" + esc(it.bonus_text) + (it.ok ? "" : " (can't use)") + "</em>") + "</div>";
       });
@@ -139,7 +145,7 @@
     o += '<div class="jm-col"><div class="jm-ptitle">Stats</div>' + bar("hp", "HP", h.hp, h.stats.max_hp) + bar("mp", "MP", h.mp, h.stats.max_mp);
     STATS.slice(2).forEach(function (s) { o += '<div class="jm-stat"><b>' + s[1] + "</b><span>" + h.stats[s[0]] + "</span></div>"; });
     o += '</div><div class="jm-col"><div class="jm-ptitle">Equipment</div>';
-    st.slots.forEach(function (s) { var e = h.equipped[s]; o += '<div class="jm-stat"><b>' + SLOT_LABEL[s] + "</b><span>" + (e ? esc(e.name) : "&mdash;") + "</span></div>"; });
+    st.slots.forEach(function (s) { o += '<div class="jm-stat"><b>' + SLOT_LABEL[s] + "</b><span>" + slotText(h, s) + "</span></div>"; });
     var pts = h.talent_points_available || 0, sk = h.skills || [];
     if (ski >= sk.length) ski = Math.max(0, sk.length - 1);
     o += '</div><div class="jm-col"><div class="jm-ptitle">Skills</div>';
@@ -211,7 +217,7 @@
     return '<div class="jm-panel jm-center"><div class="jm-big">Save your progress?</div><div class="jm-yn"><div class="jm-row' + (yes === 0 ? " cur" : "") + '" data-a="yn" data-i="0">Yes</div><div class="jm-row' + (yes === 1 ? " cur" : "") + '" data-a="yn" data-i="1">No</div></div></div>';
   }
   function quitHtml() {
-    return '<div class="jm-panel jm-center"><div class="jm-big">Quit the game?</div><div class="jm-empty">Anything you have not saved is lost.</div><div class="jm-yn"><div class="jm-row' + (yes === 0 ? " cur" : "") + '" data-a="yn" data-i="0">Yes, quit</div><div class="jm-row' + (yes === 1 ? " cur" : "") + '" data-a="yn" data-i="1">No</div></div></div>';
+    return '<div class="jm-panel jm-center"><div class="jm-big">Quit the game?</div><div class="jm-empty">Anything you have not saved is lost.</div><div class="jm-yn"><div class="jm-row' + (yes === 0 ? " cur" : "") + '" data-a="yn" data-i="0">Quit to title screen</div><div class="jm-row' + (yes === 1 ? " cur" : "") + '" data-a="yn" data-i="1">Quit game</div><div class="jm-row' + (yes === 2 ? " cur" : "") + '" data-a="yn" data-i="2">Cancel</div></div></div>';
   }
   /* Graphics rows. Values are stored flat in rpgSettings; hub3d.js / battle3d.js / envfx.js read them from the "rpg-settings" event (and from localStorage on load). */
   var PCT = function (v) { return Math.round(v * 100) + "%"; };
@@ -229,7 +235,9 @@
     { name: "High",   v: { res: 1,    view: 1,    fx: 1,    shadows: true,  aniso: 8 } },
     { name: "Ultra",  v: { res: 1.5,  view: 1.5,  fx: 1,    shadows: true,  aniso: 16 } }
   ];
-  var SROWS = ["music", "sfx", "hints", "preset", "res", "auto", "view", "fx", "shadows", "aniso", "fps", "bright"];
+  var DIFFS = ["easy", "normal", "hard"], DIFF_NAME = { easy: "Easy", normal: "Normal", hard: "Hard" };
+  function inTown() { try { return !!(window.Hub3D && Hub3D.inTown && Hub3D.inTown()); } catch (e) { return false; } }
+  var SROWS = ["music", "sfx", "hints", "difficulty", "preset", "res", "auto", "view", "fx", "shadows", "aniso", "fps", "bright", "perf"];
   function presetIdx() { for (var p = 0; p < PRESETS.length; p++) { var v = PRESETS[p].v, ok = true; for (var k in v) if (settings[k] !== v[k]) ok = false; if (ok) return p; } return -1; }
   function gIdx(g, v) { var b = 0; for (var i = 1; i < g.vals.length; i++) if (Math.abs(g.vals[i] - v) < Math.abs(g.vals[b] - v)) b = i; return b; }
   function settingsHtml() {
@@ -242,7 +250,9 @@
       if (id === "music") h += row(i, "Music volume", pips(settings.music / 0.7));
       else if (id === "sfx") h += row(i, "Sound effects", pips(settings.sfx));
       else if (id === "hints") h += row(i, "Control hints", '<i data-a="tog">' + (settings.hints ? "On" : "Off") + "</i>");
+      else if (id === "difficulty") { var dn = DIFF_NAME[(st && st.difficulty) || "normal"] || "Normal"; h += row(i, "Difficulty", inTown() ? '<i data-a="dec">&#9664;</i><em class="jm-sv pv">' + dn + '</em><i data-a="inc">&#9654;</i>' : '<em class="jm-sv pv" style="opacity:.6">' + dn + " (town only)</em>"); }
       else if (id === "auto") h += row(i, "Adaptive resolution", '<i data-a="tog">' + (settings.auto ? "On" : "Off") + "</i>");
+      else if (id === "perf") h += row(i, "Performance overlay", '<i data-a="tog">' + (settings.perf ? "On" : "Off") + "</i>");
       else if (id === "shadows") h += row(i, "Shadows", '<i data-a="tog">' + (settings.shadows ? "On" : "Off") + "</i>");
       else if (id === "preset") h += row(i, "Quality preset", '<i data-a="dec">&#9664;</i><em class="jm-sv pv">' + (pi < 0 ? "Custom" : PRESETS[pi].name) + '</em><i data-a="inc">&#9654;</i>');
       else h += row(i, g.name, pips(gIdx(g, settings[id]) / (g.vals.length - 1)) + '<em class="jm-sv">' + g.fmt(settings[id]) + "</em>");
@@ -289,7 +299,7 @@
       else if (n === "Bestiary") { bz = 0; bst = null; go("bestiary", "view"); fetch("/api/bestiary").then(function (r) { return r.json(); }).then(function (b) { bst = b; render(); }).catch(function () { say("The server could not be reached.", true); render(); }); }
       else if (n === "Save") { yes = 0; go("save", "confirm"); }
       else if (n === "Settings") { sr = 0; go("settings", "rows"); }
-      else if (n === "Quit Game") { yes = 1; go("quit", "confirm"); }
+      else if (n === "Quit Game") { yes = 2; go("quit", "confirm"); }
       if (!party().length && (n === "Magic" || n === "Equip" || n === "Status")) { go("main", "cmd"); say("No one is in your party.", true); }
       sfx("confirm"); return render();
     }
@@ -345,14 +355,19 @@
       busy = true; return post("/api/menu/save").then(function (r) { busy = false; go("main", "cmd"); afterAction(r, "confirm"); }, fail);
     }
     if (mode === "quit") {
-      if (yes === 1) return back();
+      if (yes === 2) return back();
+      if (yes === 0) {                                                       // back to the title screen: save first, then leave this page (hub3d.js syncs its progress as the page unloads)
+        busy = true; say("Returning to the title screen...", false); render();
+        var toTitle = function () { try { sessionStorage.removeItem("hubStarted"); } catch (e) {} location.href = "/title"; };
+        return post("/api/menu/save").then(toTitle, toTitle);
+      }
       busy = true; return post("/api/menu/quit").then(function () {
         say("Goodbye.", false); render();
         try { window.close(); } catch (e) {}
         setTimeout(function () { document.body.innerHTML = '<div style="color:#f3efd8;font:20px sans-serif;text-align:center;margin-top:30vh">The game has closed. You can close this window.</div>'; }, 700);
       }, function () { busy = false; try { window.close(); } catch (e) {} say("Could not reach the game. Close this window to quit.", true); render(); });
     }
-    if (mode === "settings") { var cid = SROWS[sr]; if (cid === "hints" || cid === "shadows" || cid === "auto" || cid === "preset") adjust(1); }
+    if (mode === "settings") { var cid = SROWS[sr]; if (cid === "hints" || cid === "shadows" || cid === "auto" || cid === "perf" || cid === "preset" || cid === "difficulty") adjust(1); }
   }
   function rankUpSkill(i) {
     if (busy) return;
@@ -386,6 +401,17 @@
     else if (id === "hints") settings.hints = !settings.hints;
     else if (id === "shadows") settings.shadows = !settings.shadows;
     else if (id === "auto") settings.auto = !settings.auto;
+    else if (id === "perf") settings.perf = !settings.perf;
+    else if (id === "difficulty") {
+      if (!inTown()) { say("Difficulty can only be changed while you are in town.", true); sfx("denied"); return render(); }
+      if (busy) return;
+      var di = DIFFS.indexOf((st && st.difficulty) || "normal"); di = Math.max(0, Math.min(DIFFS.length - 1, (di < 0 ? 1 : di) + dir));
+      if (DIFFS[di] === st.difficulty) { sfx("denied"); return; }
+      busy = true;
+      return post("/api/menu/difficulty", { difficulty: DIFFS[di] }).then(function (r) {
+        busy = false; if (r && r.state) st = r.state; say(r && r.message, !(r && r.ok)); sfx(r && r.ok ? "confirm" : "denied"); render();
+      }, fail);
+    }
     else if (id === "preset") { var pi = presetIdx(), n = PRESETS.length; pi = pi < 0 ? (dir > 0 ? 0 : n - 1) : (pi + dir + n) % n; for (var k in PRESETS[pi].v) settings[k] = PRESETS[pi].v[k]; }
     else if (g) settings[id] = g.vals[Math.max(0, Math.min(g.vals.length - 1, gIdx(g, settings[id]) + dir))];
     applySettings(); sfx("hover"); render();
@@ -408,7 +434,7 @@
     else if (ctx === "equip/slot") { if (dy) si = wrap(si + dy, st.slots.length); else if (dx) ci = wrap(ci + dx, n); }
     else if (ctx === "equip/pick") pi = wrap(pi + dy, candidates().length);
     else if (ctx === "status/view") { if (dy) ski = wrap(ski + dy, (hero(ci).skills || []).length); else if (dx) { ci = wrap(ci + dx, n); ski = 0; } }
-    else if (ctx === "quit/confirm") yes = wrap(yes + dx + dy, 2);
+    else if (ctx === "quit/confirm") yes = wrap(yes + dx + dy, 3);
     else if (ctx === "quests/view") { if (dy) qz = wrap(qz + dy, qv.length); else if (dx) { qf = wrap(qf + dx, QF.length); qz = 0; } }
     else if (ctx === "bestiary/view") { if (!bst) return; bz = wrap(bz + dy + dx * 6, bst.entries.length); }
     else if (ctx === "save/confirm") yes = wrap(yes + dx + dy, 2);

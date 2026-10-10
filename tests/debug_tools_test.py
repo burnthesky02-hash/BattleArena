@@ -9,8 +9,8 @@ def fresh(): return PlayerState.new_game(PlayerCharacter(name="T", class_id="tan
 def test_all():
     st = fresh(); m0 = st.money
     assert D.apply(st, {"action": "add_money", "amount": "500"})[0] and st.money == m0 + 500
-    assert D.apply(st, {"action": "add_hero", "name": "Kael", "level": 20})[0]
-    k = st.characters[-1]; assert k.name == "Kael" and k.rarity == "mythic" and k.level == 20
+    assert D.apply(st, {"action": "add_hero", "name": "Kenji", "level": 20})[0]
+    k = st.characters[-1]; assert k.name == "Kenji" and k.rarity == "mythic" and k.level == 20
     assert D.apply(st, {"action": "add_hero", "class_id": "tank", "rarity": "epic"})[0]
     assert not D.apply(st, {"action": "add_hero", "class_id": "nope"})[0]
     assert D.apply(st, {"action": "set_hero", "id": k.id, "level": 999, "stars": 3, "shards": 7})[0]

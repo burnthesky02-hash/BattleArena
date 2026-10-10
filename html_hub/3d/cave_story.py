@@ -1,8 +1,8 @@
 """The Hollow Cave's story layer (v2, Oct 6): replaces the Lani rescue.
-Sera joins at the cave arch on the island (island_story.py), so the cave camp no longer has her. At the far end the party walks in on
+Miya joins at the cave arch on the island (island_story.py), so the cave camp no longer has her. At the far end the party walks in on
 Colosseum guards who came to capture the Drowned Sovereign alive for the arena and are being crushed (touch event dg_guards_cs, a cutscene that
-ends in the boss fight). When the Sovereign falls the party is knocked out (autorun on dg_boss): the guards cannot go home empty-handed, so Kael is
-carried to the Colosseum's Pit (st_hurt, st_done, warp to prison) and Sera, a healer, to the infirmary (cutscene action `away`).
+ends in the boss fight). When the Sovereign falls the party is knocked out (autorun on dg_boss): the guards cannot go home empty-handed, so Kenji is
+carried to the Colosseum's Pit (st_hurt, st_done, warp to prison) and Miya, a healer, to the infirmary (cutscene action `away`).
 apply(d) patches a built dungeon scene dict (make_cave.py calls it just before writing; idempotent)."""
 import copy
 
@@ -35,11 +35,11 @@ def guards_cutscene(bx, bz):
         dict(type="walk", who="player", x=bx + 4, z=bz + 26, speed=5.2),
         dict(type="cam", x=bx - 6, z=bz + 14, yaw=-10, pitch=26, dist=22, t=2.2),
         say("Captain Varro", "You! Swordsman! Whoever you are, you are the best thing that has walked in here all day. Hit it before it drowns the lot of us!"),
-        say("Kael", "Hold on. You are trying to capture that? Alive?"),
+        say("Kenji", "Hold on. You are trying to capture that? Alive?"),
         say("Captain Varro", "Colosseum business. Do you want to argue, or do you want to live?"),
-        say("Sera", "They are bleeding, Kael, and so are you if that thing reaches us. I will keep everyone standing. Please, just stop it.", **SERA),
-        say("Kael", "Right. Then I will keep it busy.", **SERA),
-        say("Kael", "Right. Keep your heads down, I will keep it busy.", unless="st_sera"),
+        say("Miya", "They are bleeding, Kenji, and so are you if that thing reaches us. I will keep everyone standing. Please, just stop it.", **SERA),
+        say("Kenji", "Right. Then I will keep it busy.", **SERA),
+        say("Kenji", "Right. Keep your heads down, I will keep it busy.", unless="st_sera"),
         dict(type="cam", x=bx, z=bz, yaw=0, pitch=18, dist=26, t=2.0),
         dict(type="music", url="/assets/Music/mp3/27. The Evil One.mp3"),
         say("Drowned Sovereign", "More mortals. More chains. You come into my court, and you ask me to kneel?"),
@@ -58,9 +58,9 @@ def aftermath(bx, bz):
         say("Captain Varro", "It is down... it is actually down! Chains! Get chains on it before it---"),
         say(None, "The water in the hall rises. Not a wave: one single breath, drawn back from every corner of the cave."),
         say("Drowned Sovereign", "The tide... remembers you. It has always... remembered..."),
-        say("Kael", "...Do you hear that? Something in the water is singing. I feel like I have heard it before."),
+        say("Kenji", "...Do you hear that? Something in the water is singing. I feel like I have heard it before."),
         dict(type="flash"),
-        say(None, "The Sovereign's last surge hits like a falling wall. The party is swept off its feet. Kael hears Sera cry out his name, and then there is only the sound of the sea.", **SERA),
+        say(None, "The Sovereign's last surge hits like a falling wall. The party is swept off its feet. Kenji hears Miya cry out his name, and then there is only the sound of the sea.", **SERA),
         say(None, "The Sovereign's last surge hits like a falling wall. The party is swept off its feet, and then there is only the sound of the sea.", unless="st_sera"),
         dict(type="fade", to="black", t=1.2),
         dict(type="wait", t=1.4),
@@ -68,12 +68,12 @@ def aftermath(bx, bz):
         say("Captain Varro", "A Sovereign, in dust. Eight thousand gold of arena beast, and nothing left to chain. I cannot march into the Colosseum with empty hands."),
         say("Guard Dren", "Captain... the swordsman is alive. He brought it down himself, near enough."),
         say("Captain Varro", "Then he is the catch. A fighter who can break a Sovereign belongs in the Pit. The crowd will pay to watch what he can do. Chain him."),
-        say("Sera", "No, please, he needs a healer, not chains! Let me tend---", **SERA),
+        say("Miya", "No, please, he needs a healer, not chains! Let me tend---", **SERA),
         say("Captain Varro", "A chapel healer? Good. The infirmary is full of my drowned men. Take her up to the Colosseum. The swordsman goes below.", **SERA),
-        say("Sera", "Kael! Kael, stay with me, I will find you!", **SERA),
+        say("Miya", "Kenji! Kenji, stay with me, I will find you!", **SERA),
         say(None, "Darkness, and the long grind of a cart on stone."),
         dict(type="flag", key="st_bossmsg"), dict(type="flag", key="st_hurt"), dict(type="flag", key="st_done"),
-        dict(type="away", name="Sera", away=True),
+        dict(type="away", name="Miya", away=True),
         dict(type="flash"),
         dict(type="warp", scene="prison", x=0, z=-3.6),
     ]
@@ -98,8 +98,8 @@ def apply(d):
     ar = [a for a in (d.get("autorun") or []) if a.get("if") not in ("dg_boss", "st_sera")]
     ar.insert(0, {"if": "dg_boss", "unless": "st_hurt", "cine": True, "actions": aftermath(bx, bz)})
     ar.insert(1, {"if": "st_sera", "unless": "st_cave_in", "actions": [
-        say("Sera", "The smugglers' road. The chapel's records say their camp lies a little way in, with a fire we can rest at, if it still burns."),
-        say("Kael", "Lead on. Or follow, I am good either way. Just do not let me wake any kings."),
+        say("Miya", "The smugglers' road. The chapel's records say their camp lies a little way in, with a fire we can rest at, if it still burns."),
+        say("Kenji", "Lead on. Or follow, I am good either way. Just do not let me wake any kings."),
         dict(type="flag", key="st_cave_in")]})
     d["autorun"] = ar
     return d

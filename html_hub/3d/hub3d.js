@@ -183,6 +183,13 @@ void main(){ vec2 p = (a - vec2(0.5, 0.0)) * i.w; gl_Position = u_vp * vec4(i.xy
   const BFS = `
 precision mediump float; uniform sampler2D u_tex; uniform vec3 u_fogc; uniform vec2 u_fogr; varying vec2 v_uv; varying float v_fd;
 void main(){ vec4 c = texture2D(u_tex, vec2(v_uv.x, 1.0 - v_uv.y)); float f = clamp((v_fd - u_fogr.x) / (u_fogr.y - u_fogr.x), 0.0, 1.0) * 0.8; c.rgb = mix(c.rgb, u_fogc * c.a, f); gl_FragColor = c; }`;
+  /* scene.decals {type:"glow"} are real point lights: lit onto every surface in reach (floors, steps, walls, raised planes), not a flat quad at one height */
+  const PLG = `
+uniform vec4 u_pl[8]; uniform vec3 u_plc[8]; uniform float u_npl;
+vec3 plight(vec3 wp, vec3 N, vec3 alb) { vec3 s = vec3(0.0);
+  for (int i = 0; i < 8; i++) { if (float(i) >= u_npl) break; vec3 d = u_pl[i].xyz - wp; float L = length(d); float f = clamp(1.0 - L / u_pl[i].w, 0.0, 1.0); f = f * f * (3.0 - 2.0 * f);
+    s += u_plc[i] * f * (0.6 + 0.4 * dot(N, d / max(L, 0.001))); }
+  return s * (0.4 + 0.6 * alb) * 1.7; }`;
   const MVS = `
 attribute vec3 p; attribute vec3 n; attribute vec2 t; attribute vec4 c; attribute vec4 m0; attribute vec4 m1; attribute vec4 m2; attribute vec4 m3;
 uniform mat4 u_vp; uniform float u_wt, u_wa; varying vec3 v_n; varying vec2 v_t; varying vec4 v_c; varying float v_d; varying vec3 v_wp;
@@ -198,21 +205,49 @@ precision mediump float;
 uniform sampler2D u_tex; uniform vec4 u_color; uniform vec3 u_emis; uniform float u_cut, u_unlit, u_mode, u_ft;
 uniform vec3 u_ldir, u_lcol, u_amb, u_fogc, u_fcam; uniform vec2 u_fogr;
 varying vec3 v_n; varying vec2 v_t; varying vec4 v_c; varying float v_d; varying vec3 v_wp;
+${PLG}
+float hh(float n) { return fract(sin(n * 127.1 + 3.7) * 43758.5453); }
 void wv(vec2 w, vec2 k, float a, float sp, inout float h, inout vec2 g) { float ph = dot(k, w) + u_ft * sp; h += a * sin(ph); g += a * cos(ph) * k; }
 void main(){
   if (u_mode > 3.5) {                                                            // animated water: 4 = surface (ocean, pond, fountain), 5 = waterfall
     vec4 wb = texture2D(u_tex, v_t) * u_color; vec3 wc;
-    if (u_mode < 4.5) {
-      vec2 w = v_wp.xz; float h = 0.0; vec2 g = vec2(0.0);
+    if (u_mode > 5.5 && u_mode < 6.5) {                                          // 6 = fountain jets / overflow sheet (alpha-blended): v_c.r opacity, v_c.g streak lanes, v_c.b flow speed
+      float lanes = v_c.g, spd = v_c.b, cell = floor(v_t.x * lanes), fx = fract(v_t.x * lanes);
+      float wid = 0.16 + 0.34 * hh(cell), lane = lanes < 1.5 ? 1.0 : smoothstep(0.0, 0.1, fx) * smoothstep(wid, wid - 0.1, fx) * step(0.34, hh(cell + 9.0));
+      float fl = fract(v_t.y * (lanes < 1.5 ? 2.4 : 3.2 + 2.0 * hh(cell + 5.0)) - u_ft * spd * (lanes < 1.5 ? 0.35 : 0.5 + 0.35 * hh(cell + 1.0)) + hh(cell + 3.0));
+      float dash = smoothstep(0.0, 0.14, fl) * smoothstep(1.0, 0.45, fl);
+      float a = v_c.r * clamp(lane * (lanes < 1.5 ? 0.38 + 0.62 * dash : 0.12 + 0.88 * dash), 0.0, 1.0) * smoothstep(0.0, 0.05, v_t.y) * smoothstep(1.0, 0.93, v_t.y);
+      vec3 N0 = normalize(v_n); float dif = max(dot(N0, -u_ldir), 0.0) * 0.4 + 0.75;
+      vec3 sc = wb.rgb * dif * (lanes < 1.5 ? 1.0 : 0.88 + 0.24 * hh(cell + 5.0)) + vec3(0.55, 0.62, 0.66) * dash * lane;
+      sc += vec3(0.7) * step(0.965, hh(floor(v_t.x * lanes * 2.0) + floor(v_t.y * 22.0 - u_ft * spd * 3.0) * 1.7));
+      sc = mix(sc, u_fogc, clamp((v_d - u_fogr.x) / (u_fogr.y - u_fogr.x), 0.0, 1.0));
+      gl_FragColor = vec4(sc * a, a); return;
+    }
+    if (u_mode < 4.5 || u_mode > 6.5) {
+      float sm = u_mode > 6.5 ? 1.0 : 0.0;                                      // 7 = small fountain pool: fine ripples, rings spreading from the splash points (v_c.r, v_c.g), foam
+      vec2 w = v_wp.xz * (1.0 + 4.0 * sm); float h = 0.0; vec2 g = vec2(0.0);
       wv(w, vec2(0.31, 0.19), 0.50, 1.10, h, g); wv(w, vec2(-0.23, 0.41), 0.40, 1.45, h, g); wv(w, vec2(0.74, -0.52), 0.25, 2.10, h, g);
       wv(w, vec2(-0.91, -0.67), 0.18, 2.70, h, g); wv(w, vec2(1.60, 1.10), 0.10, 3.60, h, g);
-      vec3 N = normalize(vec3(-g.x * 0.45, 1.0, -g.y * 0.45)); vec3 V = normalize(u_fcam - v_wp);
+      float foam = 0.0;
+      if (sm > 0.5) {
+        vec2 q = v_t - 0.5; float ql = length(q), rr = ql * 2.0; vec2 dir = q / max(ql, 0.0001); float ang = atan(q.y, q.x);
+        for (int s = 0; s < 2; s++) {
+          float c0 = s == 0 ? v_c.r : v_c.g; if (c0 < -0.5) continue;
+          float d = rr - c0, ad = abs(d), env = exp(-ad * 4.0);
+          float ph = ad * 70.0 - u_ft * 3.4;
+          g += dir * (d < 0.0 ? -1.0 : 1.0) * cos(ph) * 2.0 * env;
+          foam += smoothstep(0.045, 0.0, ad) * (0.55 + 0.45 * sin(ang * 31.0 + u_ft * 4.0 + sin(ang * 7.0 - u_ft * 2.0) * 2.0));
+        }
+        g *= 0.55;
+      }
+      vec3 N = normalize(vec3(-g.x * 0.45 / (1.0 + 3.0 * sm), 1.0, -g.y * 0.45 / (1.0 + 3.0 * sm))); vec3 V = normalize(u_fcam - v_wp);
       float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0), dif = max(dot(N, -u_ldir), 0.0);
       vec3 sky = mix(u_fogc, vec3(0.55, 0.78, 1.0), 0.55);
       wc = wb.rgb * (0.78 + 0.32 * dif);
       wc = mix(wc, sky, clamp(fres * 0.55 + 0.06, 0.0, 1.0));
       vec3 Hh = normalize(-u_ldir + V); wc += u_lcol * pow(max(dot(N, Hh), 0.0), 140.0) * 1.3;               // sun glitter
-      wc += vec3(0.16, 0.19, 0.21) * smoothstep(0.92, 1.35, h);                                              // white caps on the crests
+      wc += vec3(0.16, 0.19, 0.21) * smoothstep(0.92, 1.35, h) * (1.0 - sm);                                 // white caps on the crests
+      wc += vec3(0.62, 0.70, 0.74) * clamp(foam, 0.0, 1.0) * sm;
       float shallow = smoothstep(0.30, 0.62, wb.g - wb.b * 0.35);                                           // the ocean texture goes green near the island: caustic shimmer there
       float cs = sin(w.x * 1.7 + sin(w.y * 1.3 + u_ft * 0.9)) * sin(w.y * 1.5 + cos(w.x * 1.1 - u_ft * 1.1));
       wc += vec3(0.07, 0.11, 0.10) * pow(abs(cs), 6.0) * shallow;
@@ -231,6 +266,7 @@ void main(){
   vec3 N = normalize(v_n); if (!gl_FrontFacing) N = -N;
   float ndl = max(dot(N, -u_ldir), 0.0), hemi = N.y * 0.5 + 0.5;
   vec3 col = u_unlit > 0.5 ? base.rgb : base.rgb * (u_amb * (0.6 + 0.4 * hemi) + u_lcol * ndl) + u_emis;
+  col += plight(v_wp, N, base.rgb);
   col = mix(col, u_fogc, clamp((v_d - u_fogr.x) / (u_fogr.y - u_fogr.x), 0.0, 1.0));
   float a = u_mode > 1.5 ? base.a : 1.0;
   gl_FragColor = vec4(col * a, a);
@@ -238,8 +274,8 @@ void main(){
 
   /* painted-terrain overlay: scene.terrain.paint = { res, layers: [{url, scale}], data: RLE base64 RGBA8 splat map } -> a mesh draped over the heights, blended over the ground */
   const PVS = `
-attribute vec3 p; attribute vec3 n; uniform mat4 u_vp; varying vec3 v_n; varying vec2 v_w; varying float v_d;
-void main(){ gl_Position = u_vp * vec4(p, 1.0); v_n = n; v_w = p.xz; v_d = gl_Position.w; }`;
+attribute vec3 p; attribute vec3 n; uniform mat4 u_vp; varying vec3 v_n; varying vec2 v_w; varying float v_d; varying vec3 v_p;
+void main(){ gl_Position = u_vp * vec4(p, 1.0); v_n = n; v_p = p; v_w = p.xz; v_d = gl_Position.w; }`;
   const PFS = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -247,12 +283,14 @@ precision highp float;
 precision mediump float;
 #endif
 uniform sampler2D u_splat, u_t0, u_t1, u_t2, u_t3; uniform vec4 u_rect, u_inv; uniform vec3 u_ldir, u_lcol, u_amb, u_fogc; uniform vec2 u_fogr;
-varying vec3 v_n; varying vec2 v_w; varying float v_d;
+varying vec3 v_n; varying vec2 v_w; varying float v_d; varying vec3 v_p;
+${PLG}
 void main(){
   vec4 w = texture2D(u_splat, (v_w - u_rect.xy) * u_rect.zw); float tot = w.r + w.g + w.b + w.a; if (tot < 0.004) discard;
   vec3 c = texture2D(u_t0, v_w * u_inv.x).rgb * w.r + texture2D(u_t1, v_w * u_inv.y).rgb * w.g + texture2D(u_t2, v_w * u_inv.z).rgb * w.b + texture2D(u_t3, v_w * u_inv.w).rgb * w.a;
   c /= tot; vec3 N = normalize(v_n); float ndl = max(dot(N, -u_ldir), 0.0), hemi = N.y * 0.5 + 0.5;
   vec3 col = c * (u_amb * (0.6 + 0.4 * hemi) + u_lcol * ndl);
+  col += plight(v_p, N, c);
   col = mix(col, u_fogc, clamp((v_d - u_fogr.x) / (u_fogr.y - u_fogr.x), 0.0, 1.0));
   float a = min(tot, 1.0); gl_FragColor = vec4(col * a, a);
 }`;
@@ -283,7 +321,7 @@ void main(){
   function drawPaint() {
     const P = S.paint; if (!P) return; const d = S.def, L = d.light || {}, F = d.fog || {};
     const ld = V.norm(L.dir || [-0.5, -1, -0.35]), lc = L.color || [1, 0.9, 0.75], am = L.ambient || [0.55, 0.5, 0.62], fc = F.color || [0.4, 0.28, 0.4];
-    gl.useProgram(pprog); gl.uniformMatrix4fv(PU.u_vp, false, cam.vp);
+    gl.useProgram(pprog); gl.uniformMatrix4fv(PU.u_vp, false, cam.vp); setGlowLights(PU);
     gl.uniform3f(PU.u_ldir, ld[0], ld[1], ld[2]); gl.uniform3f(PU.u_lcol, lc[0], lc[1], lc[2]); gl.uniform3f(PU.u_amb, am[0], am[1], am[2]);
     gl.uniform3f(PU.u_fogc, fc[0], fc[1], fc[2]); gl.uniform2f(PU.u_fogr, fogN(F), fogF(F));
     gl.uniform4f(PU.u_rect, P.rect[0], P.rect[1], P.rect[2], P.rect[3]); gl.uniform4f(PU.u_inv, P.inv[0], P.inv[1], P.inv[2], P.inv[3]);
@@ -469,11 +507,14 @@ void main(){
     if (v.slice(0, 2) === "S:") return { showIf: v.slice(2) };
     return v[0] === "!" ? { showIf: v.slice(1) } : { hideIf: v };
   }
-  /* animated water: pieces whose model name is an ocean / sea / lake / pond / river / water token get waves + glitter (surface, wk 1), a waterfall gets flowing streaks (wk 2).
+  /* animated water: pieces whose model name is an ocean / sea / lake / pond / river / water token get waves + glitter (surface, wk 1), a waterfall gets flowing streaks (wk 2);
+     FountainFX_jets (wk 3) and FountainFX_surface (wk 4) are the fountain water made by gen_fountain_fx.py.
      scene.water = {off:true} disables it, {surface:"regex", fall:"regex"} overrides the name tests. */
   function waterKind(name, def) {
     const W = def.water || {}; if (W.off) return 0;
     const base = String(name).split("/").pop();
+    if (/fountainfx.*(jet|spray|sheet)/i.test(base)) return 3;      // a fountain's jets / overflow: flowing alpha-blended streaks
+    if (/fountainfx/i.test(base)) return 4;                         // a fountain's pools: small ripples, splash rings, foam
     if (new RegExp(W.fall || "waterfall", "i").test(base)) return 2;
     if (new RegExp(W.surface || "(^|[_\\W])(ocean|sea|lake|pond|river|water)([_\\W]|$)", "i").test(base)) return 1;
     return 0;
@@ -612,14 +653,30 @@ void main(){
     if (instExt) for (let k = 0; k < 4; k++) instExt.vertexAttribDivisorANGLE(4 + k, 0);
     for (let k = 4; k < 8; k++) gl.disableVertexAttribArray(k);
   }
+  const PLpos = new Float32Array(32), PLcol = new Float32Array(24);
+  function setGlowLights(U) {                                          // the (up to 8) glow decals nearest the hero -> point lights; (x, y, z, radius) and colour, pulsing like the old floor quad did
+    if (S._decFor !== S.def) { S._decFor = S.def; const cl = getCleared(); S._dec = (S.def.decals || []).filter((d) => visible(d, cl)); }
+    if (S._plT !== clock) {
+      S._plT = clock; const L = [];
+      for (const dc of S._dec) if (dc.type === "glow") L.push({ dc, d: Math.hypot(dc.x - S.player.x, dc.z - S.player.z) - dc.r });
+      L.sort((a, b) => a.d - b.d); let n = 0;
+      for (const { dc } of L) { if (n >= 8) break;
+        const pulse = 0.8 + 0.2 * Math.sin(clock * 2 + dc.x), col = dc.color || [0.7, 0.55, 1, 1], y = dc.y !== undefined ? dc.y : gh(dc.x, dc.z) + (dc.h !== undefined ? dc.h : 0.9);
+        PLpos[n * 4] = dc.x; PLpos[n * 4 + 1] = y; PLpos[n * 4 + 2] = dc.z; PLpos[n * 4 + 3] = dc.r * (dc.reach || 1.15);
+        PLcol[n * 3] = col[0] * pulse; PLcol[n * 3 + 1] = col[1] * pulse; PLcol[n * 3 + 2] = col[2] * pulse; n++; }
+      S._npl = n;
+    }
+    gl.uniform4fv(U.u_pl, PLpos); gl.uniform3fv(U.u_plc, PLcol); gl.uniform1f(U.u_npl, S._npl);
+  }
+  let fxLate = [];                                                    // fountain jets of this frame, drawn among the sprites
   function drawMap() {
     const d = S.def, L = d.light || {}, F = d.fog || {};
-    useMesh(); gl.uniformMatrix4fv(MU.u_vp, false, cam.vp); gl.uniform1i(MU.u_tex, 0);
+    useMesh(); gl.uniformMatrix4fv(MU.u_vp, false, cam.vp); gl.uniform1i(MU.u_tex, 0); setGlowLights(MU);
     const ld = V.norm(L.dir || [-0.5, -1, -0.35]), lc = L.color || [1, 0.9, 0.75], am = L.ambient || [0.55, 0.5, 0.62], fc = F.color || [0.4, 0.28, 0.4];
     gl.uniform3f(MU.u_ldir, ld[0], ld[1], ld[2]); gl.uniform3f(MU.u_lcol, lc[0], lc[1], lc[2]); gl.uniform3f(MU.u_amb, am[0], am[1], am[2]);
     gl.uniform3f(MU.u_fogc, fc[0], fc[1], fc[2]); gl.uniform2f(MU.u_fogr, fogN(F), fogF(F));
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
-    const opaque = [], blend = [];
+    const opaque = [], blend = []; fxLate = [];
     const pp = S.player;
     const cullD = S.def && S.def.cull ? S.def.cull * G.view : 0;                                                          // scene.cull = metres: pieces farther than this from the player (plus their own radius) are skipped; they are fogged out anyway (big scenes like the Hollow Cave)
     const vp = cam.vp, fr = [];                                                                          // frustum planes (Gribb-Hartmann) from the column-major view-projection
@@ -635,6 +692,7 @@ void main(){
       if (cullD) { const cx = it.center[0] - pp.x, cz = it.center[2] - pp.z, rr = cullD + it.rad; if (cx * cx + cz * cz > rr * rr) continue; }
       if (lodD && it.pc) { const pc = it.pc, dx = pc.o[0] - lox, dz = pc.o[2] - loz; if (dx * dx + dz * dz > lodD * lodD) { if (pc.fc !== fcn) { pc.fc = fcn; lodList.push(pc); } continue; } }
       if (it.inside && pp.x > it.inside[0] && pp.x < it.inside[2] && pp.z > it.inside[1] && pp.z < it.inside[3]) continue;
+      if (it.mode === 2 && it.wk === 3) { fxLate.push(it); continue; }      // fountain jets: blended in with the sprites (sorted by distance) so a hero behind them is seen through the water, not over it
       (it.mode === 2 ? blend : opaque).push(it);
     }
     PERF.drawn = opaque.length + blend.length; PERF.total = S.items.length; PERF.calls = 0; PERF.tris = 0;
@@ -744,7 +802,12 @@ void main(){
     for (const dc of S._dec) {
       const a = (dc.spin ? clock * dc.spin : 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), pulse = 0.8 + 0.2 * Math.sin(clock * 2 + dc.x);
       const col = dc.color || [0.7, 0.55, 1, 1];
-      drawQuad({ tex: dc.type === "glow" ? TEX.glow : TEX.glyph, origin: [dc.x, gh(dc.x, dc.z) + 0.06, dc.z], right: [c, 0, s], up: [-s, 0, c],
+      if (dc.type === "glow") {                                  // a faint halo at the light itself; the floor / wall light comes from the point light in the shaders
+        const y = dc.y !== undefined ? dc.y : gh(dc.x, dc.z) + (dc.h !== undefined ? dc.h : 0.9), hs = dc.r * 0.55, rr = V.norm([cam.camX[0], 0, cam.camX[2]]);
+        drawQuad({ tex: TEX.glow, origin: [dc.x, y, dc.z], right: rr, up: [0, 1, 0], w: hs, h: hs, ax: 0.5, ay: 0.5, tint: [col[0] * pulse * 0.45, col[1] * pulse * 0.45, col[2] * pulse * 0.45, 1] });
+        continue;
+      }
+      drawQuad({ tex: TEX.glyph, origin: [dc.x, gh(dc.x, dc.z) + 0.06, dc.z], right: [c, 0, s], up: [-s, 0, c],
         w: dc.r * 2, h: dc.r * 2, ax: 0.5, ay: 0.5, tint: [col[0] * pulse, col[1] * pulse, col[2] * pulse, 1] });
     }
     drawSparkles();
@@ -763,13 +826,15 @@ void main(){
     const pl = S.player;
     list.push({ k: "player", x: pl.x, z: pl.z });
     for (const n of S.npcs) list.push({ k: "npc", n, x: n.x, z: n.z });
+    for (const it of fxLate) list.push({ k: "fx", it, x: it.center[0], z: it.center[2] });
     list.forEach((o) => { o.d = (o.x - cam.pos[0]) * cam.fwd[0] + (o.z - cam.pos[2]) * cam.fwd[2]; });
     list.sort((a, b) => b.d - a.d);
     for (const o of list) {
+      if (o.k === "fx") { useMesh(); gl.depthMask(false); BLEND_N(); drawItems([o.it]); useSprite(); gl.uniformMatrix4fv(SU.u_vp, false, cam.vp); continue; }
       if (o.k === "player") {
-        const dirKey = pl.face, sh = S.sheets.walk[dirKey], frame = pl.moving ? Math.floor(pl.t * 11) % sh.count : 0;
+        const dirKey = pl.face, sh = S.sheets.walk[dirKey], frame = pl.moving ? Math.floor(pl.t * (sh.fps || 11)) % sh.count : 0;
         const fade = cam.eff !== undefined && cam.eff < 4.5 ? Math.max(0, Math.min(1, (cam.eff - 1.6) / 2.6)) : 1;   // close-up: the hero fades out, first person at the end
-        if (fade > 0.02) drawSpriteFrame(sh.file, sh, frame, pl.x, pl.z, pl.h, false, fade < 1 ? [1, 1, 1, fade] : null);
+        if (fade > 0.02) drawSpriteFrame(sh.file, sh, frame, pl.x, pl.z, pl.h, !!sh.flip, fade < 1 ? [1, 1, 1, fade] : null);
       } else {
         const n = o.n;
         if (n.bossTex) {
@@ -1042,7 +1107,7 @@ void main(){
       if (isP) {                                     // facing as seen on screen, like normal movement
         const sx = dx * cam.camX[0] + dz * cam.camX[2], sz = dx * cam.fwd[0] + dz * cam.fwd[2];
         e.face = Math.abs(sx) > Math.abs(sz) ? (sx > 0 ? "east" : "west") : (sz > 0 ? "north" : "south");
-      } else e.faceLeft = dx < 0;
+      } else e.faceLeft = (dx * cam.camX[0] + dz * cam.camX[2]) < 0;      // left/right as seen on screen, whatever the camera yaw
       cineWait(dur, (p, dt) => { e.x = x0 + (x1 - x0) * p; e.z = z0 + (z1 - z0) * p; if (isP) { e.moving = true; e.t += dt; } },
         () => { if (isP) { e.moving = false; e.t = 0; if (a.face) e.face = a.face; } });
       return true;
@@ -1136,11 +1201,20 @@ void main(){
       }
       if (a.type === "flag") { const c = getCleared(); c.add(a.key); setCleared(c); script.dirty = true; continue; }
       if (a.type === "flash") { script.waiting = true; script.lock = true; flashOn(); const sc = script; setTimeout(() => { sc.lock = false; sc.waiting = false; if (script === sc) stepScript(); }, 1300); return; }
-      if (a.type === "rest") { script.waiting = true; restParty(); return; }
+      if (a.type === "rest") {
+        const cost = a.cost || 0;
+        if ((cost || a.ask) && !a.ok) {                                                                  // an inn: name the price and let the player say no (a.ok = already agreed)
+          const gold = (state && state.money) || 0;
+          if (cost && gold < cost) { showChoice({ who: null, text: "A bed here is " + cost + " gold, and you only have " + gold + ".", options: [{ label: "Maybe later", actions: [{ type: "end" }] }] }); return; }
+          showChoice({ who: null, text: (a.text || "Stay the night and rest?") + (cost ? " (" + cost + " gold, you have " + gold + ")" : ""), options: [
+            { label: "Rest" + (cost ? " (" + cost + " gold)" : ""), actions: [Object.assign({}, a, { ok: true })] }, { label: "No thanks", actions: [{ type: "end" }] }] }); return;
+        }
+        script.waiting = true; restParty(null, cost ? { cost } : {}, true); return;
+      }
       if (a.type === "chest") { script.waiting = true; restParty("/api/story/chest", { loot: a.loot || {}, text: a.text || "" }); return; }
       if (a.type === "game") { script.waiting = true; restParty("/api/story/game", { game: a.game, stake: a.stake || 0 }); return; }   // fish | dice (server rolls it)
       if (a.type === "recruit") { script.waiting = true; restParty("/api/story/recruit", { name: a.name }); return; }
-      if (a.type === "away") {                                                                                 // {name, away:true|false}: a story hero leaves / rejoins the party (Sera in the infirmary)
+      if (a.type === "away") {                                                                                 // {name, away:true|false}: a story hero leaves / rejoins the party (Miya in the infirmary)
         const sc = script; script.waiting = true; script.lock = true;
         fetch("/api/story/away", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: a.name, away: a.away !== false }) }).then((r) => r.json()).catch(() => ({})).then((r) => {
           if (O && O.refresh) O.refresh();
@@ -1182,10 +1256,13 @@ void main(){
     savePos();
     location.href = "/battle?return=hub3d&scene=" + encodeURIComponent(S.name || "olympus") + (a.key ? "&key=" + encodeURIComponent(a.key) : "") + (S.def && S.def.restart ? "&restart=" + encodeURIComponent(S.def.restart) : "");
   }
-  async function restParty(url, body) {
+  async function restParty(url, body, fade) {
     const sc = script; if (sc) sc.lock = true;                         // E / click cannot skip past the action while the server is still answering
-    let text = "You rest a while.";
-    try { const r = await (await fetch(url || "/api/menu/rest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })).json(); if (r && r.message) text = r.message; if (O && O.refresh) O.refresh(); } catch (e) { text = "You try to rest, but nothing happens."; }
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    let text = "You rest a while.", slept = false;
+    if (fade) { setFade(1, 0.9); await wait(950); }                    // resting: fade to black, heal, fade back in
+    try { const r = await (await fetch(url || "/api/menu/rest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })).json(); if (r && r.message) text = r.message; slept = !(r && r.ok === false); if (O && O.refresh) O.refresh(); } catch (e) { text = "You try to rest, but nothing happens."; }
+    if (fade) { if (slept) await wait(700); setFade(0, 0.9); await wait(500); }
     if (sc) sc.lock = false;
     if (sc && script !== sc) return;                                 // the script was skipped / ended meanwhile: do not pop the text up after the event is over
     if (O && O.sfx && O.SFX) O.sfx(O.SFX.confirm);
@@ -1216,8 +1293,8 @@ void main(){
       return S && S.name === "prison" ? `You are a slave of the Colosseum. Fight for the Overseer until you rise past Rank ${fr - 1} to win your freedom` + (r ? ` (you are Rank ${r}).` : ".") : "";
     }
     if (!c.has("st_quest")) return "Speak with Elder Mahina in the village.";
-    if (!c.has("st_sera")) return "Meet Sera, the healer waiting at the arch of the Hollow Cave (north of the village).";
-    return "Escort Sera through the Hollow Cave and out to the Colosseum.";
+    if (!c.has("st_sera")) return "Meet Miya, the healer waiting at the arch of the Hollow Cave (north of the village).";
+    return "Escort Miya through the Hollow Cave and out to the Colosseum.";
   }
   /* ---------- quest registry: html_hub/3d/quests.json (made by make_quests.py) ----------
      { quests: [{id, kind:"main"|"side", title, giver, where, summary, accept, ready, done, steps:[{if, unless, text, count}]}],
@@ -1517,6 +1594,7 @@ void main(){
       } else if (window.Fishing && Fishing.inScene) Fishing.leave();
     } catch (e) { console.warn("[Hub3D] fishing hook:", e); }
   }
+  H3.inTown = function () { return !!(S && S.def && !S.def.restart); };      // dungeons (scenes with a `restart` prefix) are not town
   H3.canOpenMenu = function () {
     if (!H3.on || !S || script || S.switching || modalOpen() || (window.Fishing && Fishing.locked())) return false;
     return !(hudEls.load && !hudEls.load.classList.contains("done"));
@@ -1683,6 +1761,7 @@ void main(){
   H3.isStory = () => !!(S && S.def && S.def.story);   // story scene: the hub shows the story party, not the Colosseum one
   H3.onState = function (s) {
     state = s;
+    document.body.classList.toggle("dbgmode", !!(s && s.debug));
     if (s && s.debug && !window.__ptBotLoad) {                     // debug mode only: load the playtest bot (the server refuses to serve it otherwise)
       window.__ptBotLoad = true;
       const sc = document.createElement("script"); sc.src = "/hub3d/playtest_bot.js"; document.head.appendChild(sc);
@@ -1724,6 +1803,7 @@ void main(){
       body.h3d #rail-left, body.h3d #rail-right, body.h3d #navbar, body.h3d #ladder, body.h3d #bench-note { display:none !important; }
       body.h3d #party-row { position:absolute; left:14px; bottom:14px; z-index:4; padding:0; gap:8px; transform:scale(.6); transform-origin:left bottom; flex:none; pointer-events:none; }
       body.h3d #topbar { z-index:5; pointer-events:none; } body.h3d #currencies { pointer-events:auto; }
+      body:not(.dbgmode) #h3d-bar, body.h3d:not(.dbgmode) #currencies { display:none !important; }      /* the 2D/3D view toggle and the currency tags are debug-only */
       #h3d-bar { position:absolute; bottom:18px; right:70px; z-index:6; display:flex; gap:6px; }
       #h3d-bar button { background:var(--panel-bg); color:var(--dim); border:1px solid var(--panel-border); border-radius:999px; padding:4px 12px; font-size:12px; cursor:pointer; }
       #h3d-bar button:hover { color:#fff; border-color:var(--gold); }
@@ -1806,6 +1886,7 @@ void main(){
     if (!s) return; gfxLast = s;
     const num = (v, lo, hi, d) => (typeof v === "number" && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
     G.res = num(s.res, 0.4, 2, 1); G.view = num(s.view, 0.3, 2, 1); G.fx = num(s.fx, 0, 1, 1); G.aniso = num(s.aniso, 1, 16, 8);
+    if (typeof s.perf === "boolean" && !QP.has("perf")) { PERF.on = s.perf; if (!s.perf && PERF.el) PERF.el.style.display = "none"; }   // Settings > Performance overlay
     G.fps = num(s.fps, 0, 240, 0); G.bright = num(s.bright, 0.5, 1.5, 1); G.shadows = s.shadows !== false; G.auto = s.auto !== false; if (!G.auto) G.dyn = 1;
     if (canvas) { canvas.style.filter = G.bright === 1 ? "" : "brightness(" + G.bright + ")"; if (sceneEl) resize(); }
     if (window.EnvFX && EnvFX.setDensity) EnvFX.setDensity(G.fx);
@@ -1955,8 +2036,8 @@ void main(){
       if (!gl) throw new Error("WebGL unavailable");
       sprog = mkProg(SVS, SFS, ["a"]); mprog = mkProg(MVS, MFS, ["p", "n", "t", "c", "m0", "m1", "m2", "m3"]); bprog = mkProg(BVS, BFS, ["a", "i"]); ["u_vp", "u_r", "u_cam", "u_tex", "u_fogc", "u_fogr"].forEach((n) => { BU[n] = gl.getUniformLocation(bprog, n); }); instExt = gl.getExtension("ANGLE_instanced_arrays"); instBuf = gl.createBuffer(); pprog = mkProg(PVS, PFS, ["p", "n"]);
       ["u_vp", "u_o", "u_r", "u_u", "u_size", "u_anchor", "u_tex", "u_rect", "u_flip", "u_tint", "u_fogc", "u_fogr", "u_fogd"].forEach((n) => { SU[n] = gl.getUniformLocation(sprog, n); });
-      ["u_vp", "u_wt", "u_wa", "u_ft", "u_fcam", "u_tex", "u_color", "u_emis", "u_cut", "u_unlit", "u_mode", "u_ldir", "u_lcol", "u_amb", "u_fogc", "u_fogr"].forEach((n) => { MU[n] = gl.getUniformLocation(mprog, n); });
-      ["u_vp", "u_splat", "u_t0", "u_t1", "u_t2", "u_t3", "u_rect", "u_inv", "u_ldir", "u_lcol", "u_amb", "u_fogc", "u_fogr"].forEach((n) => { PU[n] = gl.getUniformLocation(pprog, n); });
+      ["u_vp", "u_wt", "u_wa", "u_ft", "u_fcam", "u_tex", "u_color", "u_emis", "u_cut", "u_unlit", "u_mode", "u_ldir", "u_lcol", "u_amb", "u_fogc", "u_fogr", "u_pl", "u_plc", "u_npl"].forEach((n) => { MU[n] = gl.getUniformLocation(mprog, n); });
+      ["u_vp", "u_splat", "u_t0", "u_t1", "u_t2", "u_t3", "u_rect", "u_inv", "u_ldir", "u_lcol", "u_amb", "u_fogc", "u_fogr", "u_pl", "u_plc", "u_npl"].forEach((n) => { PU[n] = gl.getUniformLocation(pprog, n); });
       quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
       gl.enable(gl.BLEND); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.activeTexture(gl.TEXTURE0);
       gl.useProgram(sprog); gl.uniform1i(SU.u_tex, 0);
@@ -1991,6 +2072,7 @@ void main(){
       if (q.get("at")) { const c = q.get("at").split(",").map(Number); S.player.x = c[0]; S.player.z = c[1]; }
       if (arrive && arrive.x != null) { S.player.x = arrive.x; S.player.z = arrive.z; }
       primeEvents();
+      if (q.get("fromTitle")) { try { history.replaceState(null, "", location.pathname); } catch (e) {} }          // Continue / Load Game arrive as ?scene=&at=; keep a refresh from re-teleporting
       if (!cam.free) { cam.tx = S.player.x; cam.tz = S.player.z + 1.5; }
       updateCamera(0.016, true);
       if (state) H3.onState(state);
@@ -1998,10 +2080,24 @@ void main(){
       if (arrive && !script) setTimeout(() => { if (!script && S && !S.switching) say("", arrive.text); }, 600);
     } catch (err) { console.warn("[Hub3D] could not build the plaza:", err); H3.failed = true; H3.ready = false; document.body.classList.remove("h3d"); if (hudEls.load) hudEls.load.textContent = "Plaza failed: " + (err && err.message || err); return; }
     requestAnimationFrame(frame);
+    startProgressSync();
     let saved = null; try { saved = localStorage.getItem("hubView"); } catch (e) {}
     const want = q.get("view") === "2d" || q.get("view") === "3d" ? q.get("view") : (saved || "3d");
     H3.setOn(want !== "2d");
   };
+  /* Progress kept in the browser (story flags, dungeon checkpoints, tracked quests, minimap, last position) is mirrored to the server
+     next to the current save slot, so the title screen's Continue / Load Game can restore it (html_hub/title.html clears and re-applies the same keys). */
+  const PROG_RE = /^(h3dCleared|h3dCp|h3dUntracked|h3dLast|h3dSeen_.*|ba_tutorial_seen_v1)$/;
+  let progLast = null, progTimer = 0;
+  function progressSync() {
+    try {
+      if (S && S.name && !S.switching && !script) localStorage.setItem("h3dLast", JSON.stringify({ scene: S.name, x: Math.round(S.player.x * 100) / 100, z: Math.round(S.player.z * 100) / 100 }));
+      const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (PROG_RE.test(k)) o[k] = localStorage.getItem(k); }
+      const s = JSON.stringify(o); if (s === progLast) return; progLast = s;
+      fetch("/api/title/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: s, keepalive: true }).catch(() => {});
+    } catch (e) {}
+  }
+  function startProgressSync() { if (progTimer) return; progTimer = setInterval(progressSync, 4000); window.addEventListener("pagehide", progressSync); }
   /* Debug-only hooks for the playtest bot (html_hub/3d/playtest_bot.js). Returns null unless the server runs with --debug. */
   H3.botApi = function () {
     if (!state || !state.debug) return null;

@@ -9,7 +9,7 @@ def make_party():
     """Returns a fresh list of party Combatants (call once per battle -- HP/MP/status
     reset via __post_init__ every time a new Combatant is constructed)."""
     kael = Combatant(
-        name="Kael", is_enemy=False,
+        name="Kenji", is_enemy=False,
         base_stats=Stats(max_hp=120, max_mp=20, atk=22, def_=16, mag=6, res=8, spd=11, luk=10),
         skill_ids=["power_strike", "cleave", "warcry", "iron_stance"],
         sprite_color=(200, 70, 60),
@@ -21,7 +21,7 @@ def make_party():
         sprite_color=(70, 110, 220),
     )
     sera = Combatant(
-        name="Sera", is_enemy=False,
+        name="Miya", is_enemy=False,
         base_stats=Stats(max_hp=85, max_mp=50, atk=9, def_=10, mag=20, res=18, spd=10, luk=11),
         skill_ids=["heal", "greater_heal", "prayer", "holy_light"],
         sprite_color=(230, 210, 90),

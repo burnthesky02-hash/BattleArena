@@ -257,7 +257,7 @@ def foe(key, name, sprite, c, tint, line, boss_id, lv, col, h=2.8):
     EV.append(dict(id="beacon_" + key, name="Rift beacon", x=round(x, 2), z=round(z + 2.4, 2), w=3.4, d=2.6, trigger="talk", prompt="Step into the rift beacon (back to the Nexus)", showIf=key,
                    actions=[dict(type="say", who="", text="A rift beacon flares up from the floor and pulls at you."), dict(type="flash"), dict(type="tp", x=0, z=10)]))
 foe("vt_g1", "Vault Sentinel", "Draven", gAc, [.6, .8, 1.3, 1], "INTRUDER. THE EAST GATE IS SEALED UNTIL I AM UNMADE. STATE YOUR ENDING.", "vault_sentinel_boss", 12, CA)
-foe("vt_g2", "Phase Stalker", "Kael", gBc, [.9, .55, 1.3, 1], "...you smell like the other side. Like the rift. Good.", "phase_stalker_boss", 13, CB)
+foe("vt_g2", "Phase Stalker", "Kenji", gBc, [.9, .55, 1.3, 1], "...you smell like the other side. Like the rift. Good.", "phase_stalker_boss", 13, CB)
 foe("vt_g3", "Rift Colossus", "Yulia", gCc, [1.3, .7, .55, 1], "THE CORE IS NOT FOR YOU. THE CORE IS NOT FOR ANYONE.", "rift_colossus_boss", 15, CC, 3.4)
 # Warden arena
 ax, az = W(arena_c[0]), W(arena_c[1])

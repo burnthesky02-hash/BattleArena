@@ -81,12 +81,12 @@ for x, z in ((-8.6, 12.6), (8.8, 12.0), (-17.6, 3.4)): put(rnd.choice(VASE), x, 
 NP = [
  dict(id="boss", name="Gate Warden", title="Colosseum Gate", sprite="Draven", x=0, z=-6.4, h=2.5, action="challenge", reach=5.2, radius=1.3),
  dict(id="battle", name="Draven", title="Battlemaster", sprite="Draven", x=-9.5, z=-1.5, h=2.4, action="battle"),
- dict(id="ladder", name="Kael", title="Rank Keeper", sprite="Kael", x=9.5, z=-1.5, h=2.4, action="ladder"),
- dict(id="summon", name="Sera", title="Summoner", sprite="Sera", x=0, z=3.2, h=2.4, action="summon", reach=5.0),
+ dict(id="ladder", name="Kenji", title="Rank Keeper", sprite="Kenji", x=9.5, z=-1.5, h=2.4, action="ladder"),
+ dict(id="summon", name="Miya", title="Summoner", sprite="Miya", x=0, z=3.2, h=2.4, action="summon", reach=5.0),
  dict(id="heroes", name="Lyra", title="Trainer", sprite="Lyra", x=-11.5, z=8.5, h=2.4, action="heroes"),
  dict(id="shop", name="Rook", title="Shopkeeper", sprite="Rook", x=13, z=7.2, h=2.4, action="shop"),
  dict(id="world", name="Yulia", title="Scout", sprite="Yulia", x=17.2, z=15, h=2.4, action="world"),
- dict(id="save", name="Scribe", title="Records", sprite="Kael", x=-17.2, z=15, h=2.3, action="save_and_quit", tint=[0.75, 0.88, 1.15, 1]),
+ dict(id="save", name="Scribe", title="Records", sprite="Kenji", x=-17.2, z=15, h=2.3, action="save_and_quit", tint=[0.75, 0.88, 1.15, 1]),
 ]
 DEC += [dict(type="glyph", x=0, z=3.2, r=3.4, color=[0.6, 0.4, 1, 1], spin=14),
         dict(type="glow", x=0, z=-6, r=6, color=[1, 0.8, 0.45, 1]), dict(type="glow", x=13, z=6, r=5, color=[1, 0.75, 0.4, 1]),
@@ -99,7 +99,7 @@ def raider(key, name, sprite, x, z, show, tint, lines, lvl, pool, h=2.4):
     NP.append(dict(id=key, name=name, title="Hostile", sprite=sprite, x=x, z=z, h=h, tint=tint, hideIf=key, showIf=show, reach=5.0,
                    actions=[dict(type="say", who=name, text=t) for t in lines] + [dict(type="battle", key=key, boss="", level_rel=lvl, pool=pool)]))
 raider("st_b1", "Masked Raider", "Draven", -5, 9, "st_siege", RAID, ["Found you. The portal is not done with you, islander."], [0, 2], ["dark_cultist", "cursed_knight", "bandit_rogue"])
-raider("st_b2", "Masked Raider", "Kael", 5, 9, "st_b1", RAID, ["Cut down one of us and two more take his place."], [0, 2], ["dark_cultist", "cursed_knight", "bandit_rogue"])
+raider("st_b2", "Masked Raider", "Kenji", 5, 9, "st_b1", RAID, ["Cut down one of us and two more take his place."], [0, 2], ["dark_cultist", "cursed_knight", "bandit_rogue"])
 raider("st_b3", "Hooded Leader", "Rook", 0, 6.5, "st_b2", [.55, .3, .9, 1], ["You grew strong in the Pit. Good. The Arena sings louder for it.", "Come. See what we serve."], [1, 3], ["cursed_knight", "dark_cultist", "abyssal_horror"], 2.6)
 GATE_SAY = lambda who, text, **c: dict(type="say", who=who, text=text, **c)
 EV = [dict(id="exit_outside", name="Colosseum exit", x=0, z=15.6, w=10, d=1.6, trigger="touch", once=False, actions=[
@@ -128,6 +128,6 @@ d = dict(name="Olympus Colosseum", kit="", tile=4, pieces=P, colliders=COL, npcs
                           dict(url=LYR + "clouds_puffy.webp", y=.34, height=.32, drift=.004, alpha=1, tint=[1, 1, 1], parallax=.2),
                           dict(url=LYR + "ridges_far.webp", y=.88, height=.3, parallax=.15, tint=[.78, .86, .98])]),
          light=dict(dir=[-0.4, -1, -0.35], color=[0.95, 0.9, 0.8], ambient=[0.62, 0.63, 0.7]), fog=dict(color=[0.78, 0.88, 0.97], near=80, far=230))
-import story_pit; story_pit.apply_olympus(d)         # Sera in the infirmary, exit gate waits for her (Oct 6)
+import story_pit; story_pit.apply_olympus(d)         # Miya in the infirmary, exit gate waits for her (Oct 6)
 os.makedirs(OUT, exist_ok=True); json.dump(d, open(os.path.join(OUT, "olympus.json"), "w"), separators=(",", ":"))
 print("pieces", len(P), "colliders", len(COL))

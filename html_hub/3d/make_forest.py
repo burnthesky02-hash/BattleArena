@@ -172,7 +172,7 @@ block(ggx, ggz - 1.5, 7.6, 1.6); chest(ggx + 2.0, ggz + 2.6, 1, -30)
 sx, sz, _ = CLEAR["spider"]                             # the webbed hollow
 for k in range(8): put(rnd.choice(["SM_Plant_01", "SM_Plant_03"]), sx + rnd.uniform(-5, 5), sz + rnd.uniform(-5, 5), rnd.randrange(360), 0, rnd.uniform(0.6, 1.0))
 glow(sx, sz, 6.0, [0.75, 0.9, 0.7, 0.25]); chest(sx + 3.0, sz + 2.8, 2, 40)
-NP += [dict(id="spider", name="Giant Spider", title="Webbed hollow", x=sx - 1.0, z=sz - 1.0, h=2.6, sprite="Sera", tint=[0.55, 0.45, 0.7, 1], hideIf="fq_spider",
+NP += [dict(id="spider", name="Giant Spider", title="Webbed hollow", x=sx - 1.0, z=sz - 1.0, h=2.6, sprite="Miya", tint=[0.55, 0.45, 0.7, 1], hideIf="fq_spider",
             actions=[dict(type="say", who="", text="Silk glimmers between the trunks. Something large and many-legged drops down in front of you."),
                      dict(type="battle", key="fq_spider", pool=["venom_spider"], level=[5, 5])])]
 cax, caz, _ = CLEAR["cache"]                            # ranger's cache
@@ -185,7 +185,7 @@ EV.append(dict(id="spirit_spring", name="Spirit spring", x=glx, z=glz + 1.8, w=5
                actions=[dict(type="say", who="", text="Clear, cold water wells up between the roots. It tastes of rain, and for a moment every ache leaves you."), dict(type="rest")]))
 chest(glx + 2.8, glz - 2.4, 1, 20)
 NP += [dict(id="hermit", name="Mossbeard", title="Forest hermit", x=glx - 3.2, z=glz + 2.2, h=2.4, sprite="Draven", tint=[0.8, 1.0, 0.8, 1], line="Hm? Oh, travellers. The Oak is older than the island's name. It sings to the thorns. Lately somebody has been singing back."),
-        dict(id="hunter", name="Garrick", title="Hunter", x=hx - 1.6 if False else 10.4, z=56.2, h=2.4, sprite="Kael", tint=[0.9, 1.05, 0.8, 1],
+        dict(id="hunter", name="Garrick", title="Hunter", x=hx - 1.6 if False else 10.4, z=56.2, h=2.4, sprite="Kenji", tint=[0.9, 1.05, 0.8, 1],
              line="Mind yourself in there. Goblins on the trails, spiders in the hollows, and worse to the north. Rest at the ranger's camp by the pool if you need it. Follow the water.")]
 
 # ---------------------------------------------------------------- exit back to the village, scene events

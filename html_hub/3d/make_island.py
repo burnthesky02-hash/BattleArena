@@ -240,28 +240,28 @@ for zc in np.arange(-77, 38, 2.0) + 1.0:
 NP += [
  dict(id="ferry", name="Ferryman Osk", title="Ferry", sprite="Rook", x=1.4, z=31.0, h=2.3, tint=[0.85, 1.1, 1.2, 1], line="The ferry runs whenever the tide allows. Walk to the end of the pier when you want to head back to the colosseum."),
  dict(id="elder", name="Elder Mahina", title="Village Elder", sprite="Lyra", x=-5.0, z=0.8, h=2.4, tint=[1.15, 1.05, 0.9, 1], line="Welcome to Paradise Island. The mayor lives in the big blue-roofed house up the hill; he has been asking after a stranger who can fight."),
- dict(id="fisher", name="Pua", title="Fisher", sprite="Kael", x=-23.0, z=29.0, h=2.3, tint=[0.9, 1.1, 1.0, 1], line="Biting well today. Don't tell the gulls."),
+ dict(id="fisher", name="Pua", title="Fisher", sprite="Kenji", x=-23.0, z=29.0, h=2.3, tint=[0.9, 1.1, 1.0, 1], line="Biting well today. Don't tell the gulls."),
  dict(id="trader", name="Kai", title="Island Trader", sprite="Yulia", x=24.8, z=13.2, h=2.4, tint=[1.15, 1.0, 0.8, 1], line="Coconuts, shells, and rumours from the mainland. The rumours are free. The crates on the beach are the harbour's; I'd leave them be."),
  dict(id="farmer", name="Old Tane", title="Farmer", sprite="Draven", x=-32.5, z=-9.6, h=2.4, tint=[0.9, 0.95, 1.1, 1], line="Turnips, beans and one very stubborn goat. The goblins have been at my fence ever since they moved into the Whispering Wood."),
  dict(id="keeper", name="Bram", title="Innkeeper", sprite="Lyra", x=tav_door[0] + 0.2, z=tav_door[1] + 1.8, h=2.4, tint=[1.15, 0.95, 0.85, 1],
       actions=[dict(type="say", who="Bram", text="Welcome to the Salty Anchor. A hot meal and a warm bed, on the house for anyone who looks as beaten as you do."), dict(type="rest")]),
  dict(id="smith", name="Hild", title="Blacksmith", sprite="Draven", x=smi_door[0] - 2.0, z=smi_door[1] + 0.4, h=2.5, tint=[1.2, 0.8, 0.7, 1], action="heroes"),
  dict(id="shopkeeper", name="Marla", title="Item Shop", sprite="Rook", x=shp_door[0] - 0.4, z=shp_door[1] - 1.8, h=2.3, tint=[0.8, 1.05, 1.15, 1], action="shop"),
- dict(id="harbourmaster", name="Harbourmaster Teo", title="Harbourmaster", sprite="Kael", x=lod_door[0] + 0.3, z=lod_door[1] + 1.8, h=2.4, tint=[0.8, 0.95, 1.2, 1], line="Mind the boats. The big ferry from the colosseum comes in at the long pier; mine are the little ones."),
- dict(id="scholar", name="Scholar Nema", title="Lore keeper", sprite="Sera", x=-9.0, z=MZ + 6.0, h=2.4, tint=[1.0, 1.05, 1.15, 1], line="The Hollow Cave is older than the colosseum, older than the ladder. The tunnel behind me goes down to a flooded court."),
+ dict(id="harbourmaster", name="Harbourmaster Teo", title="Harbourmaster", sprite="Kenji", x=lod_door[0] + 0.3, z=lod_door[1] + 1.8, h=2.4, tint=[0.8, 0.95, 1.2, 1], line="Mind the boats. The big ferry from the colosseum comes in at the long pier; mine are the little ones."),
+ dict(id="scholar", name="Scholar Nema", title="Lore keeper", sprite="Miya", x=-9.0, z=MZ + 6.0, h=2.4, tint=[1.0, 1.05, 1.15, 1], line="The Hollow Cave is older than the colosseum, older than the ladder. The tunnel behind me goes down to a flooded court."),
  # --- Mayor Orrin: four states, driven by the forest quest flags
- dict(id="mayor0", name="Mayor Orrin", title="Mayor", sprite="Kael", x=may_door[0] + 0.2, z=may_door[1] + 1.8, h=2.4, tint=[1.25, 1.1, 0.75, 1], hideIf="fq_start",
+ dict(id="mayor0", name="Mayor Orrin", title="Mayor", sprite="Kenji", x=may_door[0] + 0.2, z=may_door[1] + 1.8, h=2.4, tint=[1.25, 1.1, 0.75, 1], hideIf="fq_start",
       actions=[dict(type="say", who="Mayor Orrin", text="A fighter, at last. I am Orrin, mayor of this island. Listen closely: the Hollow Cave north of the village has been sealed by order of the council, and the Warden's Seal that opens it is gone."),
                dict(type="say", who="Mayor Orrin", text="Ranger Willa carried the Seal into the Whispering Wood to deal with a goblin raiding party that kept robbing the farms. That was three days ago. She has not come back."),
                dict(type="say", who="Mayor Orrin", text="Take the path in the north-west corner of the island. Fight your way through, find Willa, and bring the Seal home. I will make it worth your while."),
                dict(type="flag", key="fq_start")]),
- dict(id="mayor1", name="Mayor Orrin", title="Mayor", sprite="Kael", x=may_door[0] + 0.2, z=may_door[1] + 1.8, h=2.4, tint=[1.25, 1.1, 0.75, 1], showIf="fq_start", hideIf="fq_seal",
+ dict(id="mayor1", name="Mayor Orrin", title="Mayor", sprite="Kenji", x=may_door[0] + 0.2, z=may_door[1] + 1.8, h=2.4, tint=[1.25, 1.1, 0.75, 1], showIf="fq_start", hideIf="fq_seal",
       actions=[dict(type="say", who="Mayor Orrin", text="Any sign of Willa? The Whispering Wood is in the north-west. Follow the path past the farm. Goblins and worse live in there, so bring your whole party.")]),
- dict(id="mayor2", name="Mayor Orrin", title="Mayor", sprite="Kael", x=may_door[0] + 0.2, z=may_door[1] + 1.8, h=2.4, tint=[1.25, 1.1, 0.75, 1], showIf="fq_seal", hideIf="fq_done",
+ dict(id="mayor2", name="Mayor Orrin", title="Mayor", sprite="Kenji", x=may_door[0] + 0.2, z=may_door[1] + 1.8, h=2.4, tint=[1.25, 1.1, 0.75, 1], showIf="fq_seal", hideIf="fq_done",
       actions=[dict(type="say", who="Mayor Orrin", text="The Warden's Seal! And Willa is safe? You have done this island a great service."),
                dict(type="say", who="Mayor Orrin", text="Take this purse, and my blessing. The council's order is lifted: the Cave Warden will let you through the gate."),
                dict(type="flag", key="fq_done"), dict(type="chest", loot={"gold": 600, "gems": 12})]),
- dict(id="mayor3", name="Mayor Orrin", title="Mayor", sprite="Kael", x=may_door[0] + 0.2, z=may_door[1] + 1.8, h=2.4, tint=[1.25, 1.1, 0.75, 1], showIf="fq_done",
+ dict(id="mayor3", name="Mayor Orrin", title="Mayor", sprite="Kenji", x=may_door[0] + 0.2, z=may_door[1] + 1.8, h=2.4, tint=[1.25, 1.1, 0.75, 1], showIf="fq_done",
       actions=[dict(type="say", who="Mayor Orrin", text="The cave is open to you now. The old tales say a drowned king sleeps at the bottom of it. Do not wake him lightly.")]),
  # --- the cave warden, before and after the quest
  dict(id="warden0", name="Cave Warden", title="Guard of the cave", sprite="Rook", x=6.4, z=MZ + 4.8, h=2.5, tint=[0.7, 0.8, 1.05, 1], hideIf="fq_done",
@@ -310,6 +310,6 @@ d = dict(name="Paradise Island", kit="", tile=4, pieces=T.P, colliders=T.COL, np
          fx=[dict(type="dust", amount=.1)], terrain=IH.terrain_json(), walk=WALK,
          light=dict(dir=[-0.4, -1, -0.3], color=[1, 0.96, 0.86], ambient=[0.55, 0.57, 0.64]), fog=dict(color=[0.72, 0.88, 0.97], near=90, far=250))
 d.setdefault("music", {"url": "/assets/Music/mp3/04. Peaceful Village.mp3"})
-import island_story; island_story.apply(d)          # chapter-1 story chain (Mahina -> Sera at the cave arch -> the cave and the Colosseum guards, see island_story.py)
+import island_story; island_story.apply(d)          # chapter-1 story chain (Mahina -> Miya at the cave arch -> the cave and the Colosseum guards, see island_story.py)
 os.makedirs(OUT, exist_ok=True); json.dump(d, open(os.path.join(OUT, "island.json"), "w"), separators=(",", ":"))
 print("pieces", len(T.P), "colliders", len(T.COL), "npcs", len(NP), "events", len(EV), "trees", len(trees))

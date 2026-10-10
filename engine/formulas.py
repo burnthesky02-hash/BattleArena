@@ -51,7 +51,7 @@ def physical_damage(attacker: Combatant, defender: Combatant, power: float = 1.0
     df = defender.effective_stat("def_")
     if defender.defending:
         df *= 1.5
-    raw = max(MIN_DAMAGE, (atk * power) - (df * 0.5))
+    raw = max(MIN_DAMAGE, (atk * power) - (df * 0.5)) * getattr(attacker, "power_mult", 1.0)
     roll = random.uniform(1 - VARIANCE, 1 + VARIANCE)
     base = raw * roll
     crit_chance = _crit_chance(attacker)
@@ -76,7 +76,7 @@ def magical_damage(attacker: Combatant, defender: Combatant, power: float, eleme
     res = defender.effective_stat("res")
     if defender.defending:
         res *= 1.5
-    raw = max(MIN_DAMAGE, (mag * power) - (res * 0.5))
+    raw = max(MIN_DAMAGE, (mag * power) - (res * 0.5)) * getattr(attacker, "power_mult", 1.0)
     roll = random.uniform(1 - VARIANCE, 1 + VARIANCE)
     base = raw * roll
     crit_chance = _crit_chance(attacker) * 0.6   # spells crit a bit less often
@@ -100,7 +100,7 @@ def heal_amount(caster: Combatant, power: float) -> int:
     mag = caster.effective_stat("mag")
     roll = random.uniform(1 - VARIANCE, 1 + VARIANCE)
     row_given = formation.healing_given_multiplier(caster.formation)
-    amount = max(1, round(mag * power * roll * row_given))
+    amount = max(1, round(mag * power * getattr(caster, "power_mult", 1.0) * roll * row_given))
     if calc_hook:
         _report(f"[calc] HEAL {caster.name} MAG {mag} x power {power:g} = {mag * power:.1f} | roll x{roll:.2f}"
                 f" | row x{row_given:g} ({caster.formation}) => {amount}")

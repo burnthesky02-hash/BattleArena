@@ -108,7 +108,7 @@ def foe(key, name, sprite, col, row, tint, line, h=2.4):
 foe("dg_m1", "Restless Guard", "Draven", 7.7, 19.2, [1.25, .75, .75, 1], "Intruders... in the gallery of the king.")
 foe("dg_m2", "Restless Guard", "Draven", 12.3, 19.2, [1.25, .75, .75, 1], "None pass the gallery. None.")
 foe("dg_a", "Gallery Warden", "Rook", 10, 18.6, [.65, .8, 1.15, 1], "I have held this hall for a thousand tides. Kneel or fall.", 2.8)
-foe("dg_w1", "Crypt Stalker", "Kael", 2.8, 19.6, [.7, 1.1, .85, 1], "You walk among the king's dead. Join them.")
+foe("dg_w1", "Crypt Stalker", "Kenji", 2.8, 19.6, [.7, 1.1, .85, 1], "You walk among the king's dead. Join them.")
 foe("dg_e1", "Drowned Acolyte", "Lyra", 17.8, 20.2, [.6, .85, 1.2, 1], "The sea-glass sings your name...")
 foe("dg_b1", "Tide Wraith", "Yulia", 10, 14.6, [.6, .9, 1.25, 1], "Cold, so cold. Stay and be cold with us.")
 foe("dg_b2", "Hollow Knight", "Draven", 10, 12.2, [.7, .75, 1.0, 1], "The Sovereign's door stays shut. Prove yourself.", 2.9)

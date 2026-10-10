@@ -56,3 +56,13 @@
 {"n": 3, "t": 0, "kind": "info", "msg": "resumed after a page change", "ctx": "hub", "scene": ""}
 {"n": 4, "t": 1, "kind": "scene", "msg": "entered island", "ctx": "hub", "scene": "island"}
 {"n": 5, "t": 1, "kind": "stuck", "msg": "STUCK: no story heroes in the party", "ctx": "hub", "scene": "island"}
+{"n": 6, "t": 141885, "kind": "battle", "msg": "wild:forest VICTORY in 69 s (forest)", "ctx": "battle", "scene": "forest", "key": "wild:forest", "boss": "", "level": 0, "result": "victory", "secs": 69}
+{"n": 7, "t": 141886, "kind": "info", "msg": "resumed after a page change", "ctx": "hub", "scene": "forest"}
+{"n": 8, "t": 141886, "kind": "scene", "msg": "entered forest", "ctx": "hub", "scene": "forest"}
+{"n": 9, "t": 141886, "kind": "flag", "msg": "st_intro, fw_pass, sq_moss_q, sq_spring, fc_7, dc_1, sq_alpha, sq_alpha_r, fc_5, fc_4, sq_dgc1, sq_locket_q, sq_moss_done, fq_spider, fc_6, fq_g2, fq_g1, fq_chief, fq_chief_msg, fq_start, fq_seal, fq_done, st_quest, st_sera, st_cave_in, dc_2, dg_pi_red, dc_9, dg_pb_2, dg_pi_green, dg_g1, dc_4, dg_pi_gold, dc_8, dg_pb_1, dc_3, dg_pi_blue, dg_pa_1, dg_pa_2, dg_pa_3, dg_pa_4, dc_5, sq_wraith, sq_wrai", "ctx": "hub", "scene": "forest"}
+{"n": 10, "t": 141886, "kind": "fire", "msg": "forest/event:fc_1", "ctx": "hub", "scene": "forest"}
+{"n": 11, "t": 141886, "kind": "flag", "msg": "fc_1", "ctx": "hub", "scene": "forest"}
+{"n": 12, "t": 141887, "kind": "fire", "msg": "forest/event:fc_2", "ctx": "hub", "scene": "forest"}
+{"n": 13, "t": 141887, "kind": "flag", "msg": "fc_2", "ctx": "hub", "scene": "forest"}
+{"n": 14, "t": 141887, "kind": "fire", "msg": "forest/npc:briarmaw [fight]", "ctx": "hub", "scene": "forest"}
+{"n": 15, "t": 141895, "kind": "info", "msg": "resumed after a page change", "ctx": "battle", "scene": "forest"}

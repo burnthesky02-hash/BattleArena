@@ -34,6 +34,10 @@ class Combatant:
     # occupied enemy front row. Deliberately independent of any one skill's kind (physical/magical);
     # see this module's formation-related fields and engine/formation.py's module docstring for why.
     is_melee: bool = True
+    # Multiplies every damage and heal roll this combatant makes (engine/formulas.py). 1.0 = the original numbers; the
+    # builders set it from data/leveling.py's power_mult(level) so a level-99 fight lasts about as long as it used to
+    # even though HP grew faster than ATK/MAG (the level-99 rebalance).
+    power_mult: float = 1.0
     # skill_id -> rank (1-10, see engine/skills.py's MAX_SKILL_RANK). Missing = rank 1 (unranked/base).
     # Only ever populated for a hero-built Combatant (game/roster.py's build_combatant, from
     # PlayerCharacter.skill_ranks) -- enemies never rank up, so this stays empty for them.

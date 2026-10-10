@@ -204,15 +204,15 @@ box_prop("SM_crate_group_02", 22, -43.5, 0); box_prop("SM_crate_group_01", -27, 
 box_prop("SM_bag", 26.5, -62, 40, coll=False); box_prop("SM_bottle", 12.5, -66.2, 0, .93, 2.0, coll=False)
 for (x, z) in ((-8, -74), (8, -74), (-24, -45), (24, -45)): brazier(x, z, 8)
 note("dg_log", "Smugglers' log", 14, -48, "'...the Captain had us light the Gallery lamps with the four embers, in the old order, or the roof comes down on the lot of us. Tide first, always. Then the hearth. Then the sun. Moss last. One ember to a lamp, and the lamps bite if you get it wrong. We hid the embers in the stashes round the cave so no one could do it by accident. Hope nobody does.' The rest is smeared with grease.", "Smuggler's log")
-npc(id="dg_shop1", name="Pell", title="Cave fence", sprite="Kael", x=-9.5, z=-60, tint=[.7, .7, .95, 1], line="Psst. Everything here was found, not stolen. Browse?", action="shop")
-npc(id="dg_hero1", name="Captain Merrow", title="Sellsword", sprite="Sera", x=9.5, z=-60.5, tint=[1.1, .95, .9, 1], line="Coin buys steel, steel buys time. Looking to hire?", action="heroes")
-npc(id="dg_sera", name="Sera", title="Chapel healer", sprite="Sera", x=5.4, z=-56, tint=[1, 1.05, 1.15, 1], hideIf="st_sera", line="", actions=[
-    {'type': 'say', 'who': 'Sera', 'text': 'Easy. I am not a smuggler, and I am not one of the drowned either. My name is Sera. I am a healer from the Tide Chapel on the mainland.'},
-    {'type': 'say', 'who': 'Sera', 'text': "The chapel's records say a king was laid to rest in this cave with his whole court sealed in beside him, still waiting on a tide that never came. Someone ought to see them to rest. I came to do that. I did not expect the cave to be full of bandits."},
-    {'type': 'say', 'who': 'Sera', 'text': 'I have been camped here three days, waiting for someone who can actually swing a sword. A village girl came through before that, with a sack and a lantern, asking the way to the moonglow moss. I told her to turn back. I do not think she did.'},
-    {'type': 'say', 'who': 'Sera', 'text': "If she went deeper, she is behind the same sealed doors as the court. Please, let me walk with you. I am no fighter, but I can keep you standing, and I know how the Chapel's seals are meant to be undone."},
-    {'type': 'say', 'who': '', 'text': 'Sera takes up her staff and falls in beside you. She joins your party! Equip her before you head on.'},
-    {'type': 'recruit', 'name': 'Sera'},
+npc(id="dg_shop1", name="Pell", title="Cave fence", sprite="Kenji", x=-9.5, z=-60, tint=[.7, .7, .95, 1], line="Psst. Everything here was found, not stolen. Browse?", action="shop")
+npc(id="dg_hero1", name="Captain Merrow", title="Sellsword", sprite="Miya", x=9.5, z=-60.5, tint=[1.1, .95, .9, 1], line="Coin buys steel, steel buys time. Looking to hire?", action="heroes")
+npc(id="dg_sera", name="Miya", title="Chapel healer", sprite="Miya", x=5.4, z=-56, tint=[1, 1.05, 1.15, 1], hideIf="st_sera", line="", actions=[
+    {'type': 'say', 'who': 'Miya', 'text': 'Easy. I am not a smuggler, and I am not one of the drowned either. My name is Miya. I am a healer from the Tide Chapel on the mainland.'},
+    {'type': 'say', 'who': 'Miya', 'text': "The chapel's records say a king was laid to rest in this cave with his whole court sealed in beside him, still waiting on a tide that never came. Someone ought to see them to rest. I came to do that. I did not expect the cave to be full of bandits."},
+    {'type': 'say', 'who': 'Miya', 'text': 'I have been camped here three days, waiting for someone who can actually swing a sword. A village girl came through before that, with a sack and a lantern, asking the way to the moonglow moss. I told her to turn back. I do not think she did.'},
+    {'type': 'say', 'who': 'Miya', 'text': "If she went deeper, she is behind the same sealed doors as the court. Please, let me walk with you. I am no fighter, but I can keep you standing, and I know how the Chapel's seals are meant to be undone."},
+    {'type': 'say', 'who': '', 'text': 'Miya takes up her staff and falls in beside you. She joins your party! Equip her before you head on.'},
+    {'type': 'recruit', 'name': 'Miya'},
     {'type': 'flag', 'key': 'st_sera'}])
 npc(id="dg_smug1", name="Old Dov", title="Smuggler", sprite="Rook", x=-3.6, z=-52, tint=[.75, .75, .7, 1], line="", actions=[
     dict(type="say", who="Old Dov", text="Gallery's north of here, past the long hall. The lamps in there want four embers, and the embers are hid in the side rooms. Don't light 'em wrong; the lamps bite."),
@@ -331,7 +331,7 @@ box_prop("SM_table_chairs", -14, -421, 180); box_prop("SM_crate_group_02", -26, 
 for k, (dx, dz) in enumerate(((0, 0), (1.5, .3), (.4, 1.5), (-1.2, 1.2))): box_prop("SM_barrel_0%d" % (1 + k % 4), 24 + dx, -428 + dz, 30 * k)
 for x in (-26, -14, 14, 26): put("SM_beam_01", x, -385, 0, 0, 1.0); block(x, -385, .5, .5)
 for (x, z) in ((-8, -429), (8, -429), (-8, -383), (8, -383)): brazier(x, z, 8)
-npc(id="dg_shop2", name="Tolliver", title="Miner-trader", sprite="Kael", x=-9.5, z=-409, tint=[.9, .85, .7, 1], line="Picks, rope, and a good lantern. What are you short of?", action="shop")
+npc(id="dg_shop2", name="Tolliver", title="Miner-trader", sprite="Kenji", x=-9.5, z=-409, tint=[.9, .85, .7, 1], line="Picks, rope, and a good lantern. What are you short of?", action="shop")
 npc(id="dg_miner", name="Hale", title="Last miner", sprite="Yulia", x=8.5, z=-410, tint=[.85, .8, .75, 1], line="", actions=[
     dict(type="say", who="Hale", text="The Sigil Hall's north of here. Three crystal stones, and the door won't open until all three show the right colour. Foreman wrote it down. Three sheets, three galleries."),
     dict(type="say", who="Hale", text="West shaft, east shaft, and the little one off the south passage. And mind the stones: they cycle red, blue, green, gold.")])
@@ -408,12 +408,12 @@ NP.append(dict(id="dg_boss", name="Drowned Sovereign", title="King of the Hollow
                         dict(type="battle", key="dg_boss", boss="drowned_sovereign_boss", level=8)]))
 NP.append(dict(id="dg_spirit", name="Spirit of the King", title="At rest", sprite="Lyra", x=0.0, z=BZ, h=2.6, tint=[0.7, 0.9, 1.4, 1], showIf="dg_boss", reach=5.0,
                actions=[dict(type="say", who="Spirit of the King", text="The tide is turned at last. Take what is left of my crown, and the thanks of the court."),
-                        dict(type="say", who="Sera", text="Rest now, Your Majesty, you and all your court. The tide has turned.", **{"if": "st_sera"}),
+                        dict(type="say", who="Miya", text="Rest now, Your Majesty, you and all your court. The tide has turned.", **{"if": "st_sera"}),
                         dict(type="say", who="Spirit of the King", text="A mortal girl took shelter in the alcove by my throne when the doors sealed. Speak with her.", unless="st_found"),
                         dict(type="say", who="", text="The doors stand open and the cave is quiet. Touch the waking stone by the entrance to wake it again, or take the stairs home.")]))
-NP.append(dict(id="dg_lani", name="Lani", title="Missing villager", sprite="Sera", x=-8.0, z=BZ + 7, h=2.2, tint=[1.25, 0.95, 1.1, 1], showIf="dg_boss", hideIf="st_found", reach=5.0,
+NP.append(dict(id="dg_lani", name="Lani", title="Missing villager", sprite="Miya", x=-8.0, z=BZ + 7, h=2.2, tint=[1.25, 0.95, 1.1, 1], showIf="dg_boss", hideIf="st_found", reach=5.0,
                actions=[dict(type="say", who="Lani", text="You... beat the king? I was sure nobody would ever come."),
-                        dict(type="say", who="Sera", text="Lani! Thank the tides. Sit, you are shaking. Here, drink this.", **{"if": "st_sera"}),
+                        dict(type="say", who="Miya", text="Lani! Thank the tides. Sit, you are shaking. Here, drink this.", **{"if": "st_sera"}),
                         dict(type="say", who="Lani", text="I only wanted moonglow moss for Elder Mahina's cough. Then the doors sealed behind me and the dead king's court would not let me out."),
                         dict(type="say", who="Lani", text="There is a side tunnel up to the beach. Go ahead and I will meet you in the village!"), dict(type="flag", key="st_found")]))
 EV.append(dict(id="dg_portal", name="Stairs to the surface", x=0.0, z=-722, w=5, d=2.4, trigger="talk", prompt="Climb back to the island", showIf="dg_boss", actions=[dict(type="warp", scene="island", x=0, z=-39.5)]))
@@ -1023,7 +1023,7 @@ d = dict(name="Hollow Cave", kit="", tile=4, pieces=P, colliders=COL, npcs=NP, e
          bounds=dict(minX=X(min(xs)) - 6, maxX=X(max(xs)) + 6, minZ=X(min(zs)) - 6, maxZ=X(max(zs)) + 6), spawn=dict(x=SPAWN[0], z=SPAWN[1]), playerHeight=2.4, minimap=MINIMAP,
          sky=dict(type="gradient", stops=[[0, "#05070d"], [1, "#0d1420"]]), fx=[dict(type="dust", amount=.25)],
          light=dict(dir=[-0.35, -1, -0.25], color=[0.74, 0.82, 1.0], ambient=[0.36, 0.42, 0.56]), fog=dict(color=[0.035, 0.06, 0.105], near=32, far=100), cull=165, music=dict(url="/assets/Music/mp3/11. Dangerous Cave.mp3"))
-import cave_story; cave_story.apply(d)                       # story layer: Sera joins on the island, guards vs the Sovereign, the knock-out (cave_story.py)
+import cave_story; cave_story.apply(d)                       # story layer: Miya joins on the island, guards vs the Sovereign, the knock-out (cave_story.py)
 _gx = next(e for e in d["events"] if e["id"] == "dg_guards_cs"); assert cell_of(_gx["x"], _gx["z"]) in F, "guard cutscene trigger is not on floor"
 for _n in d["npcs"]:
     if _n["id"] in ("dg_cap", "dg_gd1", "dg_gd2", "dg_gd3"): assert cell_of(_n["x"], _n["z"]) in F, "guard %s is not on floor" % _n["id"]

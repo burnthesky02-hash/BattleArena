@@ -10,7 +10,7 @@ from engine.types import Element
 def make_enemy_group():
     """Returns a fresh list of enemy Combatants for a colosseum bout."""
     # Stats and kits tuned up from the first pass -- headless testing showed the
-    # original trio lost to the default party essentially every time (Sera's
+    # original trio lost to the default party essentially every time (Miya's
     # healing throughput comfortably outran incoming damage). See README's
     # "Balance" section for the measured before/after win rates.
     golem = Combatant(

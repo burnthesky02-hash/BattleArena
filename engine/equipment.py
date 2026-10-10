@@ -39,8 +39,13 @@ ARMOR_WEIGHT_ORDER = {w: i for i, w in enumerate(ARMOR_WEIGHTS)}
 
 # Weapon/off-hand subtypes. A class can equip a weapon/off-hand only if its subtype is in that class's
 # allowed set (data/classes.py) -- unlike armor weight, there's no "lighter is always fine" ordering here.
-WEAPON_TYPES = ("sword", "axe", "mace", "dagger", "bow", "staff", "wand", "tome")
+WEAPON_TYPES = ("sword", "axe", "mace", "dagger", "bow", "staff", "wand", "tome", "dual_blades")
 OFFHAND_TYPES = ("shield", "buckler", "quiver", "focus")
+
+# Weapon subtypes that fill BOTH hands: equipping one takes the weapon slot AND the off-hand slot (the off-hand is
+# emptied -- anything in it goes back to the stash -- and can't be filled again until the weapon comes off).
+# Which heroes may wield them is data/classes.py's HERO_EXTRA_WEAPON_TYPES (dual blades are Kenji's signature type).
+TWO_SLOT_WEAPON_TYPES = ("dual_blades",)
 
 RARITIES = ("common", "rare", "epic", "legendary", "mythic")  # epic+ are premium, gem-summon-only
 
@@ -85,6 +90,11 @@ class Equipment:
 
 STAT_LABEL = {"max_hp": "HP", "max_mp": "MP", "atk": "ATK", "def_": "DEF",
               "mag": "MAG", "res": "RES", "spd": "SPD", "luk": "LUK"}
+
+
+def occupies_offhand(item: Optional[Equipment]) -> bool:
+    """True for a weapon that uses both hands (see TWO_SLOT_WEAPON_TYPES), so the off-hand slot is taken by it."""
+    return bool(item) and item.slot == "weapon" and item.subtype in TWO_SLOT_WEAPON_TYPES
 
 
 def class_can_equip(item: Equipment, weapon_types, offhand_types, max_armor_weight: str) -> bool:

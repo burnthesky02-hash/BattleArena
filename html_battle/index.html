@@ -53,7 +53,7 @@
     background: var(--panel-bg); color: #ff8a7a; border: 1px dashed #ff8a7a99;
     border-radius: 999px; padding: 4px 14px; font-size: 13px; cursor: pointer; }
   #dbg-kill-btn:hover { background: #ff8a7a; color: #1a0a08; border-style: solid; }
-  #round-label {
+  #round-label { display: none !important;
     position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
     font-size: 13px; color: var(--text-dim);
     background: var(--panel-bg); padding: 4px 14px; border-radius: 999px;
@@ -310,7 +310,7 @@
   #flash.go { animation: fl 0.6s ease-out; }
   @keyframes fl { 0% { opacity: 0.75; } 100% { opacity: 0; } }
   /* Top "what is happening" bar (FFXII-style): centred, fades at both ends, one line per action + effect lines. */
-  #cast-banner { position: absolute; top: 12px; left: 50%; z-index: 2000; opacity: 0; pointer-events: none;
+  #cast-banner { position: absolute; top: 56px; left: 50%; z-index: 2000; opacity: 0; pointer-events: none;
     min-width: 380px; max-width: 70%; padding: 8px 56px 10px; text-align: center; font-family: inherit; font-size: 22px;
     color: #fff; white-space: nowrap; text-shadow: 0 2px 4px #000; transform: translate(-50%, -10px);
     background: linear-gradient(90deg, rgba(20,40,120,0) 0%, rgba(20,40,120,0.88) 16%, rgba(20,40,120,0.88) 84%, rgba(20,40,120,0) 100%);
@@ -416,8 +416,7 @@
 <div id="viewport">
   <div id="stage">
     <div id="cast-banner"></div>
-    <div id="round-label">Round --</div>
-    <div id="atb-timeline"></div>
+        <div id="atb-timeline"></div>
     <button id="auto-btn" onclick="toggleAuto()">Auto: OFF</button>
     <button id="dbg-auto-btn" onclick="toggleDbgAuto()" title="Debug: a full-player bot plays your party (defends braced casts, heals, buffs, focus fires)">Bot: OFF</button>
     <button id="dbg-kill-btn" onclick="dbgKillEnemies()" title="Debug: defeat every enemy instantly">Kill all</button>
@@ -647,7 +646,17 @@ function columnLayout(combatants, anchorX, facingRight) {
 const DEFAULT_BATTLER = "Draven";
 const sheetCache = new Map(); // "name/pose" -> {img, ready:Promise}
 
+// Kenji's art doesn't follow the "<Name>-<Pose>.png" convention (one file per animation, and the run-in /
+// slash / leap all live in the Slash and LeapingSlash sheets as frame ranges -- see NAMED_POSE_CFG). The
+// files under Kenji/game/ are half-size webp copies of the originals in Kenji/ (same 6x6 layout).
+const POSE_FILE = {
+  Kenji: { Idle: "Kenji-Idle", Run: "Kenji-Slash", Slash: "Kenji-Slash", Leap: "Kenji-LeapingSlash",
+          Item: "Kenji-UseItem", Start: "Battle-Start", Victory: "Victory-Pose" },
+  Miya:  { Idle: "Miya-Idle", Run: "Miya-Attack", Attack: "Miya-Attack", Cast: "Miya-Cast", Item: "Miya-Item", Victory: "Miya-VictoryPose" },
+};
 function sheetUrl(name, pose) {
+  const pf = POSE_FILE[name] && POSE_FILE[name][pose];
+  if (pf) return `/assets/Battlers/${encodeURIComponent(name)}/game/${pf}.webp`;
   return `/assets/Battlers/${encodeURIComponent(name)}/${encodeURIComponent(name)}-${pose}.png`;
 }
 
@@ -684,17 +693,17 @@ function loadUrlSheet(url) {
   return p;
 }
 
-/* Mythic hero battlers don't all name their non-Idle poses the same way (e.g. Kael and Yulia's
-   attack sheets are "-Attack.png", not "-Melee.png", and Sera's cast sheet is "-Cast.png" while
+/* Mythic hero battlers don't all name their non-Idle poses the same way (e.g. Kenji and Yulia's
+   attack sheets are "-Attack.png", not "-Melee.png", and Miya's cast sheet is "-Cast.png" while
    Lyra's is "-Casting.png") -- a tiny per-character alias table beats hardcoding one pose name and
    silently falling back to Draven for anyone whose art doesn't match it. Unlisted characters use
    the default guess for that animation kind, which still falls back through loadSheet()'s normal
    Draven chain if no such sheet exists for them.
 --------------------------------------------------------------------- */
 const POSE_ALIAS = {
-  melee: { Kael: "Attack", Yulia: "Attack" },
-  cast:  { Sera: "Cast" },
-  heal:  { Sera: "Cast" },
+  melee: { Kenji: "Slash", Miya: "Attack", Yulia: "Attack" },
+  cast:  { Miya: "Cast" },
+  heal:  { Miya: "Cast" },
 };
 const DEFAULT_POSE = { melee: "Melee", cast: "Casting", shoot: "Shoot", heal: "Heal" };
 function poseFor(kind, name) {
@@ -734,7 +743,7 @@ function loadSheet(name, pose) {
 //
 // TIMING: Shoot/Casting/Cast are all-in-one 36-frame sheets (draw/charge -> release flash -> follow
 // -through), inspected frame-by-frame as a contact sheet: Rook holds the bow drawn until frame ~25
-// (the arrow-loosing flash), Lyra's/Sera's charge builds to a release burst around frame ~20. Played
+// (the arrow-loosing flash), Lyra's/Miya's charge builds to a release burst around frame ~20. Played
 // at the same 8fps as Idle that's 2.5-3+ seconds before anything visibly happens, which is why waiting
 // a fixed few hundred ms just clipped the still-drawn hold -- there was no visible windup to see yet.
 // `fps`/`release` let these specific poses play faster (so the sequence still reads in under a
@@ -744,14 +753,37 @@ function loadSheet(name, pose) {
 const NAMED_POSE_CFG = {
   // Melee poses: animateMelee times its own swing/impact independently of fps -- fps/frames/loop are
   // kept at the same values the old (calibration-less) default branch used, so only sizing changes.
-  Kael:  { Attack:  { ref_h: 370, foot: [251.5, 434], fps: IDLE_FPS, frames: [0, 35], loop: true } },
+  // Kenji: every pose is a full-frame ("full") calibration -- the character is pinned by its torso-centre/ground
+  // point and the whole (wider than Idle) frame is drawn, so sweeping blades are never cropped. Art faces LEFT
+  // natively (native_left). Run/Slash share the Slash sheet (run-in loop = frames 3-17, strike = 18-35, blade
+  // contact ~21); Leap is the jump-slash for skills (airborne 14-22, lands/strikes 24, `travel` = frames the actor
+  // actually crosses the stage); Item plays once (`release` = the moment the potion is used) then back to Idle.
+  Kenji:  {
+    Idle:    { ref_h: 314.5, foot: [100.8, 317.0], fps: 8, frames: [0, 35], loop: true, full: true, native_left: true },
+    Run:     { ref_h: 258.0, foot: [121.0, 261.0], fps: 24, frames: [3, 17], loop: true, full: true, native_left: true },
+    Slash:   { ref_h: 258.0, foot: [121.0, 261.0], fps: 30, frames: [18, 35], loop: false, full: true, native_left: true, impact: 21 },
+    Leap:    { ref_h: 287.5, foot: [119.0, 352.5], fps: 30, frames: [0, 35], loop: false, full: true, native_left: true, impact: 24, travel: [4, 23] },
+    Item:    { ref_h: 314.5, foot: [137.5, 327.0], fps: 24, frames: [0, 35], loop: false, full: true, native_left: true, release: 14, next: "Idle" },
+    Start:   { ref_h: 314.5, foot: [158.0, 342.5], fps: 24, frames: [0, 35], loop: false, full: true, native_left: true, next: "Idle" },
+    Victory: { ref_h: 350.5, foot: [98.5, 382.0], fps: 24, frames: [0, 35], loop: false, full: true, native_left: true },
+  },
   Yulia: { Attack:  { ref_h: 679, foot: [235.0, 695], fps: IDLE_FPS, frames: [0, 35], loop: true } },
   // Ranged/magic windup poses: sped up so the draw/charge -> release sequence reads in under a
   // second (see windupMs() below) instead of the 8fps default's 2.5-3+ second crawl to the release
   // frame -- `release` is that frame's index, measured from the actual art.
   Rook:  { Shoot:   { ref_h: 520, foot: [307.0, 522], fps: 30, frames: [0, 35], loop: true, release: 25 } },
   Lyra:  { Casting: { ref_h: 517, foot: [196.0, 516], fps: 30, frames: [0, 35], loop: true, release: 20 } },
-  Sera:  { Cast:    { ref_h: 455, foot: [179.5, 489], fps: 30, frames: [0, 35], loop: true, release: 20 } },
+  // Miya: front-facing art (no native_left), same measured scale across her sheets. Cast = arms rise, release
+  // flash at ~frame 18; Item and Victory play once (Item returns to Idle on its own, release = the use moment).
+  Miya:  {
+    Idle:    { ref_h: 252.5, foot: [117.0, 255.0], fps: 8, frames: [0, 35], loop: true, full: true },
+    // Basic attack (art faces right like the other sheets): run-in loop = frames 2-13, then the staff swing; the arc lands ~frame 30.
+    Run:     { ref_h: 203.5, foot: [197.5, 202.0], fps: 24, frames: [2, 13], loop: true, full: true },
+    Attack:  { ref_h: 203.5, foot: [197.5, 202.0], fps: 32, frames: [17, 35], loop: false, full: true, impact: 30 },
+    Cast:    { ref_h: 252.5, foot: [114.8, 288.0], fps: 30, frames: [0, 35], loop: false, full: true, release: 18 },
+    Item:    { ref_h: 252.5, foot: [115.0, 348.5], fps: 24, frames: [0, 35], loop: false, full: true, release: 15, next: "Idle" },
+    Victory: { ref_h: 252.5, foot: [105.2, 265.5], fps: 24, frames: [0, 35], loop: false, full: true },
+  },
 };
 // Fallback windup for a ranged/magic actor with no measured `release` frame above (e.g. a future
 // hero recruit whose art hasn't been calibrated yet) -- better than firing with zero windup at all.
@@ -807,6 +839,11 @@ class SpriteView {
 
     this.sheets = {}; // pose -> {img}
     this._ensurePose("Idle");
+    const hc = NAMED_POSE_CFG[name];
+    if (hc && hc.Start) {                 // battle-opening animation, then back to the idle loop (see `next`)
+      Object.keys(hc).forEach((p) => this._ensurePose(p));
+      this.setPose("Start");
+    }
   }
 
   /* Stills have no frames to play, so they get procedural life: a slow breathing bob always, plus short
@@ -857,7 +894,9 @@ class SpriteView {
     if (this.pose === pose) return;
     this.pose = pose;
     const cfg = this.poseCfg && this.poseCfg[pose];
-    this.frame = cfg ? cfg.frames[0] : 0;
+    const hcfg = NAMED_POSE_CFG[this.name] && NAMED_POSE_CFG[this.name][pose];
+    this.frame = cfg ? cfg.frames[0] : (hcfg ? hcfg.frames[0] : 0);
+    this.lastFrameTime = performance.now();
     this.poseDone = false;
     this._ensurePose(pose);
   }
@@ -997,25 +1036,29 @@ class SpriteView {
         else if (!this.poseDone) {          // one-shot pose: hold the last frame, then tell the owner once
           this.poseDone = true;
           if (this.pose === "CastStart" && this.castMode === "start") { this.castMode = "loop"; this.setPose("CastLoop"); }
+          else if (heroCfg && heroCfg.next && this.castMode === null) this.setPose(heroCfg.next);
         }
       } else this.frame += 1;
     }
     const col = this.frame % FRAME_COLS;
     const row = Math.floor(this.frame / FRAME_COLS);
 
-    if (bossCfg && bossCfg.ref_h) {
+    const fullCfg = bossCfg || (heroCfg && heroCfg.full ? heroCfg : null);
+    this.frameEl.style.imageRendering = heroCfg && heroCfg.full ? "auto" : "";   // big downscaled art: smooth, not nearest-neighbour
+    if (fullCfg && fullCfg.ref_h) {
       // Boss sheet: every pose is scaled from the character's own measured height and pinned by its
       // feet -- the whole frame (padding included) grows to match, which is fine/expected for a boss
       // that's deliberately meant to loom larger than a normal hit-box footprint.
-      const k = H / bossCfg.ref_h;
+      const k = H / fullCfg.ref_h;
       const w = frameW * k, h = frameH * k;
       this.frameEl.style.width = `${w}px`;
       this.frameEl.style.height = `${h}px`;
-      this.frameEl.style.transform = `translate(${-bossCfg.foot[0] * k}px, ${-bossCfg.foot[1] * k}px)`;
+      this.frameEl.style.transform = `translate(${-fullCfg.foot[0] * k}px, ${-fullCfg.foot[1] * k}px)`;
       this.frameEl.style.backgroundImage = `url(${img.src})`;
       this.frameEl.style.backgroundSize = `${w * FRAME_COLS}px ${h * FRAME_ROWS}px`;
       this.frameEl.style.backgroundPosition = `-${col * w}px -${row * h}px`;
     } else if (heroCfg) {
+      this.frameEl.style.transform = "";
       // Named-hero pose with more padding than Idle/Run: unlike the boss branch above, the box here
       // stays EXACTLY the same size as every other hero pose (matches Idle -- and matches the nameplate/
       // hit-box, which are sized off that same H, not off this frame). What changes is a zoom: the
@@ -1040,7 +1083,7 @@ class SpriteView {
       this.frameEl.style.backgroundSize = `${targetW * FRAME_COLS}px ${H * FRAME_ROWS}px`;
       this.frameEl.style.backgroundPosition = `-${col * targetW}px -${row * H}px`;
     }
-    const flip = this.bossCfg && this.bossCfg.native_left;   // art drawn facing left
+    const flip = (this.bossCfg && this.bossCfg.native_left) || (heroCfg && heroCfg.native_left);   // art drawn facing left
     this.mirror.style.transform = (this.facingRight !== !!flip) ? "scaleX(1)" : "scaleX(-1)";
   }
 }
@@ -1060,29 +1103,53 @@ function tweenPosition(sprite, toX, toY, durationMs) {
   });
 }
 
-async function animateMelee(actorSprite, targetSprite) {
+async function animateMelee(actorSprite, targetSprite, isSkill) {
   if (!actorSprite || !targetSprite) return;
   const dir = actorSprite.facingRight ? -1 : 1; // stop just short of the target, on the near side
   const bigPad = (s) => (s.bossCfg ? 70 * (s.hScale - 1) + 60 : 0);   // stay clear of a big boss sprite
   const engageX = targetSprite.homeX + dir * (90 + bigPad(targetSprite) + bigPad(actorSprite));
-  actorSprite.setPose("Run");
-  await tweenPosition(actorSprite, engageX, actorSprite.homeY, 320);
-  actorSprite.setPose(poseFor("melee", actorSprite.name));
-  actorSprite.poke("lunge");
+  actorSprite.anchor.style.zIndex = 400;   // draw the attacker in front of the defender for the whole exchange
+  const engageY = targetSprite.homeY;   // line up vertically with the target too (columns are staggered), not just horizontally
+  const hc = NAMED_POSE_CFG[actorSprite.name];
+  const leap = isSkill && hc && hc.Leap;
+  let swing, impact;
+  if (leap) {
+    // Jumping slash: the sheet itself carries the run-up, the leap and the landing strike; we only slide the
+    // sprite across the stage while the art is running/airborne (frames `travel`) and land the hit on `impact`.
+    const ms = 1000 / leap.fps;
+    actorSprite.setPose("Leap");
+    await wait(leap.travel[0] * ms);
+    await tweenPosition(actorSprite, engageX, engageY, (leap.travel[1] - leap.travel[0]) * ms);
+    actorSprite.poke("lunge");
+    swing = Math.round(leap.frames[1] * ms) + 80 - Math.round(leap.travel[1] * ms);
+    impact = Math.round((leap.impact - leap.travel[1]) * ms);
+  } else {
+    actorSprite.setPose("Run");
+    await tweenPosition(actorSprite, engageX, engageY, 320);
+    actorSprite.setPose(poseFor("melee", actorSprite.name));
+    actorSprite.poke("lunge");
+    const sc = hc && hc[poseFor("melee", actorSprite.name)];
+    if (sc && sc.impact != null) {
+      swing = Math.round(((sc.frames[1] - sc.frames[0] + 1) / sc.fps) * 1000);
+      impact = Math.round(((sc.impact - sc.frames[0]) / sc.fps) * 1000);
+    } else {
+      swing = actorSprite.meleeMs(); impact = Math.round(swing * 0.45);
+    }
+  }
   // Resolve at the moment of impact so the damage numbers / HP change land with the blow; the rest of the
   // swing and the run back continue in the background. The NEXT action (a counter-attack, the next
   // combatant's turn...) waits on `returnDone` so it never starts until this attacker is back in place.
-  const swing = actorSprite.meleeMs(), impact = Math.round(swing * 0.45);
   await wait(impact);
   const hitPt = fxAnchor(targetSprite, 0.6);
   playImpactFx(MELEE_IMPACT_FX, hitPt.x, hitPt.y, null, fxSize(targetSprite, 0.7));   // fire-and-forget: doesn't hold up the swing
   playSfx(SFX.slash);
   returnDone = (async () => {
-    await wait(swing - impact);
+    await wait(Math.max(0, swing - impact));
     actorSprite.setPose("Run");
     await tweenPosition(actorSprite, actorSprite.homeX, actorSprite.homeY, 320);
     // don't stomp a pose the state machine owns (e.g. a chant that began mid-animation)
     if (actorSprite.castMode === null) actorSprite.setPose("Idle");
+    actorSprite.anchor.style.zIndex = actorSprite.z;
   })();
 }
 let returnDone = Promise.resolve();
@@ -1281,6 +1348,7 @@ let debugOn = false;
 function setDebugUi(on) {
   if (on === debugOn) return;
   debugOn = on;
+  document.body.classList.toggle("dbgmode", on);
   document.getElementById("log-panel").classList.toggle("dbg", on);
   document.getElementById("log-toggle").style.display = on ? "block" : "none";
   document.getElementById("dbg-auto-btn").style.display = on ? "block" : "none";
@@ -1637,8 +1705,8 @@ function coachActed(m) {
   else if (m.action === "item") COACH.done.item = true;
   else if (m.action === "defend") COACH.done.defend = true;
   const hints = {
-    attack: ["Nice hit!", "Your gauge empties and refills. Watch the glowing bar under Kael: when it is full it is your turn again. The Turn Order list shows who is next.", "#atb-timeline"],
-    skill: ["Skill used!", "A skill needs a moment to cast, so Kael's bar fills as a cast bar first. Enemies that are hit while winding up get delayed, and you can be hit while you wind up too.", "#atb-timeline"],
+    attack: ["Nice hit!", "Your gauge empties and refills. Watch the glowing bar under Kenji: when it is full it is your turn again. The Turn Order list shows who is next.", "#atb-timeline"],
+    skill: ["Skill used!", "A skill needs a moment to cast, so Kenji's bar fills as a cast bar first. Enemies that are hit while winding up get delayed, and you can be hit while you wind up too.", "#atb-timeline"],
     item: ["Healed up!", "Items are used up for good, so save the strong ones for when you need them. Here the potions are on Garrick.", ""],
     defend: ["Braced!", "Defend is instant and lasts until your next action. Any hit that lands while you are braced is cut down hard. Watch the Turn Order list for the next wind-up.", "#atb-timeline"],
   };
@@ -1671,9 +1739,9 @@ function coachRefresh() {
     else if (isSkill) { allow = (l) => l.indexOf(COACH.skillName) === 0; head = "Pick " + COACH.skillName; text = "Hover a skill to read what it does. The number in brackets is its MP cost.\nTime freezes while you browse sub-menus, so there is no rush. Choose " + COACH.skillName + "."; }
     else if (isTarget) { allow = () => true; head = "Target"; text = "Click the goblin to aim the skill at it."; }
   } else if (L === "item") {
-    if (isMain) { allow = (l) => /^Item/.test(l); head = "Items"; text = (hurt ? "Kael took a hit. Time to heal!" : "Items heal, cure and revive. Kael isn't badly hurt yet, but practice anyway.") + "\nOpen the Item menu."; }
+    if (isMain) { allow = (l) => /^Item/.test(l); head = "Items"; text = (hurt ? "Kenji took a hit. Time to heal!" : "Items heal, cure and revive. Kenji isn't badly hurt yet, but practice anyway.") + "\nOpen the Item menu."; }
     else if (isItem) { allow = (l) => /^Potion/.test(l); head = "Use a Potion"; text = "A Potion restores 100 HP. The number is how many are left in the party's bag. Choose Potion."; }
-    else if (isTarget) { allow = (l) => l.indexOf(hero) >= 0; head = "Who to heal?"; text = "Items can target any ally. Choose Kael."; }
+    else if (isTarget) { allow = (l) => l.indexOf(hero) >= 0; head = "Who to heal?"; text = "Items can target any ally. Choose Kenji."; }
   } else if (L === "defend") {
     allow = (l) => /^Defend/.test(l); head = "Danger: big attack incoming!";
     text = "The goblin is charging a heavy blow! Its move name shows up in the Turn Order list while it winds up. A wind-up means a strong attack is coming, and you get a chance to react.\nDefend is instant and lasts until your next action: a braced hero takes far less damage. Choose Defend.";
@@ -1951,7 +2019,6 @@ function handleState(state) {
   renderDebugGraphs(state);
   layoutAllSprites();
   renderStatusPanel(null);
-  document.getElementById("round-label").textContent = `Round ${state.round}`;
 }
 
 let dlgQueue = [], dlgActive = false, dlgTyping = null;
@@ -2274,7 +2341,22 @@ async function playActionEvent(msg) {
 
   if (animKind !== "melee") actor.poke("cast");
   if (animKind === "melee") {
-    await animateMelee(actor, targets[0] || null);
+    await animateMelee(actor, targets[0] || null, msg.action_type === "skill");
+    return;
+  }
+
+  if (animKind === "item") {
+    // Using a consumable: the actor stays where they are. Heroes with a dedicated item pose play it (it
+    // returns to Idle on its own); everyone else just does the small sparkle once the pose has settled.
+    const ic = NAMED_POSE_CFG[actor.name] && NAMED_POSE_CFG[actor.name].Item;
+    if (ic) {
+      actor.setPose("Item");
+      await wait(Math.round((ic.release / ic.fps) * 1000));
+    } else {
+      actor.setPose("Idle");
+      await wait(windupMs(actor, "status"));
+    }
+    await playImpactFx(STATUS_FX, fxAnchor(actor).x, fxAnchor(actor).y, null, fxSize(actor, 0.55));
     return;
   }
 
@@ -2348,6 +2430,12 @@ function handleBattleEnd(msg) {
   if (COACH.on) { COACH.on = false; coachHide(); }
   lastBattleResult = result;
   playMusic(MUSIC.main);   // swap straight back to hub music for the results screen (simple cut, no crossfade)
+  if (result === "victory") {                  // heroes with a victory pose strike it (the rest keep idling)
+    sprites.forEach((sp) => {
+      const vc = NAMED_POSE_CFG[sp.name] && NAMED_POSE_CFG[sp.name].Victory;
+      if (vc && !sp.facingRight && !sp.anchor.classList.contains("ko")) sp.setPose("Victory");
+    });
+  }
   document.getElementById("command-panel").style.display = "none";
   const overlay = document.getElementById("end-overlay");
   overlay.className = result; // victory | defeat | fled

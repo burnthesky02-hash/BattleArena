@@ -160,7 +160,7 @@ SKILLS = {
     ),
     "skyfall_slash": Skill(
         id="skyfall_slash", name="Skyfall Slash", mp_cost=9, power=2.0, kind="physical",
-        target=TargetType.ALL_ENEMIES, description="Kael leaps and comes down through every enemy at once.",
+        target=TargetType.ALL_ENEMIES, description="Kenji leaps and comes down through every enemy at once.",
     ),
 
     # ranged_dps (replaces the shared "sunder" slot)
@@ -234,8 +234,8 @@ SKILLS = {
         description="Osric rallies the whole party, raising everyone's attack.",
     ),
     "seras_grace": Skill(
-        id="seras_grace", name="Sera's Grace", mp_cost=12, power=2.0, kind="heal",
-        target=TargetType.ALL_ALLIES, description="Sera pours out a large, party-wide heal.",
+        id="seras_grace", name="Miya's Grace", mp_cost=12, power=2.0, kind="heal",
+        target=TargetType.ALL_ALLIES, description="Miya pours out a large, party-wide heal.",
     ),
 
     # --- hero kit skills (2nd pass) ------------------------------------
@@ -334,12 +334,12 @@ SKILLS = {
     ),
     "blade_dance": Skill(
         id="blade_dance", name="Blade Dance", mp_cost=11, power=1.5, kind="physical",
-        target=TargetType.ALL_ENEMIES, description="Kael weaves through the whole enemy line in one fluid dance of steel.",
+        target=TargetType.ALL_ENEMIES, description="Kenji weaves through the whole enemy line in one fluid dance of steel.",
     ),
     "ascendant_strike": Skill(
         id="ascendant_strike", name="Ascendant Strike", mp_cost=11, power=2.2, kind="physical",
         target=TargetType.SINGLE_ENEMY, status_to_apply="stun", status_chance=0.2,
-        description="Kael leaps and brings down a strike with enough force to stun the target.",
+        description="Kenji leaps and brings down a strike with enough force to stun the target.",
     ),
 
     # ranged_dps (replace the shared "poison_dart" and "weaken" slots)
@@ -479,11 +479,11 @@ SKILLS = {
     "divine_touch": Skill(
         id="divine_touch", name="Divine Touch", mp_cost=11, power=2.1, kind="heal",
         target=TargetType.SINGLE_ALLY, status_to_apply="regen", status_chance=1.0,
-        description="Sera's touch pours a huge amount of healing into one ally, then keeps mending them.",
+        description="Miya's touch pours a huge amount of healing into one ally, then keeps mending them.",
     ),
     "aura_of_life": Skill(
         id="aura_of_life", name="Aura of Life", mp_cost=14, power=1.2, kind="heal",
         target=TargetType.ALL_ALLIES, status_to_apply="def_up", status_chance=0.4,
-        description="Sera wreathes the party in an aura that heals everyone and shores up their defenses.",
+        description="Miya wreathes the party in an aura that heals everyone and shores up their defenses.",
     ),
 }

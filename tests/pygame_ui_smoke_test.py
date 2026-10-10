@@ -169,7 +169,7 @@ def test_end_screen_with_xp_and_level_ups_does_not_crash():
     engine, ui, party, enemies = make_engine_and_ui()
     event_queue.clear()
     event_queue.append(Event(3, type=3, button=1, pos=(0, 0)))
-    ui.show_end_screen("victory", money=42, gems=5, xp=25, level_ups={"Kael": 1, "Lyra": 0},
+    ui.show_end_screen("victory", money=42, gems=5, xp=25, level_ups={"Kenji": 1, "Lyra": 0},
                         quit_on_close=False)
     print("end screen with xp/level-ups: OK")
 
@@ -204,7 +204,7 @@ def test_hit_and_heal_flash_feedback():
 
 
 def test_is_melee_action_classifies_attack_physical_skill_vs_others():
-    """Fix #19: the basic Attack and any physical-kind skill (e.g. Kael's
+    """Fix #19: the basic Attack and any physical-kind skill (e.g. Kenji's
     "cleave") get the run-in/swing/run-back treatment; a magical skill (e.g.
     "fireball") and a status skill (e.g. "warcry") do not -- see
     _is_melee_action's docstring."""

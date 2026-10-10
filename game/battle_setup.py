@@ -61,7 +61,7 @@ from data.classes import CLASS_ARCHETYPES
 from data.enemy_pool import ENEMY_ARCHETYPES, ENEMY_IDS
 from data.hero_rarity import HERO_RARITIES, HERO_SUMMON_WEIGHTS, rarity_multiplier
 from data.hero_skills import skill_ids_for
-from data.leveling import MAX_LEVEL, apply_growth
+from data.leveling import MAX_LEVEL, apply_growth, power_mult
 from data.summon_pool import RECRUITABLE_BY_RARITY, RecruitableHero
 import engine.formation as formation
 from engine.combatant import Combatant
@@ -235,6 +235,7 @@ def build_hero_enemy_combatant(recruit: RecruitableHero, level: int) -> Combatan
         sprite_color=archetype.sprite_color,
         is_melee=archetype.is_melee,
         formation=formation.auto_formation(archetype.is_melee),
+        power_mult=power_mult(level),
     )
 
 
@@ -259,7 +260,7 @@ def build_enemy_combatant(enemy_id: str, level: int) -> Combatant:
     level, applying growth the same way PlayerCharacter.build_combatant does
     for heroes (see data/leveling.py's apply_growth)."""
     archetype = ENEMY_ARCHETYPES[enemy_id]
-    stats = apply_growth(archetype.base_stats, archetype.growth, level)
+    stats = apply_growth(archetype.base_stats, archetype.growth, level, enemy=True)
     _apply_monster_nerf(stats)
     # Brutes used to carry 10-14 MP -- enough for one or two skills, then plain attacks all fight. Every monster
     # gets enough MP for a handful of skill casts, so battles keep showing their kit.
@@ -273,6 +274,7 @@ def build_enemy_combatant(enemy_id: str, level: int) -> Combatant:
         sprite_color=archetype.sprite_color,
         is_melee=archetype.is_melee,
         formation=formation.auto_formation(archetype.is_melee),
+        power_mult=power_mult(level),
     )
 
 

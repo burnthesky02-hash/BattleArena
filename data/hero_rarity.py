@@ -156,7 +156,7 @@ LEVEL_CAP_STEP = 10
 
 
 # --- Story heroes vs Colosseum heroes ---------------------------------------------------------------
-# Mythic heroes are the STORY cast (Kael, Lyra, Rook, Sera, Yulia): they fight everything outside the
+# Mythic heroes are the STORY cast (Kenji, Lyra, Rook, Miya, Yulia): they fight everything outside the
 # Colosseum (the 3D story scenes, dungeons, world bosses), are never summoned, never wounded, can't be
 # sacrificed, and climb a much longer, steeper arc to level 99. Every other rarity is a Colosseum hero
 # (ladder fights, summons, wounds, legacy sacrifice) with the old per-rarity caps.

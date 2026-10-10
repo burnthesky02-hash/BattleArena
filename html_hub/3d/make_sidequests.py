@@ -258,7 +258,7 @@ def island():
     # --- Pua the fisher: "Lost Net" (the net is in the Whispering Wood) ---
     fisher = next(n for n in d["npcs"] if n["id"] == "fisher"); fisher["showIf"] = "sq_net_done"
     fx, fz, fh, ft = fisher["x"], fisher["z"], fisher["h"], fisher["tint"]
-    base = dict(title="Fisher", sprite="Kael", x=fx, z=fz, h=fh, tint=ft)
+    base = dict(title="Fisher", sprite="Kenji", x=fx, z=fz, h=fh, tint=ft)
     pua = lambda i, acts, **c: dict(base, id=PREFIX + i, name="Pua", actions=acts, **c)
     sc.add("npcs", pua("pua0", [
         say("Pua", "Ah, a pair of strong arms! A storm took my best net two days ago, and the current swept it up the stream into the Whispering Wood."),
@@ -293,7 +293,7 @@ def island():
               need="sq_fence_q", key="sq_fence")
     # --- Scholar Nema: three moon-glyph pages (one here, two in the Whispering Wood) ---
     sch = next(n for n in d["npcs"] if n["id"] == "scholar"); sch["showIf"] = "sq_pg_done"
-    nb = dict(title="Scholar", sprite="Sera", x=sch["x"], z=sch["z"], h=sch["h"], tint=sch["tint"])
+    nb = dict(title="Scholar", sprite="Miya", x=sch["x"], z=sch["z"], h=sch["h"], tint=sch["tint"])
     sc.add("npcs", dict(nb, id="sq_nema0", name="Scholar Nema", actions=[
         say("Scholar Nema", "I am cataloguing the moon-glyphs, the old script on the cave walls. Three torn pages from the first survey were scattered when the expedition fled."),
         say("Scholar Nema", "One blew down near the cave path. The other two are somewhere in the Whispering Wood. Bring them to me, please, and I will see you rewarded."),
@@ -308,7 +308,7 @@ def island():
     # --- Dice at the harbour ---
     hm = next(n for n in d["npcs"] if n["id"] == "harbourmaster")
     dice_tables(sc, hm["x"] + 4.5, hm["z"] + 3.5, [
-        ("Dockhand Jory", "Dice, 100g", "Kael", 100, tint(1.1, 0.9, 0.8)),
+        ("Dockhand Jory", "Dice, 100g", "Kenji", 100, tint(1.1, 0.9, 0.8)),
         ("Big Lu", "High stakes, 400g", "Rook", 400, tint(1.2, 0.8, 0.8))])
     # --- Optional mini-boss: the cracked gargoyle on the east cliff, with a cache ---
     key, gx, gz = elite_npc(sc, "garg", "Cracked Gargoyle", "Stone sentinel", "Rook", 44, -6, tint(0.6, 0.6, 0.75),
@@ -332,7 +332,7 @@ def forest():
     pickup(sc, "net", "Tangled net", "Pull the net free", 52, 12, "sq_net_q", "Pua's net, snagged on a root at the water's edge. Not a single tear.", "detail-crate-small")
     pickup(sc, "pg2", "Torn page", "Pick up the page", -58, 38, "sq_pg_q", "A glyph-covered page wedged in a hollow log. One of Nema's.", "detail-crate-small")
     pickup(sc, "pg3", "Torn page", "Pick up the page", -30, -22, "sq_pg_q", "Another torn page, nailed to a tree by a long-dead surveyor.", "detail-crate-small")
-    elite_npc(sc, "alpha", "Alpha Spider", "Webbed hollow", "Sera", -20, 30, tint(0.5, 0.4, 0.75),
+    elite_npc(sc, "alpha", "Alpha Spider", "Webbed hollow", "Miya", -20, 30, tint(0.5, 0.4, 0.75),
               ["A web as thick as rope drops across the trail, and something very large lowers itself in front of you."],
               ["venom_spider"], (2, 4), 1.0)
     sc.add_autorun(dict({"if": "sq_alpha", "unless": "sq_alpha_r"}, actions=[
@@ -391,7 +391,7 @@ def outside():
         flag("sq_bounty_done"), chest(dict(gold=900, equipment=["armor_medium_rare"]), "Pip's reward")], showIf="sq_bounty", hideIf="sq_bounty_done"))
     elite_npc(sc, "knight", "Escaped Knight", "Runaway prisoner", "Draven", -2, 22, tint(0.7, 0.6, 0.8),
               ["You'll not drag me back to the pit! I have nothing left to lose!"], ["cursed_knight"], (2, 3), 0.5, need="sq_bounty_q", key="sq_bounty")
-    dice_tables(sc, 9, 19, [("Gambler Ro", "Dice, 100g", "Kael", 100, tint(1.1, 0.9, 0.8)), ("Velvet Vee", "High stakes, 400g", "Yulia", 400, tint(1.2, 0.8, 1.0))])
+    dice_tables(sc, 9, 19, [("Gambler Ro", "Dice, 100g", "Kenji", 100, tint(1.1, 0.9, 0.8)), ("Velvet Vee", "High stakes, 400g", "Yulia", 400, tint(1.2, 0.8, 1.0))])
     # a bounty board listing every open side quest in town and on the island
     st = lambda txt, a, b=None: say("Bounty Board", txt, **({"if": a} if not b else {"if": a, "unless": b}))
     sc.add("events", event("board", "Bounty board", "Read the bounties", -22, -6, [
@@ -440,7 +440,7 @@ def asteroid():
     elite_npc(sc, "drone", "Rogue Drone", "Malfunctioning", "Rook", 46, -14, tint(0.6, 0.9, 1.2),
               ["BZZT. TARGET ACQUIRED. TARGET ACQUIRED. TARGET ACQUIRED."], ["arc_drone"], (2, 3), 0.15, need="sq_drone_q", key="sq_drone")
     # An alpha phase hound out in the open
-    elite_npc(sc, "hound", "Alpha Phase Hound", "Rift predator", "Sera", -44, -16, tint(0.6, 0.5, 1.2),
+    elite_npc(sc, "hound", "Alpha Phase Hound", "Rift predator", "Miya", -44, -16, tint(0.6, 0.5, 1.2),
               ["The air folds in on itself. A great shape steps out of the fold, and it does not look hungry. It looks curious."],
               ["phase_hound"], (0, 1), 0.05)
     sc.add_autorun(dict({"if": "sq_hound", "unless": "sq_hound_r"}, actions=[
@@ -553,7 +553,7 @@ def vault():
                   ["lattice_medic"], (1, 2), 0.8,
                   ["The unit sparks and goes dark. Its supply drawer pops open."],
                   dict(gold=900, items=dict(hi_potion=2), equipment=["wardens_tower_shield"]))
-    dungeon_elite(sc, "leech", "Leech Mother", "Starved", "Sera", 120, -20, tint(0.8, 0.5, 1.0),
+    dungeon_elite(sc, "leech", "Leech Mother", "Starved", "Miya", 120, -20, tint(0.8, 0.5, 1.0),
                   ["The floor ripples. A swollen leech the size of a cart slides up out of a drain, tasting the air."],
                   ["rift_leech"], (1, 2), 0.7,
                   ["The leech collapses in on itself. Something hard is lodged in what is left of it."],
@@ -570,7 +570,7 @@ def vault():
 
 def reach():
     sc = Scene("reach"); d = sc.d; strip_old_pieces(d); n0 = len(d["pieces"])
-    dungeon_elite(sc, "mirage", "Mirror of the Reach", "Hollow reflection", "Kael", -25, -80, tint(0.7, 0.9, 1.3),
+    dungeon_elite(sc, "mirage", "Mirror of the Reach", "Hollow reflection", "Kenji", -25, -80, tint(0.7, 0.9, 1.3),
                   ["A figure steps out of a seam in the air wearing your own stance. Its face is a smear of light."],
                   ["frost_mirage"], (1, 3), 0.2,
                   ["The reflection shatters into drifting glass, and one pane lands upright, humming."],

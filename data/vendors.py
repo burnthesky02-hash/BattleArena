@@ -8,7 +8,7 @@ data/items_db.py; tests/vendors_test.py-style checks (see validate()) make sure 
 the shop says it is for.
 
 Progression: Paradise Island -> Hollow Cave -> the Pit -> the Colosseum -> Outpost Kestrel. Shops only sell common and
-rare gear (epic and above is summon-only), so the tiers are: low commons (island), mid commons for Kael + Sera (cave),
+rare gear (epic and above is summon-only), so the tiers are: low commons (island), mid commons for Kenji + Miya (cave),
 all commons plus rare armor (Colosseum), everything rare (the base).
 """
 from typing import Dict, List, Optional
@@ -18,30 +18,30 @@ from typing import Dict, List, Optional
 # every hero in your party; this is just the shop's pitch and what validate() checks the gear against.
 SHOPS: Dict[str, dict] = {
     "island/shopkeeper": {
-        "name": "Marla's Goods", "note": "A few basics for a farmhand with a sword.", "for_heroes": ["Kael"],
-        "equipment": ["rusty_sword", "camp_hatchet", "cracked_buckler", "armor_medium_common"],
+        "name": "Marla's Goods", "note": "A few basics for a farmhand with a sword.", "for_heroes": ["Kenji"],
+        "equipment": ["rusty_sword", "camp_hatchet", "iron_twin_blades", "cracked_buckler", "armor_medium_common"],
         "items": ["potion", "antidote"],
     },
     "dungeon/dg_shop1": {
-        "name": "Pell's Finds", "note": "Found, not stolen. Better steel for two fighters.", "for_heroes": ["Kael", "Sera"],
-        "equipment": ["soldiers_sword", "brawlers_axe", "willow_wand", "field_grimoire", "dueling_buckler", "acolytes_orb",
+        "name": "Pell's Finds", "note": "Found, not stolen. Better steel for two fighters.", "for_heroes": ["Kenji", "Miya"],
+        "equipment": ["soldiers_sword", "brawlers_axe", "duelists_pair", "willow_wand", "field_grimoire", "dueling_buckler", "acolytes_orb",
                       "armor_light_common", "helm_light_common", "boots_light_common"],
         "items": ["potion", "antidote"],
     },
     "dungeon/dg_shop2": {
-        "name": "Tolliver's Supplies", "note": "Lanterns, rope and a few trinkets.", "for_heroes": ["Kael", "Sera"],
+        "name": "Tolliver's Supplies", "note": "Lanterns, rope and a few trinkets.", "for_heroes": ["Kenji", "Miya"],
         "equipment": ["travelers_band", "lucky_charm", "apprentice_focus_ring", "swift_boots_charm"],
         "items": ["potion", "hi_potion", "antidote", "ether"],
     },
     "prison/shop": {
-        "name": "Whisper's Stash", "note": "Smuggled goods, priced for a slave who got lucky.", "for_heroes": ["Kael"],
-        "equipment": ["alley_shiv", "soldiers_sword", "dueling_buckler", "armor_medium_common", "helm_medium_common",
+        "name": "Whisper's Stash", "note": "Smuggled goods, priced for a slave who got lucky.", "for_heroes": ["Kenji"],
+        "equipment": ["alley_shiv", "soldiers_sword", "iron_twin_blades", "dueling_buckler", "armor_medium_common", "helm_medium_common",
                       "boots_medium_common"],
         "items": ["potion", "antidote", "hi_potion"],
     },
     "olympus/shop": {
         "name": "The Armory", "note": "Colosseum-grade kit for every kind of fighter.", "for_heroes": None,
-        "equipment": ["iron_flail", "alley_shiv", "willow_wand", "field_grimoire", "soldiers_sword", "brawlers_axe",
+        "equipment": ["iron_flail", "alley_shiv", "iron_twin_blades", "duelists_pair", "willow_wand", "field_grimoire", "soldiers_sword", "brawlers_axe",
                       "recurve_bow", "oak_staff", "wooden_buckler_shield", "iron_kite_shield", "dueling_buckler",
                       "fletchers_quiver", "acolytes_orb",
                       "armor_light_common", "armor_medium_common", "armor_heavy_common",
@@ -92,6 +92,7 @@ def equipment_ids(shop: dict, equipment_db) -> List[str]:
 
 def validate(equipment_db, items_db, class_by_hero: Dict[str, str], classes) -> List[str]:
     """Problems with the tables above (empty list = fine): unknown ids, and gear no listed hero's class can use."""
+    from data.classes import weapon_types_for
     from engine.equipment import class_can_equip
     bad: List[str] = []
     for key, shop in SHOPS.items():
@@ -103,10 +104,10 @@ def validate(equipment_db, items_db, class_by_hero: Dict[str, str], classes) -> 
                 bad.append(f"{key}: unknown or unsellable item {i}")
         names = shop["for_heroes"]
         if names:
-            arche = [classes[class_by_hero[n]] for n in names]
+            arche = [(classes[class_by_hero[n]], weapon_types_for(n, class_by_hero[n])) for n in names]
             for i in equipment_ids(shop, equipment_db):
                 e = equipment_db[i]
-                if not any(class_can_equip(e, a.weapon_types, a.offhand_types, a.armor_weight) for a in arche):
+                if not any(class_can_equip(e, wt, a.offhand_types, a.armor_weight) for a, wt in arche):
                     bad.append(f"{key}: {i} fits none of {names}")
     for key, sm in SMITHS.items():
         if not (1 <= sm["cap"] <= 10):

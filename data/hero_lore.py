@@ -21,7 +21,7 @@ HERO_LORE: Dict[str, str] = {
     "Vex": "Grew up picking locks and pockets before picking fights paid better. Twin blades, twin openings -- Vex is already gone before an opponent finishes reacting to the first cut.",
     "Thorne": "Pays for every reckless strike in his own blood, and calls it a fair trade. The crowd loves him for it; the healers less so.",
     "Rhea": "Daughter of a blademaster who never let her win a single sparring match at home. She's made up for it since, one clean execution at a time.",
-    "Kael": "The mythic name every melee_dps recruit gets compared to. Kael doesn't so much fight as fall on people -- his skyfall strike has ended more matches than anyone bothers counting anymore.",
+    "Kenji": "The mythic name every melee_dps recruit gets compared to. Kenji doesn't so much fight as fall on people -- his skyfall strike has ended more matches than anyone bothers counting anymore.",
     # ranged_dps
     "Sylas": "A hunter who followed a wounded elk to the Colosseum gates and never left. His quick shots aren't flashy, but they're fast enough that flashy rarely gets the chance to matter.",
     "Nadia": "Raised catching snakes for the local apothecary; her arrows carry the same lesson -- it's never the first bite that finishes you off.",
@@ -39,5 +39,5 @@ HERO_LORE: Dict[str, str] = {
     "Dassin": "A traveling priest who preaches less than he practices. His cleansing light has talked more curses and poisons out of a body than any sermon ever has.",
     "Mira": "Raised in a temple that trained knights, not clerics -- so her blessings land like a shield going up, not a prayer being said.",
     "Osric": "An old campaign banner-bearer who found out his voice alone could turn a losing fight around. He hasn't stopped shouting encouragement since.",
-    "Sera": "The mythic support the whole class takes its name from. Wherever Sera stands, the fight tilts back toward the living -- her grace has pulled more allies back from the edge than anyone can properly thank her for.",
+    "Miya": "The mythic support the whole class takes its name from. Wherever Miya stands, the fight tilts back toward the living -- her grace has pulled more allies back from the edge than anyone can properly thank her for.",
 }

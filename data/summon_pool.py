@@ -3,14 +3,14 @@ character-summon draws from.
 
 RECRUITABLE_ROSTER is a list of RecruitableHero(name, class_id, rarity)
 entries themed after the original four-person party in data/characters.py:
-Kael/Lyra/Sera/Rook rejoin here as actual recruitable teammates, closing the
+Kenji/Lyra/Miya/Rook rejoin here as actual recruitable teammates, closing the
 loop the README already draws between them and four of the five class
 archetypes (see data/classes.py's module docstring). Each class still has
 exactly 5 names (25 total, unchanged from the level-curve pass) -- as of the
 hero-rarity pass, that turned out to be a perfect fit for data/hero_rarity.py's
 5 rarity tiers, so each class now has exactly one name at each rarity
 (confirmed with Andrew via AskUserQuestion rather than assumed). Within each
-class the callback name (Kael/Lyra/Sera/Rook) was put at the rare end --
+class the callback name (Kenji/Lyra/Miya/Rook) was put at the rare end --
 mythic, the tier that best matches "the name most worth pulling" -- and the
 rest filled in around it; tank never had an original-party counterpart, so
 its five names are just assigned common..mythic in listed order.
@@ -112,12 +112,12 @@ class RecruitableHero:
 
 
 RECRUITABLE_ROSTER: List[RecruitableHero] = [
-    # melee_dps -- Kael's kit (data/classes.py); Kael himself is the mythic pull.
+    # melee_dps -- Kenji's kit (data/classes.py); Kenji himself is the mythic pull.
     RecruitableHero("Bran", "melee_dps", "common"),
     RecruitableHero("Vex", "melee_dps", "rare"),
     RecruitableHero("Thorne", "melee_dps", "epic"),
     RecruitableHero("Rhea", "melee_dps", "legendary"),
-    RecruitableHero("Kael", "melee_dps", "mythic"),
+    RecruitableHero("Kenji", "melee_dps", "mythic"),
     # ranged_dps -- Rook's kit; Rook is the mythic pull.
     RecruitableHero("Sylas", "ranged_dps", "common"),
     RecruitableHero("Nadia", "ranged_dps", "rare"),
@@ -130,12 +130,12 @@ RECRUITABLE_ROSTER: List[RecruitableHero] = [
     RecruitableHero("Solene", "mage", "epic"),
     RecruitableHero("Kade", "mage", "legendary"),
     RecruitableHero("Lyra", "mage", "mythic"),
-    # support -- Sera's kit; Sera is the mythic pull.
+    # support -- Miya's kit; Miya is the mythic pull.
     RecruitableHero("Elowen", "support", "common"),
     RecruitableHero("Dassin", "support", "rare"),
     RecruitableHero("Mira", "support", "epic"),
     RecruitableHero("Osric", "support", "legendary"),
-    RecruitableHero("Sera", "support", "mythic"),
+    RecruitableHero("Miya", "support", "mythic"),
     # tank -- no original-party counterpart, so just common..mythic in order.
     RecruitableHero("Gareth", "tank", "common"),
     RecruitableHero("Brutus", "tank", "rare"),

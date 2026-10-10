@@ -65,9 +65,9 @@ npc(id="rhea", name="Captain Rhea", title="Outpost Kestrel", sprite="Yulia", x=0
     dict(type="say", who="Captain Rhea", text="The Shard stopped singing the moment the Warden fell. Good work. The rift console has a new coordinate on it now. We will find out where it points. For now, rest.", **{"if": "vt_boss"})])
 npc(id="battle", name="Sergeant Kade", title="Drill Sergeant", sprite="Draven", x=-13, z=18.5, line="Rift or no rift, soldiers stay sharp. Want a bout in the practice ring?", tint=[.8, .95, 1.15, 1], action="battle")
 npc(id="heroes", name="Ysol", title="Technician", sprite="Lyra", x=13, z=18.5, line="I tune gear and drill skills. Bring me your fighters.", tint=[.8, 1.05, 1.1, 1], action="heroes")
-npc(id="summon", name="Oro", title="Rift Seer", sprite="Sera", x=-19, z=3.5, line="The rift leaks. Sometimes things climb out of it and want to fight for you.", tint=[.85, .9, 1.25, 1], action="summon", reach=5.0)
+npc(id="summon", name="Oro", title="Rift Seer", sprite="Miya", x=-19, z=3.5, line="The rift leaks. Sometimes things climb out of it and want to fight for you.", tint=[.85, .9, 1.25, 1], action="summon", reach=5.0)
 npc(id="shop", name="Quartermaster Pike", title="Supplies", sprite="Rook", x=22.5, z=8.2, line="Everything we salvaged, for everything you earned. Browse.", tint=[1.1, .95, .8, 1], action="shop")
-npc(id="save", name="Archivist", title="Records", sprite="Kael", x=0, z=29.5, tint=[.75, .88, 1.15, 1], action="save_and_quit")
+npc(id="save", name="Archivist", title="Records", sprite="Kenji", x=0, z=29.5, tint=[.75, .88, 1.15, 1], action="save_and_quit")
 npc(id="lyra", name="Lyra", title="Rift Scholar", sprite="Lyra", x=-17.0, z=19.8, tint=[1, 1, 1.1, 1], hideIf="st_lyra", reach=5.0, actions=[
     dict(type="say", who="Lyra", text="Another one who fell out of the sky? ...Oh. You are the one the Captain mentioned. You came through the Colosseum portal. Good. I have a map of what is under this base, and I need someone who can fight.", **{"if": "st_met"}),
     dict(type="say", who="Lyra", text="I was a scholar at a library very far from here, until a door opened in the reading room and the floor stopped being the floor. Since then I have been tracing where the rift gets its strength.", **{"if": "st_met"}),

@@ -75,12 +75,12 @@ npc(id="battle", name="Overseer Vex", title="Pit Overseer", sprite="Draven", x=0
 npc(id="ladder", name="Dagna", title="Pit Boss", sprite="Yulia", x=-9.5, z=19.0, line="Bouts back to back, bigger purses. The house takes its cut, but a slave can dream.", tint=[.8, .85, .8, 1], action="ladder")
 npc(id="boss", name="Gatekeeper Brakk", title="Arena Door", sprite="Draven", x=30.5, z=12.0, h=2.7, tint=[.7, .75, 1, 1], action="challenge", reach=5.2, radius=1.3)
 npc(id="heroes", name="Old Marek", title="Fellow prisoner", sprite="Rook", x=-26.5, z=9.4, line="Even a slave can sharpen a blade. Let's see to your fighters.", tint=[.75, .8, .75, 1], action="heroes")
-npc(id="shop", name="Whisper", title="Smuggler", sprite="Kael", x=-26.0, z=15.4, line="Psst. Nothing here fell off a cart. Much. Care to browse?", tint=[.6, .6, .85, 1], action="shop")
-npc(id="summon", name="Hanna", title="Cell-block seer", sprite="Sera", x=10.5, z=18.0, line="The old glyph under my cell still answers. Pay the toll and see who comes.", tint=[.85, .8, 1, 1], action="summon", reach=5.0)
+npc(id="shop", name="Whisper", title="Smuggler", sprite="Kenji", x=-26.0, z=15.4, line="Psst. Nothing here fell off a cart. Much. Care to browse?", tint=[.6, .6, .85, 1], action="shop")
+npc(id="summon", name="Hanna", title="Cell-block seer", sprite="Miya", x=10.5, z=18.0, line="The old glyph under my cell still answers. Pay the toll and see who comes.", tint=[.85, .8, 1, 1], action="summon", reach=5.0)
 npc(id="save", name="The Scribe", title="Keeper of ledgers", sprite="Lyra", x=14.5, z=5.8, tint=[.75, .88, 1.15, 1], action="save_and_quit")
 for i, (x, name, line) in enumerate(((-16, "Brann", "Three years in this cell. The cheering above never stops, you stop hearing it."), (-8, "Pale Tessa", "They take the strong ones to the arena. The strong ones don't come back to the cells."),
                                       (8, "Little Joss", "Don't cross Vex. He isn't cruel, he just never forgets."), (16, "The Quiet One", "..."))):
-    npc(id="pr%d" % (i + 1), name=name, title="Prisoner", sprite=("Rook", "Lyra", "Kael", "Draven")[i], x=x, z=-4.2, tint=[.55, .55, .6, 1], actions=[dict(type="say", who=name, text=line)], line=line)
+    npc(id="pr%d" % (i + 1), name=name, title="Prisoner", sprite=("Rook", "Lyra", "Kenji", "Draven")[i], x=x, z=-4.2, tint=[.55, .55, .6, 1], actions=[dict(type="say", who=name, text=line)], line=line)
 DEC += [dict(type="glyph", x=10.5, z=18.0, r=3.0, color=[.6, .4, 1, 1], spin=14), dict(type="glow", x=0, z=12.6, r=5, color=[1, .45, .35, 1]),
         dict(type="glow", x=30.5, z=12.0, r=5, color=[.55, .75, 1, 1]), dict(type="glow", x=0, z=-1.4, r=3.5, color=[1, .8, .45, .9]), dict(type="glow", x=0, z=-4, r=3.5, color=[.7, .55, 1, 1])]
 
@@ -104,6 +104,6 @@ d = dict(name="The Pit", kit="", tile=4, pieces=P, colliders=COL, npcs=NP, event
          story=True, freeRank=FREE_RANK, autorun=AUTO,
          sky=dict(type="gradient", stops=[[0, "#05070d"], [1, "#120d18"]]), fx=[dict(type="dust", amount=.25)],
          light=dict(dir=[-0.35, -1, -0.25], color=[0.9, 0.78, 0.7], ambient=[0.42, 0.38, 0.45]), fog=dict(color=[0.05, 0.04, 0.07], near=40, far=95))
-import story_pit; story_pit.apply_prison(d)          # Kael wakes here after the Hollow Cave knock-out (Oct 6)
+import story_pit; story_pit.apply_prison(d)          # Kenji wakes here after the Hollow Cave knock-out (Oct 6)
 os.makedirs(OUT, exist_ok=True); json.dump(d, open(os.path.join(OUT, "prison.json"), "w"), separators=(",", ":"))
 print("pieces", len(P), "colliders", len(COL), "npcs", len(NP), "events", len(EV))

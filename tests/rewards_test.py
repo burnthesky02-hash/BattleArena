@@ -63,10 +63,10 @@ def test_no_drop_for_a_hero_not_yet_recruited():
     must be a silent no-op, not a crash or a phantom banked amount."""
     hero = PlayerCharacter(name="Someone Else", class_id="tank")
     state = PlayerState.new_game(hero)
-    recruit = RecruitableHero("Kael", "melee_dps", "mythic")
+    recruit = RecruitableHero("Kenji", "melee_dps", "mythic")
     rng = random.Random()
     rng.random = lambda: 0.0
-    messages = roll_hero_enemy_shard_drops([(recruit, _dead_combatant("Rival Kael"))], state, rng=rng)
+    messages = roll_hero_enemy_shard_drops([(recruit, _dead_combatant("Rival Kenji"))], state, rng=rng)
     assert messages == []
     print("test_no_drop_for_a_hero_not_yet_recruited: PASS")
 

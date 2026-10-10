@@ -122,7 +122,7 @@
 <header>
   <h1>Summon</h1>
   <div class="top-right">
-    <a href="/">&larr; Back to Colosseum</a>
+    <a href="/">&larr; Exit</a>
     <div id="currency-bar">
       <div class="pill" id="gems"><span class="icon">&#9670;</span><span id="gems-value">--</span></div>
       <div class="pill" title="Gold"><span style="color:var(--gold);margin-right:6px;">$</span><span id="gold-value">--</span></div>
@@ -431,6 +431,14 @@
     document.getElementById("reveal-overlay").classList.remove("open");
     fetchState();
   }
+
+  // Esc leaves the screen (closing any popup first)
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape" || ev.defaultPrevented) return;
+    var t = ev.target && ev.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA") { ev.target.blur(); return; }
+    if (document.getElementById("reveal-overlay").classList.contains("open")) { closeReveal(); ev.stopImmediatePropagation(); return; }
+    window.location.href = "/";
+  }, true);
 
   fetchState();
 </script>

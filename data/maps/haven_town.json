@@ -141,15 +141,15 @@
   "npcs": [
     {
       "id": "kael_haven",
-      "name": "Kael",
+      "name": "Kenji",
       "x": 7,
       "y": 2,
-      "sprite": "Kael",
+      "sprite": "Kenji",
       "facing": "down",
       "lines": [
-        "Kael: First time out of the Colosseum, huh?",
-        "Kael: The whole world opened back up once someone finally rebuilt the roads.",
-        "Kael: Follow the road east and you'll hit the fields, then Ember Town."
+        "Kenji: First time out of the Colosseum, huh?",
+        "Kenji: The whole world opened back up once someone finally rebuilt the roads.",
+        "Kenji: Follow the road east and you'll hit the fields, then Ember Town."
       ],
       "battle": false,
       "boss_id": null,
@@ -157,15 +157,15 @@
     },
     {
       "id": "sera_haven",
-      "name": "Sera",
+      "name": "Miya",
       "x": 9,
       "y": 6,
-      "sprite": "Sera",
+      "sprite": "Miya",
       "facing": "left",
       "lines": [
-        "Sera: That glowing archway is the Colosseum entrance.",
-        "Sera: Step on it whenever you want to fight, shop, or manage your party.",
-        "Sera: We'll still be here when you get back."
+        "Miya: That glowing archway is the Colosseum entrance.",
+        "Miya: Step on it whenever you want to fight, shop, or manage your party.",
+        "Miya: We'll still be here when you get back."
       ],
       "battle": false,
       "boss_id": null,

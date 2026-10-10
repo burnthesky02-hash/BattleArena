@@ -8,13 +8,13 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from data.classes import CLASS_ARCHETYPES
+from data.classes import CLASS_ARCHETYPES, weapon_types_for
 from data.hero_rarity import HERO_RARITIES, MAX_STARS, STORY_GROWTH_MULT, is_story_rarity, level_cap_for, rarity_multiplier, star_multiplier
 from data.hero_skills import skill_ids_for
-from data.leveling import MAX_LEVEL, TALENT_POINT_INTERVAL, apply_growth, resolve_level_up
+from data.leveling import MAX_LEVEL, TALENT_POINT_INTERVAL, apply_growth, power_mult, resolve_level_up, stat_scale
 import engine.formation as formation
 from engine.combatant import Combatant
-from engine.equipment import SLOTS, Equipment
+from engine.equipment import SLOTS, Equipment, occupies_offhand
 from engine.skills import MAX_SKILL_RANK
 from engine.stats import Stats
 
@@ -62,7 +62,7 @@ class PlayerCharacter:
     # hero's current max (gear and level changes move it).
     hp: Optional[int] = None
     mp: Optional[int] = None
-    # Story heroes only: True while the hero is temporarily out of the story party (for example Sera recovering in the
+    # Story heroes only: True while the hero is temporarily out of the story party (for example Miya recovering in the
     # Colosseum infirmary, cutscene action {type:"away"} -> hub_server /api/story/away). They stay in the roster with their
     # level and gear; party.story_party_characters skips them until they are brought back.
     away: bool = False
@@ -105,6 +105,21 @@ class PlayerCharacter:
     @property
     def archetype(self):
         return CLASS_ARCHETYPES[self.class_id]
+
+    @property
+    def weapon_types(self):
+        """Weapon subtypes THIS hero can wield: their class's set plus hero-specific extras (Kenji's dual blades)."""
+        return weapon_types_for(self.name, self.class_id)
+
+    @property
+    def offhand_types(self):
+        return self.archetype.offhand_types
+
+    def offhand_locked_by(self, equipment_db: Dict[str, Equipment]) -> Optional[Equipment]:
+        """The two-handed weapon (dual blades) currently filling the off-hand slot too, or None."""
+        weapon_id = self.equipped.get("weapon")
+        weapon = equipment_db.get(weapon_id) if weapon_id else None
+        return weapon if occupies_offhand(weapon) else None
 
     @property
     def legacy_slots(self) -> int:
@@ -161,7 +176,8 @@ class PlayerCharacter:
         everything else -- omit it (the default) for any caller that
         doesn't care about legacy items (e.g. a throwaway debug character)."""
         archetype = self.archetype
-        stats = apply_growth(archetype.base_stats, archetype.growth, self.level, STORY_GROWTH_MULT if self.is_story else 1.0)
+        growth_mult = STORY_GROWTH_MULT if self.is_story else 1.0
+        stats = apply_growth(archetype.base_stats, archetype.growth, self.level, growth_mult)
         mult = star_multiplier(self.stars) * rarity_multiplier(self.rarity)  # higher rarity = better base stats
         if mult != 1.0:
             stats.max_hp = round(stats.max_hp * mult)
@@ -180,6 +196,9 @@ class PlayerCharacter:
                 continue
             for stat_name, bonus in item.stat_bonuses.items():
                 if hasattr(stats, stat_name):
+                    # Flat gear bonuses grow with the wearer's level scale (data/leveling.py's stat_scale), so a +17 DEF
+                    # chestplate stays the same share of a level-99 hero's DEF as it was at level 10.
+                    bonus = round(bonus * stat_scale(stat_name, self.level, growth_mult))
                     setattr(stats, stat_name, getattr(stats, stat_name) + bonus)
         if legacy_db and self.equipped_legacies:
             from game.legacy import apply_legacy_bonuses  # local import: dodges a roster<->legacy cycle
@@ -196,13 +215,32 @@ class PlayerCharacter:
             sprite_color=archetype.sprite_color,
             formation=self.formation,
             is_melee=archetype.is_melee,
+            power_mult=power_mult(self.level, STORY_GROWTH_MULT if self.is_story else 1.0),
         )
+
+    def equip_displaced(self, item_id: str, equipment_db: Dict[str, Equipment]) -> List[str]:
+        """Equips item_id into its slot and returns EVERY instance id that came off because of it: whatever
+        was in that slot, plus -- for a two-handed weapon (dual blades) -- whatever was in the off-hand slot,
+        which is emptied. Callers put the returned ids back in the stash. Raises KeyError if item_id isn't in
+        equipment_db. Doesn't check class restrictions or the off-hand lock (game/shop.py does)."""
+        item = equipment_db[item_id]
+        displaced: List[str] = []
+        previous = self.equipped.get(item.slot)
+        if previous:
+            displaced.append(previous)
+        self.equipped[item.slot] = item_id
+        if occupies_offhand(item):
+            offhand = self.equipped.get("offhand")
+            if offhand:
+                displaced.append(offhand)
+            self.equipped["offhand"] = None
+        return displaced
 
     def equip(self, item_id: str, equipment_db: Dict[str, Equipment]) -> Optional[str]:
         """Equips item_id into its slot, returning whatever was previously
         equipped there (or None). Raises KeyError if item_id isn't in
-        equipment_db -- callers should only offer items known to exist."""
-        item = equipment_db[item_id]
-        previous = self.equipped[item.slot]
-        self.equipped[item.slot] = item_id
+        equipment_db -- callers should only offer items known to exist.
+        A two-handed weapon also empties the off-hand slot; use equip_displaced to get that item back too."""
+        previous = self.equipped.get(equipment_db[item_id].slot)
+        self.equip_displaced(item_id, equipment_db)
         return previous

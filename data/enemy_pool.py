@@ -35,7 +35,7 @@ from typing import Dict, List, Optional
 
 from data.classes import CLASS_ARCHETYPES
 from data.hero_rarity import HERO_RARITY_COLOR, SHARDS_PER_DUPLICATE
-from data.leveling import apply_growth
+from data.leveling import apply_growth, power_mult
 from data.summon_pool import RECRUITABLE_ROSTER
 import engine.formation as formation
 from engine.combatant import Combatant
@@ -351,7 +351,7 @@ ENEMY_IDS = tuple(k for k in ENEMY_ARCHETYPES.keys() if k not in VAULT_ENEMY_ARC
 # Hero enemies are sourced from the same recruitable roster as summons, but can
 # appear in battle encounters as rare, higher-skill opponents instead of only
 # as friendly recruits. The id is stable and round-trippable: a summonable hero
-# named "Kael" using the melee_dps class maps to "hero_melee_dps_kael".
+# named "Kenji" using the melee_dps class maps to "hero_melee_dps_kael".
 HERO_ENEMY_SHARD_DROP_CHANCE: Dict[str, float] = {
     "common": 0.90,
     "rare": 0.85,
@@ -392,6 +392,7 @@ def build_hero_enemy_combatant(hero_enemy_id: str, level: int) -> Combatant:
         sprite_color=HERO_RARITY_COLOR.get(hero.rarity, (180, 60, 60)),
         is_melee=archetype.is_melee,
         formation=formation.auto_formation(archetype.is_melee),
+        power_mult=power_mult(level),
     )
 
 

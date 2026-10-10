@@ -41,12 +41,12 @@ for x, z in ((-30, -16), (-12, -22), (14, -21), (31, -14), (-34, 6), (34, 8), (-
 NP = [
  dict(id="boss", name="Gate Warden", title="Colosseum Gate", sprite="Draven", x=0, z=-6.4, h=2.5, action="challenge", reach=5.2, radius=1.3),
  dict(id="battle", name="Draven", title="Battlemaster", sprite="Draven", x=-9.5, z=-1.5, h=2.4, action="battle"),
- dict(id="ladder", name="Kael", title="Rank Keeper", sprite="Kael", x=9.5, z=-1.5, h=2.4, action="ladder"),
- dict(id="summon", name="Sera", title="Summoner", sprite="Sera", x=0, z=3.2, h=2.4, action="summon", reach=5.0),
+ dict(id="ladder", name="Kenji", title="Rank Keeper", sprite="Kenji", x=9.5, z=-1.5, h=2.4, action="ladder"),
+ dict(id="summon", name="Miya", title="Summoner", sprite="Miya", x=0, z=3.2, h=2.4, action="summon", reach=5.0),
  dict(id="heroes", name="Lyra", title="Trainer", sprite="Lyra", x=-11.5, z=8.5, h=2.4, action="heroes"),
  dict(id="shop", name="Rook", title="Shopkeeper", sprite="Rook", x=13, z=7.2, h=2.4, action="shop"),
  dict(id="world", name="Yulia", title="Scout", sprite="Yulia", x=17.2, z=15, h=2.4, action="world"),
- dict(id="save", name="Scribe", title="Records", sprite="Kael", x=-17.2, z=15, h=2.3, action="save_and_quit", tint=[0.75, 0.88, 1.15, 1]),
+ dict(id="save", name="Scribe", title="Records", sprite="Kenji", x=-17.2, z=15, h=2.3, action="save_and_quit", tint=[0.75, 0.88, 1.15, 1]),
 ]
 DEC += [dict(type="glyph", x=0, z=3.2, r=3.4, color=[0.6, 0.4, 1, 1], spin=14),
         dict(type="glow", x=0, z=-6, r=6, color=[1, 0.7, 0.35, 1]), dict(type="glow", x=13, z=6, r=5, color=[1, 0.75, 0.4, 1]),

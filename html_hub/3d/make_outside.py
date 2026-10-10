@@ -96,7 +96,7 @@ for sgn in (-1, 1):
 # ---------------------------------------------------------------- people
 NP += [
  dict(id="guard", name="Gate Guard", title="Colosseum Gate", sprite="Draven", x=-5.8, z=-10.5, h=2.5, line="The arena is open to all challengers. Step through the gate when you're ready.", reach=4.8),
- dict(id="crier", name="Town Crier", title="News", sprite="Kael", x=5.0, z=6.5, h=2.4, tint=[1.15, 0.95, 0.75, 1], line="Hear ye! Fresh blood on the ladder, and the Champion has not been beaten in a season!"),
+ dict(id="crier", name="Town Crier", title="News", sprite="Kenji", x=5.0, z=6.5, h=2.4, tint=[1.15, 0.95, 0.75, 1], line="Hear ye! Fresh blood on the ladder, and the Champion has not been beaten in a season!"),
  dict(id="vendor", name="Pip", title="Fruit seller", sprite="Rook", x=12.0, z=1.2, h=2.2, tint=[0.85, 1.15, 0.85, 1], line="Apples, figs, a little luck! Best you'll find outside the walls."),
  dict(id="traveler", name="Mara", title="Traveller", sprite="Lyra", x=-12.5, z=5.5, h=2.4, tint=[1.1, 1.0, 1.2, 1], line="They say the road south leads to the old forest. I'm waiting on my escort."),
  dict(id="road", name="Harbour Warden", title="Ferry Landing", sprite="Yulia", x=6.5, z=36.0, h=2.4, line="The ferry to Paradise Island leaves from the end of the road. A quiet place to rest between bouts."),

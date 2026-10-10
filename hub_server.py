@@ -121,17 +121,18 @@ from data import vendors as vendors_data
 from data.bosses import BOSSES, BOSS_SKILLS, WORLD_BOSSES, fixed_level_for
 from game.equipment_instances import WEAPON_MAX_UPGRADE, weapon_upgrade_cost
 ALL_BOSSES = {**BOSSES, **WORLD_BOSSES}    # the battle debug menu offers rank bosses and story (world) bosses
-from data.leveling import apply_growth, TALENT_POINT_INTERVAL
+from data.leveling import ENEMY_GROWTH_SCALE, apply_growth, power_mult, scale_item_heal, TALENT_POINT_INTERVAL
 from engine.skills import MAX_SKILL_RANK, power_at_rank, mp_cost_at_rank, status_duration_bonus_at_rank
 from game.boss_script import BossRunner
 from game.twins_fight import TwinsRunner, build_twin_members
-from engine.equipment import SLOTS, RARITIES as EQUIP_RARITIES, class_can_equip
+from engine.equipment import SLOTS, RARITIES as EQUIP_RARITIES, class_can_equip, occupies_offhand
 from game.equipment_instances import bonus_text as inst_bonus_text, resolve_equipment_db
 from engine.types import ActionType, BattleResult, TargetType
 from game import heroes as heroes_logic
 from game import legacy as legacy_logic
 from game import party as party_logic
 from game import save_system
+from game import difficulty as game_difficulty
 from game import shop as shop_logic
 from game import fishing as fishing_logic
 from data.classes import CLASS_ARCHETYPES
@@ -208,7 +209,7 @@ def enemy_scale_factors(num_heroes: int, num_enemies: int, wins: int):
     return max(0.05, hp), max(0.05, other), chain
 
 
-# A slave's ordinary Colosseum bouts (Kael alone, no gear to speak of) were far too easy: enemies were weakened for being
+# A slave's ordinary Colosseum bouts (Kenji alone, no gear to speak of) were far too easy: enemies were weakened for being
 # "outnumbered" and a single hero chewed through them in 2-3 rounds. In those fights the size discount is dropped and
 # every enemy gets these extra per-stat factors. Retune by feel; boss fights use SLAVE_BOSS_MULT instead.
 SLAVE_FIGHT_MULT = {"max_hp": 1.5, "atk": 1.2, "mag": 1.2, "def_": 1.15, "res": 1.15}
@@ -310,22 +311,22 @@ def _build_range_battle(party_pcs, lo: int, hi: int, pool, equipment_db=None, le
 # does not control: they act through ally_auto_action() below, never asking the browser.
 story_slave = False
 SLAVE_ALLY_COUNT = 3
-# Bosses are tuned for a full 4-hero party with gear. A slave has Kael plus three ungeared, uncontrolled helpers,
+# Bosses are tuned for a full 4-hero party with gear. A slave has Kenji plus three ungeared, uncontrolled helpers,
 # so a boss met in the Pit is weakened by these per-stat factors.
 SLAVE_BOSS_MULT = {"max_hp": 0.25, "atk": 0.50, "mag": 0.50, "def_": 0.75, "res": 0.75}
-# The 0.25 HP factor above was tuned back when a slave had three borrowed allies; Kael alone now tears through the
+# The 0.25 HP factor above was tuned back when a slave had three borrowed allies; Kenji alone now tears through the
 # Unbroken Pair in ~4 rounds at 90% HP. Per-boss overrides (the champion's old numbers still play fine), plus a
-# per-level ramp because a mythic Kael out-grows the bosses' own flat growth.
+# per-level ramp because a mythic Kenji out-grows the bosses' own flat growth.
 SLAVE_BOSS_MULT_BY = {"unbroken_pair_boss": {"max_hp": 0.50, "atk": 0.60, "mag": 0.60, "def_": 0.80, "res": 0.80}}
-SLAVE_BOSS_RAMP_FROM = 14      # Kael level where the per-level ramp starts
+SLAVE_BOSS_RAMP_FROM = 14      # Kenji level where the per-level ramp starts
 SLAVE_BOSS_RAMP_HP = 0.015
 SLAVE_BOSS_RAMP_OTHER = 0.008
 
 
 def slave_hero(state):
-    """The one hero a slave fights with: Kael if owned, else the first roster member."""
+    """The one hero a slave fights with: Kenji if owned, else the first roster member."""
     chars = list(state.characters)
-    return ([c for c in chars if c.name == "Kael"] or chars[:1])
+    return ([c for c in chars if c.name == "Kenji"] or chars[:1])
 
 
 def _slave_too_hurt() -> bool:
@@ -370,14 +371,14 @@ SKILLS.update(BOSS_SKILLS)  # boss-only skills live in data/bosses.py
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "application/javascript",
                   ".css": "text/css", ".png": "image/png", ".webp": "image/webp",
                   ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".json": "application/json",
-                  ".mp3": "audio/mpeg", ".wav": "audio/wav"}
+                  ".mp3": "audio/mpeg", ".wav": "audio/wav", ".mp4": "video/mp4", ".webm": "video/webm"}
 
 # A brand-new save needs *some* starting hero and there's no character
 # creation screen in HTML yet -- same stopgap the battle side takes below
 # with hardcoded difficulty/opponent count, just for the roster's first
 # hero instead. Real character creation replaces this the same turn
 # Title/New Game gets built.
-DEFAULT_STARTER_NAME = "Kael"
+DEFAULT_STARTER_NAME = "Kenji"
 DEFAULT_STARTER_CLASS = "melee_dps"
 
 
@@ -399,7 +400,7 @@ current_smith_key = None
 
 
 def _ensure_story_split(state: PlayerState) -> bool:
-    """Story heroes (Mythic) vs Colosseum heroes: the starter Kael is a story hero (older saves had him
+    """Story heroes (Mythic) vs Colosseum heroes: the starter Kenji is a story hero (older saves had him
     Common), story heroes never sit in the Colosseum party. The Colosseum roster starts EMPTY: the player buys an
     arena team after being freed (see ARENA_TEAM_COST). Returns True if anything changed."""
     changed = False
@@ -424,8 +425,7 @@ _state_lock = threading.Lock()
 if save_system.save_exists():
     player_state = save_system.load_game()
 else:
-    player_state = _default_new_game()
-    save_system.save_game(player_state)
+    player_state = _default_new_game()      # not written yet: the title screen's New Game / Load decides what becomes a save
 # A save from before the overworld existed (or one that somehow names a map that's since been
 # removed) has no valid world_map -- drop it at the starting map's spawn point, same as a brand-new
 # game gets from PlayerState.new_game().
@@ -624,7 +624,10 @@ def _hero_upgrade_info(c: PlayerCharacter, equipment_db) -> dict:
 
     archetype = c.archetype
     upgrade_slots = []
+    blades = c.offhand_locked_by(equipment_db)           # dual blades fill both hands: an off-hand upgrade isn't possible
     for slot in SLOTS:
+        if slot == "offhand" and blades is not None:
+            continue
         current_id = c.equipped.get(slot)
         current_item = equipment_db.get(current_id) if current_id else None
         current_power = power(current_item) if current_item else (-1, 0)
@@ -634,7 +637,7 @@ def _hero_upgrade_info(c: PlayerCharacter, equipment_db) -> dict:
             item = equipment_db.get(instance_id)
             if not item or item.slot != slot:
                 continue
-            if not class_can_equip(item, archetype.weapon_types, archetype.offhand_types, archetype.armor_weight):
+            if not class_can_equip(item, c.weapon_types, c.offhand_types, archetype.armor_weight):
                 continue
             if power(item) > current_power:
                 upgrade_slots.append(slot)
@@ -737,9 +740,11 @@ def _serialize_hero_full(c: PlayerCharacter, equipment_db) -> dict:
         **_hero_upgrade_info(c, equipment_db),
         "equipped": {slot: _serialize_equipped_slot(c.equipped.get(slot), equipment_db) for slot in SLOTS},
         # What this class can wear -- lets the Heroes UI grey out stash items this hero hard-can't-equip.
-        "weapon_types": sorted(archetype.weapon_types),
-        "offhand_types": sorted(archetype.offhand_types),
+        "weapon_types": sorted(c.weapon_types),             # class set + hero extras (Kenji's dual blades)
+        "offhand_types": sorted(c.offhand_types),
         "armor_weight": archetype.armor_weight,
+        # Dual blades fill both hands: the name of the weapon holding the off-hand slot (None = the off-hand is free).
+        "offhand_locked_by": (lambda w: w.name if w else None)(c.offhand_locked_by(equipment_db)),
         # Legacy items (game/legacy.py): what fallen heroes left behind, equipped here for a % stat
         # bonus. legacy_slots is 3 + one per rarity step above common (THIS hero's own rarity).
         "legacy_slots": c.legacy_slots,
@@ -806,11 +811,19 @@ def _hp_mp_for(c: PlayerCharacter, stats) -> tuple:
     return hp, mp
 
 
+# Where the menu card crops its (usually wider-than-tall) art so the hero stays in frame: CSS object-position.
+MENU_CARD_FOCUS = {"Kenji": "42% 0"}
+
+
 def _serialize_menu_hero(c: PlayerCharacter, edb) -> dict:
     d = _serialize_hero_full(c, edb)
     st = c.effective_stats(edb, player_state.legacy_instances)
     d["hp"], d["mp"] = _hp_mp_for(c, st)
     d["xp"] = c.xp
+    card = BATTLERS_DIR / c.name / f"{c.name}-Card.png"      # optional wide menu-card art; jrpgmenu.js falls back to the portrait
+    if card.is_file():
+        d["card"] = f"/assets/Battlers/{c.name}/{c.name}-Card.png"
+        d["card_pos"] = MENU_CARD_FOCUS.get(c.name, "50% 0")
     d["xp_next"] = None if c.is_level_maxed else xp_for_next_level(c.level, c.is_story)
     d["formation"] = c.formation
     for slot in SLOTS:                                   # raw bonuses, for the equip screen's before/after preview
@@ -842,6 +855,7 @@ def _serialize_menu_state() -> dict:
         "money": player_state.money, "gems": player_state.gems, "rank": player_state.rank,
         "renown": player_state.renown, "tickets": dict(player_state.tickets),
         "equipment_shards": player_state.equipment_shards,
+        "difficulty": game_difficulty.clean(player_state.difficulty),
     }
 
 
@@ -866,19 +880,26 @@ def _shop_hero_card(c: PlayerCharacter, edb) -> dict:
 def _shop_fit(c: PlayerCharacter, item, edb) -> dict:
     """What `item` (a catalog piece) would do for hero `c`: can they wear it, and each stat's change versus what
     is in that slot now. Computed by swapping the slot in place and restoring it, so it uses the exact
-    same math as the real stats (growth, stars, rarity, other gear, legacy bonuses)."""
+    same math as the real stats (growth, stars, rarity, other gear, legacy bonuses). Dual blades also empty the
+    off-hand slot, and an off-hand can't be worn while the hero's blades fill both hands."""
     a = c.archetype
-    can = class_can_equip(item, a.weapon_types, a.offhand_types, a.armor_weight)
+    can = class_can_equip(item, c.weapon_types, c.offhand_types, a.armor_weight)
+    if can and item.slot == "offhand" and c.offhand_locked_by(edb) is not None:
+        can = False
     cur_id = c.equipped.get(item.slot)
     cur = edb.get(cur_id) if cur_id else None
     out = {"can": bool(can), "current": ({"name": cur.name, "bonus_text": cur.bonus_text()} if cur else None)}
     if can:
         before = c.effective_stats(edb, player_state.legacy_instances)
+        old_offhand = c.equipped.get("offhand")
         c.equipped[item.slot] = item.id
+        if occupies_offhand(item):
+            c.equipped["offhand"] = None
         try:
             after = c.effective_stats(edb, player_state.legacy_instances)
         finally:
             c.equipped[item.slot] = cur_id
+            c.equipped["offhand"] = old_offhand if occupies_offhand(item) else c.equipped.get("offhand")
         out["delta"] = {k: getattr(after, k) - getattr(before, k) for k in _SHOP_STAT_KEYS if getattr(after, k) != getattr(before, k)}
     return out
 
@@ -1102,6 +1123,8 @@ def _anim_kind_for(action: Action, actor, roles: dict, enemy_roles: dict) -> str
     """Richer replacement for the old is_melee boolean: tells the browser which battle-screen
     animation family to play (melee run-in, ranged/magic projectile + impact, heal glow, or a
     self/idle status pop) for this action. See html_battle/index.html's handleActionEvent()."""
+    if action.type == ActionType.ITEM:
+        return "item"        # drinking/using -- the actor stays put (used to fall through to the melee run-in)
     if action.type != ActionType.SKILL:
         # A plain ATTACK is always "physical" -- ranged_dps heroes (Rook & co.) still shoot it.
         role = _role_for_actor(actor, roles, enemy_roles)
@@ -1235,6 +1258,16 @@ class Handler(BaseHTTPRequestHandler):
         route_path = self.path.split("?", 1)[0]
         if route_path in ("/", "/index.html"):
             self._send_html_file(HTML_DIR, "index.html")
+            return
+        if route_path in ("/title", "/title/", "/title/index.html"):
+            self._send_html_file(HTML_DIR, "title.html")
+            return
+        if route_path == "/api/title":
+            with _state_lock:
+                slots = [save_system.slot_summary(n) for n in range(1, save_system.SLOT_COUNT + 1)]
+                cur = save_system.get_slot()
+                cont = cur if slots[cur - 1].get("exists") else next((s["slot"] for s in sorted((s for s in slots if s.get("exists")), key=lambda s: -s.get("saved_at", 0))), None)
+                self._send_json(200, {"slots": slots, "current": cur, "continue": cont, "debug": bool(config.DEBUG)})
             return
         if route_path in ("/heroes", "/heroes/", "/heroes/index.html"):
             self._send_html_file(HTML_DIR, "heroes.html")
@@ -1373,13 +1406,36 @@ class Handler(BaseHTTPRequestHandler):
             # Music/, SFX/, walking/ (the overworld's 4-direction walk-cycle sheets), and tilesets/
             # (the overworld's terrain art), and 3D/ (GLB models for the battle maps) live under the sibling Assets/ folder (capital A), not
             # data/ -- same generic static-file serving, just a different root for those subtrees.
-            root = ASSETS_DIR if rel.startswith(("Music/", "SFX/", "walking/", "tilesets/", "3D/", "Backgrounds/", "Terrain/")) else DATA_DIR
+            root = ASSETS_DIR if rel.startswith(("Music/", "SFX/", "walking/", "tilesets/", "3D/", "Backgrounds/", "Terrain/", "title/")) else DATA_DIR
             path = (root / rel).resolve()
             if root.resolve() not in path.parents or not path.is_file():
                 self._send_bytes(404, b"not found", "text/plain")
                 return
             content_type = CONTENT_TYPES.get(path.suffix.lower(), "application/octet-stream")
-            self._send_bytes(200, path.read_bytes(), content_type)
+            data = path.read_bytes()
+            rng = self.headers.get("Range")
+            if rng and rng.startswith("bytes=") and path.suffix.lower() in (".mp4", ".webm", ".mp3", ".wav"):     # video / audio need byte ranges to loop and seek
+                try:
+                    a, _, b = rng[6:].partition("-")
+                    start = int(a) if a else 0
+                    end = min(int(b) if b else len(data) - 1, len(data) - 1)
+                    if start > end:
+                        raise ValueError
+                    part = data[start:end + 1]
+                    self.send_response(206)
+                    self.send_header("Content-Type", content_type)
+                    self.send_header("Accept-Ranges", "bytes")
+                    self.send_header("Content-Range", f"bytes {start}-{end}/{len(data)}")
+                    self.send_header("Content-Length", str(len(part)))
+                    self.end_headers()
+                    try:
+                        self.wfile.write(part)
+                    except (BrokenPipeError, ConnectionError):
+                        pass
+                    return
+                except ValueError:
+                    pass
+            self._send_bytes(200, data, content_type)
             return
         self._send_bytes(404, b"not found", "text/plain")
 
@@ -1467,8 +1523,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_menu_cast()
         elif self.path == "/api/menu/rest":
             self._handle_menu_rest()
+        elif self.path == "/api/menu/difficulty":
+            self._handle_menu_difficulty()
         elif self.path == "/api/menu/save":
             self._handle_menu_save()
+        elif self.path in ("/api/title/new", "/api/title/load", "/api/title/sync"):
+            self._handle_title(self.path.rsplit("/", 1)[1])
         elif self.path == "/api/menu/quit":
             self._handle_menu_quit()
         elif self.path == "/api/builder3d/scene":
@@ -1850,7 +1910,7 @@ class Handler(BaseHTTPRequestHandler):
             hp, mp = _hp_mp_for(c, st)
             parts = []
             if item.heal_hp and not item.revive and hp < st.max_hp:
-                new = min(st.max_hp, hp + item.heal_hp); parts.append(f"{new - hp} HP"); c.hp = new
+                new = min(st.max_hp, hp + scale_item_heal(item.heal_hp, st.max_hp)); parts.append(f"{new - hp} HP"); c.hp = new
             if item.heal_mp and mp < st.max_mp:
                 new = min(st.max_mp, mp + item.heal_mp); parts.append(f"{new - mp} MP"); c.mp = new
             if not parts:
@@ -1901,13 +1961,32 @@ class Handler(BaseHTTPRequestHandler):
             save_system.save_game(player_state)
             self._menu_reply(True, f"{caster.name} casts {skill.name}. " + (", ".join(healed) if healed else "Nothing happens."))
 
+    def _handle_menu_difficulty(self) -> None:
+        """Settings > Difficulty (the page only offers it in town). Takes effect from the next battle."""
+        want = self._read_json_body().get("difficulty")
+        if want not in game_difficulty.GAME_DIFFICULTIES:
+            self._menu_reply(False, "Unknown difficulty.")
+            return
+        with _state_lock:
+            player_state.difficulty = want
+            save_system.save_game(player_state)
+            self._menu_reply(True, "Difficulty set to " + want.capitalize() + ".")
+
     def _handle_menu_rest(self) -> None:
         """Rest (an inn bed, a campfire, the village elder): everyone in the roster is back to full HP and MP."""
+        try:
+            cost = max(0, int(self._read_json_body().get("cost") or 0))      # an inn bed asks for gold; campfires, crystals and the defeat-to-inn rescue send nothing
+        except Exception:
+            cost = 0
         with _state_lock:
+            if cost and player_state.money < cost:
+                self._menu_reply(False, f"A bed costs {cost} gold, and you only have {player_state.money}.")
+                return
+            player_state.money -= cost
             for c in player_state.characters:
                 c.hp = None; c.mp = None
             save_system.save_game(player_state)
-            self._menu_reply(True, "You rest a while. Everyone's HP and MP are fully restored.")
+            self._menu_reply(True, (f"You pay {cost} gold and sleep soundly. " if cost else "You rest a while. ") + "Everyone's HP and MP are fully restored.")
 
     def _handle_story_recruit(self) -> None:
         """A story character joins the roster for free (e.g. Lyra at Outpost Kestrel). Arrives at the level of the strongest hero,
@@ -1929,9 +2008,9 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, {"ok": True, "message": f"{h.name} joins your party!", "joined": True})
 
     def _handle_story_away(self) -> None:
-        """Takes a story hero out of the story party (away=true: Sera carried to the Colosseum infirmary) or brings them back
+        """Takes a story hero out of the story party (away=true: Miya carried to the Colosseum infirmary) or brings them back
         (away=false). They stay in the roster with their level and gear; only party.story_party_characters skips them.
-        Kael can never be sent away. Body {name, away}."""
+        Kenji can never be sent away. Body {name, away}."""
         body = self._read_json_body()
         name, away = str(body.get("name") or ""), bool(body.get("away", True))
         with _state_lock:
@@ -2094,6 +2173,68 @@ class Handler(BaseHTTPRequestHandler):
             os._exit(0)
         threading.Thread(target=_shutdown, daemon=True).start()
 
+    def _handle_title(self, action: str) -> None:
+        """Title screen: new = fresh game in a slot, load = switch to a slot's save, sync = the browser's progress blob
+        (story flags, checkpoints, last position) stored next to the current slot's save so a load restores it too."""
+        global story_slave, pending_ladder, pending_challenge, debug_battle, pending_world_level, pending_world_boss, pending_world_encounter, pending_hub3d, last_hub_battle
+        msg = self._read_json_body()
+        if action == "sync":
+            if isinstance(msg, dict) and len(json.dumps(msg)) < 2_000_000:
+                with _state_lock:
+                    try:
+                        with open(save_system.client_path(save_system.get_slot()), "w") as f:
+                            json.dump({str(k): str(v) for k, v in msg.items()}, f)
+                    except OSError:
+                        pass
+            self._send_json(200, {"ok": True})
+            return
+        try:
+            slot = int(msg.get("slot"))
+            if not 1 <= slot <= save_system.SLOT_COUNT:
+                raise ValueError
+        except (TypeError, ValueError):
+            self._send_json(200, {"ok": False, "message": "No such save slot."})
+            return
+        with _state_lock:
+            client = {}
+            if action == "new":
+                save_system.set_slot(slot)
+                debug_tools.reset_state(player_state, DEFAULT_STARTER_NAME, DEFAULT_STARTER_CLASS)
+                player_state.difficulty = game_difficulty.clean(msg.get("difficulty"))
+                _ensure_story_split(player_state)
+                try:
+                    import os as _os
+                    _os.remove(save_system.client_path(slot))
+                except OSError:
+                    pass
+            else:
+                if not save_system.save_exists(save_system.slot_path(slot)):
+                    self._send_json(200, {"ok": False, "message": "That slot is empty."})
+                    return
+                try:
+                    loaded = save_system.load_game(save_system.slot_path(slot))
+                except Exception as exc:        # a corrupt / hand-edited file must not take the server down
+                    self._send_json(200, {"ok": False, "message": f"Could not read that save: {exc}"})
+                    return
+                save_system.set_slot(slot)
+                player_state.__dict__.clear()
+                player_state.__dict__.update(loaded.__dict__)
+                try:
+                    with open(save_system.client_path(slot)) as f:
+                        client = json.load(f)
+                except (OSError, ValueError):
+                    client = {}
+            world_logic.ensure_spawned(player_state, WORLD_MAPS, START_MAP)
+            _ensure_story_split(player_state)
+            story_slave = False                      # per-session leftovers from the previous run
+            pending_challenge = None; pending_ladder = False; debug_battle = None
+            pending_world_level = None; pending_world_boss = None; pending_world_encounter = False
+            pending_hub3d = False; last_hub_battle = None
+            RIVAL_MEMORY.clear()
+            RIVAL_MEMORY.update(new_rival_memory())
+            save_system.save_game(player_state)
+            self._send_json(200, {"ok": True, "client": client, "slot": slot})
+
     def _handle_menu_save(self) -> None:
         with _state_lock:
             save_system.save_game(player_state)
@@ -2182,12 +2323,17 @@ def _stat_block(stats) -> dict:
     return {k: getattr(stats, k) for k in _STAT_KEYS}
 
 
+def _enemy_growth_block(stats) -> dict:
+    """An enemy archetype's per-level growth as the fight actually applies it (data/leveling.py's ENEMY_GROWTH_SCALE)."""
+    return {k: getattr(stats, k) * ENEMY_GROWTH_SCALE.get(k, 1.0) for k in _STAT_KEYS}
+
+
 def _skill_names(ids) -> list:
     return [SKILLS[i].name if i in SKILLS else i for i in ids]
 
 
 def _serialize_boss_option(b) -> dict:
-    base, growth = _stat_block(b.base_stats), _stat_block(b.growth)
+    base, growth = _stat_block(b.base_stats), _enemy_growth_block(b.growth)
     base["max_hp"] = round(base["max_hp"] * b.hp_mult)      # fold the HP multiplier in so the menu's
     growth["max_hp"] = round(growth["max_hp"] * b.hp_mult)  # base + growth*(level-1) matches the fight
     return {"id": b.id, "name": b.name, "boss": True, "story": b.id in WORLD_BOSSES and b.id not in BOSSES, "base": base, "growth": growth,
@@ -2208,7 +2354,7 @@ def _serialize_debug_options() -> dict:
         "scaled_stats": list(SCALED_ENEMY_STATS),
         "size_scale": {"up_hp": SIZE_UP_HP, "up_other": SIZE_UP_OTHER, "down_hp": SIZE_DOWN_HP, "down_other": SIZE_DOWN_OTHER},
         "monsters": [{"id": a.id, "name": a.name, "monster": True, "base": _stat_block(a.base_stats),
-                      "growth": _stat_block(a.growth), "skills": _skill_names(a.skill_ids)}
+                      "growth": _enemy_growth_block(a.growth), "skills": _skill_names(a.skill_ids)}
                      for a in ENEMY_ARCHETYPES.values()],
         "rivals": [{"name": h.name, "class_id": h.class_id, "class_name": CLASS_ARCHETYPES[h.class_id].name,
                     "rarity": h.rarity} for h in RECRUITABLE_ROSTER],
@@ -2265,11 +2411,11 @@ def _build_boss_setup(bdef, party_pcs, level: int, equipment_db=None, legacy_db=
         setup._enemy_levels = {b.id: level for b in bosses}
         setup._boss_def = bdef
         return setup
-    stats = apply_growth(bdef.base_stats, bdef.growth, level)
+    stats = apply_growth(bdef.base_stats, bdef.growth, level, enemy=True)
     stats.max_hp = max(1, round(stats.max_hp * bdef.hp_mult))
     boss = Combatant(name=bdef.name, is_enemy=True, base_stats=stats, skill_ids=list(bdef.skill_ids),
                      resistances=dict(bdef.resistances), persona=bdef.persona, sprite_color=bdef.sprite_color,
-                     formation="front", is_melee=True)
+                     formation="front", is_melee=True, power_mult=power_mult(level))
     enemies, ids, levels = [boss], [bdef.id], {boss.id: level}
     for eid, elv in (getattr(bdef, "escorts", None) or []):     # plain monsters fighting beside the boss (e.g. Skraag's skirmishers)
         esc = build_enemy_combatant(eid, elv)
@@ -2404,7 +2550,7 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             if from_world and not slave_fight:
                 party = party_logic.story_party_characters(player_state) or party     # outside the Colosseum the story heroes fight
         if challenge_boss is not None and getattr(challenge_boss, "tutorial", False):
-            party = party[:1]       # Garrick's warm-up teaches one hero's menu: Kael alone
+            party = party[:1]       # Garrick's warm-up teaches one hero's menu: Kenji alone
         edb = _resolved_equipment_db()
         with _state_lock:
             ldb = dict(player_state.legacy_instances)
@@ -2785,6 +2931,8 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             outbound.put({"type": "log", "message": "A slave fights alone."})
         elif slave_fight:
             outbound.put({"type": "log", "message": "A slave fights alone."})
+        if not dbg and not tutorial:
+            game_difficulty.apply_to_setup(setup, player_state.difficulty)     # Easy / Hard: tougher or softer enemies
         roles = {ch.name: ch.class_id for ch in party}
         if auto_ids:
             roles.update({c.name: h.class_id for c, h in borrowed})
@@ -2931,6 +3079,8 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
                 with _state_lock:
                     first_clear = bdef.id not in player_state.cleared_bosses and not tutorial
                 this_win = dict(bdef.rewards_first if first_clear else bdef.rewards_repeat)
+                if not tutorial:
+                    game_difficulty.scale_rewards(this_win, player_state.difficulty)
                 if from_world:      # outside the Colosseum: no summon tickets / equipment shards
                     this_tickets, this_shards = {}, 0
                 else:
@@ -2959,6 +3109,8 @@ def run_battle(outbound: "queue.Queue[dict]", inbound: "queue.Queue[dict]") -> N
             this_win = {"money": round(money * multiplier), "gems": round(gems * multiplier), "xp": round(xp * multiplier)}
             if from_world and not dbg:
                 this_win["xp"] = story_fight_xp(getattr(setup, "enemy_level", 1) or 1)     # the story heroes' longer level curve
+            if not dbg:
+                game_difficulty.scale_rewards(this_win, player_state.difficulty)
             for k in pot:
                 pot[k] += this_win[k]
             this_tickets = {} if from_world else roll_ticket_drops(ladder=ladder is not None)

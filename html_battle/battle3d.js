@@ -575,7 +575,8 @@ void main(){
         q = quadFor(s, img);
         rect = [(s.frame % COLS) / COLS, Math.floor(s.frame / COLS) / ROWS, 1 / COLS, 1 / ROWS];
       }
-      const flipOpt = !!((s.staticCfg || s.bossCfg) && (s.staticCfg || s.bossCfg).native_left);
+      const hcf = C.NAMED_POSE_CFG[s.name] && C.NAMED_POSE_CFG[s.name][s.pose];
+      const flipOpt = !!((s.staticCfg || s.bossCfg) && (s.staticCfg || s.bossCfg).native_left) || !!(hcf && hcf.native_left);
       const flipped = (s.facingRight === flipOpt);        // same rule as the 2D mirror: sheets are drawn facing right
       const cl = s.anchor.classList;
       let tint = [1, 1, 1, 1];
@@ -730,6 +731,7 @@ void main(){
       #b3d-canvas { position:absolute; inset:0; width:100%; height:100%; display:none; z-index:0; }
       #b3d-vignette { position:absolute; inset:0; pointer-events:none; display:none; z-index:0;
         background: radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0) 55%, rgba(4,2,12,.5) 100%); }
+      body:not(.dbgmode) #b3d-bar { display:none !important; }      /* View / Cam / Map / Action cam buttons are debug-only */
       #b3d-bar { position:absolute; top:6px; left:calc(50% - 150px); transform:translateX(-100%); z-index:21; display:flex; gap:6px; }
       #b3d-bar button { background: var(--panel-bg, rgba(14,12,26,.8)); color: var(--text-dim, #9a93c0);
         border:1px solid var(--panel-border, rgba(190,160,255,.35)); border-radius:999px; padding:4px 12px; font-size:12px; cursor:pointer; white-space:nowrap; }

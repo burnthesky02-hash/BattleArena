@@ -56,8 +56,8 @@
     },
     {
      "type": "say",
-     "who": "Kael",
-     "text": "Sera is somewhere in this place. The infirmary, the Overseer said. First thing I do is find her.",
+     "who": "Kenji",
+     "text": "Miya is somewhere in this place. The infirmary, the Overseer said. First thing I do is find her.",
      "if": "st_hurt"
     },
     {
@@ -1837,9 +1837,9 @@
   },
   {
    "id": "ladder",
-   "name": "Kael",
+   "name": "Kenji",
    "title": "Rank Keeper",
-   "sprite": "Kael",
+   "sprite": "Kenji",
    "x": 9.5,
    "z": -1.5,
    "h": 2.4,
@@ -1849,7 +1849,7 @@
    "id": "summon",
    "name": "Ilya",
    "title": "Summoner",
-   "sprite": "Sera",
+   "sprite": "Miya",
    "x": 0,
    "z": 3.2,
    "h": 2.4,
@@ -1890,7 +1890,7 @@
    "id": "save",
    "name": "Scribe",
    "title": "Records",
-   "sprite": "Kael",
+   "sprite": "Kenji",
    "x": -17.2,
    "z": 15,
    "h": 2.3,
@@ -1945,7 +1945,7 @@
    "id": "st_b2",
    "name": "Masked Raider",
    "title": "Hostile",
-   "sprite": "Kael",
+   "sprite": "Kenji",
    "x": 5,
    "z": 9,
    "h": 2.4,
@@ -2026,9 +2026,9 @@
   },
   {
    "id": "sera_infirmary",
-   "name": "Sera",
+   "name": "Miya",
    "title": "Infirmary healer",
-   "sprite": "Sera",
+   "sprite": "Miya",
    "x": -14.6,
    "z": 3.2,
    "h": 2.4,
@@ -2044,33 +2044,33 @@
    "actions": [
     {
      "type": "say",
-     "who": "Sera",
-     "text": "Kael! You are on your feet! They told me the Pit never gives anyone back."
+     "who": "Miya",
+     "text": "Kenji! You are on your feet! They told me the Pit never gives anyone back."
     },
     {
      "type": "say",
-     "who": "Kael",
+     "who": "Kenji",
      "text": "It gave me a collar, and then a crowd that liked the show. I am free, for now. Are you all right? Where have they had you?"
     },
     {
      "type": "say",
-     "who": "Sera",
+     "who": "Miya",
      "text": "Stitching up Captain Varro's drowned men, mostly. The infirmary ran out of chapel hands years ago, so they kept me because I was useful. It was an honest sort of captivity."
     },
     {
      "type": "say",
-     "who": "Sera",
+     "who": "Miya",
      "text": "I never meant to stay. Whatever was singing in that water, I felt it too, and I would like to know what it was. Let me walk with you again."
     },
     {
      "type": "say",
-     "who": "Kael",
+     "who": "Kenji",
      "text": "I would like that. I do not know where this road goes from here, but I would rather not walk it alone."
     },
     {
      "type": "say",
      "who": null,
-     "text": "Sera takes up her staff and falls in beside you once more."
+     "text": "Miya takes up her staff and falls in beside you once more."
     },
     {
      "type": "flag",
@@ -2078,7 +2078,7 @@
     },
     {
      "type": "away",
-     "name": "Sera",
+     "name": "Miya",
      "away": false
     }
    ]
@@ -2193,7 +2193,7 @@
     {
      "type": "say",
      "who": null,
-     "text": "You stop at the gate. You are not leaving without Sera. She is still in the infirmary, on the west side of the concourse."
+     "text": "You stop at the gate. You are not leaving without Miya. She is still in the infirmary, on the west side of the concourse."
     },
     {
      "type": "tp",
@@ -2513,7 +2513,7 @@
   {
    "if": "st_free,st_hurt",
    "unless": "st_sera_back",
-   "text": "Find Sera in the Colosseum infirmary, on the west side of the concourse"
+   "text": "Find Miya in the Colosseum infirmary, on the west side of the concourse"
   }
  ]
 }

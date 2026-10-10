@@ -123,7 +123,7 @@ BUTTON_COLOR = (60, 60, 84)
 BUTTON_HOVER = (90, 90, 130)
 
 # Where Andrew drops portrait art, one image per character, named after the
-# character (e.g. "Kael.png") -- see show_heroes' hero-card grid below.
+# character (e.g. "Kenji.png") -- see show_heroes' hero-card grid below.
 # Deliberately just a folder of loose images, not a data/portraits.py
 # registry: nothing in code needs to know the full set of filenames up
 # front, since _get_portrait() only ever looks up one name at a time and
