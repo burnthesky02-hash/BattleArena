@@ -1320,6 +1320,12 @@ class Handler(BaseHTTPRequestHandler):
                                    "<p>Rest on the cot in your cell to let time pass.</p>"
                                    "<p><button style='font-size:20px' onclick='history.back()'>Back</button></p>").encode("utf-8"), "text/html; charset=utf-8")
             return
+        if route_path in ("/party", "/party/", "/party/index.html") and story_slave:
+            # A slave fights alone as Kenji, who is a story hero, so Party Select (Colosseum heroes only) would be empty.
+            # The Pit's "Enter Battle" goes straight to the sand; run_battle picks slave_hero() itself.
+            debug_battle = None
+            self.send_response(302); self.send_header("Location", "/battle"); self.send_header("Content-Length", "0"); self.end_headers()
+            return
         if route_path in ("/party", "/party/", "/party/index.html"):
             debug_battle = None  # normal battle flow -- drop any pending debug setup
             self._send_html_file(HTML_DIR, "party.html")

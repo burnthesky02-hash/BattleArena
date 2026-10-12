@@ -49,6 +49,12 @@
   #pBubble { display:none; position:absolute; left:50%; bottom:58px; transform:translateX(-50%); width:280px; background:rgba(18,16,28,.9); border:1px solid #e8c766; border-radius:12px; padding:9px 13px; } #pBubble b { color:#e8c766; text-transform:uppercase; font-size:12px; letter-spacing:.05em; } #pBubble div { margin:3px 0 6px; line-height:1.35; } #pBubble span { background:#c9a13c; color:#241a05; font-weight:bold; border-radius:8px; padding:2px 9px; font-size:12px; }
   #pHint { display:none; position:absolute; left:50%; bottom:40px; transform:translateX(-50%); background:#c9a13c; color:#241a05; font-weight:bold; border-radius:999px; padding:5px 16px; }
   #pSay { display:none; position:absolute; left:50%; bottom:44px; transform:translateX(-50%); width:min(620px,86%); background:rgba(18,16,28,.95); border:1px solid #e8c766; border-radius:12px; padding:11px 18px 13px; pointer-events:auto; cursor:pointer; } #pSay .s-who { color:#e8c766; font-weight:800; text-transform:uppercase; font-size:12px; } #pSay .s-who:empty { display:none; } #pSay .s-text { font-size:15px; line-height:1.5; margin:5px 0 7px; white-space:pre-wrap; } #pSay .s-go { text-align:right; font-size:11px; color:var(--dim); }
+  #pBars i { position:absolute; left:0; right:0; height:11%; background:#000; } #pBars i.t { top:0; } #pBars i.b { bottom:0; } #pBars { display:none; position:absolute; inset:0; }
+  #pFade { position:absolute; inset:0; background:#000; opacity:0; pointer-events:none; }
+  #pTitle { position:absolute; inset:0; display:none; opacity:0; flex-direction:column; align-items:center; justify-content:center; text-align:center; transition:opacity .8s; pointer-events:none; } #pTitle b { font-size:44px; letter-spacing:.08em; color:#f4e3b0; text-shadow:0 2px 14px #000; } #pTitle span { margin-top:10px; font-size:16px; color:#e6dcc0; text-shadow:0 1px 6px #000; }
+  #pChoices { display:none; position:absolute; left:50%; bottom:150px; transform:translateX(-50%); width:min(620px,86%); flex-direction:column; gap:6px; pointer-events:auto; } #pChoices button { text-align:left; background:rgba(18,16,28,.95); border:1px solid #e8c766; color:#fff; border-radius:8px; padding:7px 14px; font-size:14px; cursor:pointer; } #pChoices button:hover { background:#3a3220; }
+  body.playing.cine-prev #pBubble, body.playing.cine-prev #pHint { display:none !important; }
+  .csum { color:var(--dim); font-size:11px; margin:2px 0 6px; } .cpick.on { outline:2px solid #8ab24a; }
   #pNote { display:none; position:absolute; left:50%; top:46px; transform:translateX(-50%); background:rgba(40,30,70,.92); border:1px solid #98f; border-radius:8px; padding:6px 14px; }
   #toast { position:fixed; left:50%; bottom:40px; transform:translateX(-50%); background:#222; border:1px solid #888; padding:8px 16px; border-radius:8px; display:none; z-index:30; max-width:70vw; }
   #toast.err { border-color:#e66; color:#fcc; } #toast.ok { border-color:#8c6; }
@@ -592,6 +598,7 @@ cv.addEventListener("pointerdown", (e) => {
   if (!scene) return; cv.focus(); cv.setPointerCapture(e.pointerId); const [sx, sy] = mouse(e);
   if (e.button === 1 || e.button === 2) { dragState = { mode: (e.button === 1 || e.shiftKey) ? "pan" : "orbit", x: e.clientX, y: e.clientY }; e.preventDefault(); return; }
   if (e.button !== 0) return;
+  if (pickMode && !play) { const t = terrRay(sx, sy), pm = pickMode; endPick(); if (t) pm.cb(r3(t[0]), r3(t[2])); return; }      // "Pick spot on ground" for cutscene steps
   if (play) { dragState = { mode: "pclick", x: e.clientX, y: e.clientY }; return; }
   const free = e.altKey, gp = groundPt(e, 0);
   if (tool === "select") {
@@ -694,6 +701,7 @@ cv.addEventListener("pointerup", (e) => {
 cv.addEventListener("wheel", (e) => { e.preventDefault(); cam.dist = clamp(cam.dist * (1 + Math.sign(e.deltaY) * 0.1), 3, 300); scheduleDraw(); }, { passive: false });
 cv.tabIndex = 0;
 window.addEventListener("keydown", (e) => {
+  if (pickMode && e.key === "Escape") { e.preventDefault(); endPick(); toast("Pick cancelled"); return; }
   if (play) { if (!(e.target && /^(SELECT|TEXTAREA)$/.test(e.target.tagName))) playKey(e); return; }
   if (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) { return; }
   const k = e.key, ctrl = e.ctrlKey || e.metaKey, it = getItem(sel), grp = selItems(), multi = grp.length > 1;
@@ -804,22 +812,113 @@ function chestEditor(a) {
   return box;
 }
 
-function actionsEditor(owner) {
+/* ---- cutscene steps (cine, cam, follow, walk, face, fade, title, wait, music, tp, choice) ---- */
+let pickMode = null;                                   // {cb(x, z)}: the next click on the ground is handed to cb
+function startPick(label, cb) { if (play) return; pickMode = { cb }; cv.style.cursor = "crosshair"; toast(label + ": click the ground (Esc cancels)"); }
+function endPick() { pickMode = null; cv.style.cursor = ""; }
+const CINE_STEPS = [["cine", "Letterbox on / off (cine)"], ["cam", "Camera move"], ["follow", "Camera follows the hero"], ["walk", "Walk"], ["face", "Face a direction"], ["fade", "Fade"], ["title", "Title card"], ["wait", "Wait"], ["music", "Music"], ["tp", "Teleport (same scene)"], ["choice", "Choice"]];
+const CINE_TYPE = Object.fromEntries(CINE_STEPS.map(([v]) => [v, true]));
+const DIRS = ["north", "south", "east", "west"];
+const viewCam = () => ({ x: r3(cam.tx), z: r3(cam.tz), yaw: r3(cam.yaw), pitch: r3(cam.pitch), dist: r3(cam.dist) });
+const whoOpts = () => [["player", "Player"]].concat(scene.npcs.map((n) => [n.id || n.name, (n.name || n.id) + (n.id ? " (" + n.id + ")" : "")]));
+function mkStep(type) {
+  switch (type) {
+    case "cine": return { type, on: true };
+    case "cam": return Object.assign({ type, t: 2 }, viewCam());
+    case "follow": return { type, t: 0.6 };
+    case "walk": return { type, who: "player", x: r3(scene.spawn.x), z: r3(scene.spawn.z), speed: 3.6 };
+    case "face": return { type, who: "player", dir: "south" };
+    case "fade": return { type, to: "black", t: 1 };
+    case "title": return { type, text: "Title", sub: "", t: 3.5 };
+    case "wait": return { type, t: 1 };
+    case "music": return { type, url: "" };
+    case "tp": return { type, x: r3(scene.spawn.x), z: r3(scene.spawn.z), fade: false };
+    case "choice": return { type, who: "", text: "What will you do?", options: [{ label: "Option 1", actions: [] }, { label: "Option 2", actions: [] }] };
+  }
+  return { type };
+}
+function cineSummary(a) {
+  const who = (w) => (!w || w === "player" ? "Player" : w), xz = () => `(${r3(a.x)}, ${r3(a.z)})`;
+  switch (a.type) {
+    case "cine": return "Letterbox " + (a.on === false ? "off" : "on");
+    case "cam": return `Camera to ${xz()} · yaw ${a.yaw} pitch ${a.pitch} dist ${a.dist} · ${a.t == null ? 1 : a.t}s${a.wait === false ? " (does not wait)" : ""}`;
+    case "follow": return `Camera back on the hero · ${a.t == null ? 1 : a.t}s`;
+    case "walk": return `${who(a.who)} walks to ${xz()}${a.speed ? " at " + a.speed : ""}`;
+    case "face": return `${who(a.who)} faces ${a.dir}`;
+    case "fade": return `Fade to ${a.to === "black" ? "black" : "clear"} · ${a.t == null ? 1 : a.t}s${a.wait === false ? " (does not wait)" : ""}`;
+    case "title": return `Title "${a.text || ""}"${a.sub ? " / " + a.sub : ""} · ${a.t == null ? 3.5 : a.t}s`;
+    case "wait": return `Wait ${a.t == null ? 1 : a.t}s`;
+    case "music": return a.restore || !a.url ? "Back to the scene's music" : "Music: " + a.url.split("/").pop();
+    case "tp": return `Teleport the player to ${xz()}`;
+    case "choice": return `"${a.text || ""}" · ${(a.options || []).length} options`;
+  }
+  return "";
+}
+function cineStepBody(a, box) {
+  const num = (label, k, step, d) => fNum(label, () => (a[k] == null ? (d == null ? 0 : d) : a[k]), (v) => { a[k] = v; }, step);
+  const optNum = (label, k, step, d) => fNum(label, () => (a[k] == null ? d : a[k]), (v) => { a[k] = v; }, step);
+  const who = () => fSel("Who", (() => { const o = whoOpts(); return o.some((x) => x[0] === (a.who || "player")) ? o : o.concat([[a.who, a.who + " (not in scene)"]]); })(), () => a.who || "player", (v) => { a.who = v; });
+  const pickBtn = (label, onpick) => h("button", { class: "cpick", onclick: (ev) => { ev.currentTarget.classList.add("on"); startPick(label, (x, z) => { edit(() => onpick(x, z)); refreshInspector(); }); } }, "Pick spot on ground");
+  const xz = () => h("div", { class: "f" }, h("span", {}, "Position"), h("div", { class: "num3" }, ...["x", "z"].map((k) => h("input", { type: "number", step: "0.5", value: a[k] == null ? "" : a[k], onchange: (e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) edit(() => { a[k] = v; }); } }))));
+  const waitChk = () => fCheck("Wait until done", () => a.wait !== false, (v) => { if (v) delete a.wait; else a.wait = false; });
+  switch (a.type) {
+    case "cine": box.append(fCheck("Letterbox on", () => a.on !== false, (v) => { a.on = v; }), h("div", { class: "hint" }, "Black bars, hidden HUD, Skip button. Leave it on for the whole cutscene; the game switches it off when the script ends.")); break;
+    case "cam":
+      box.append(xz(), num("Yaw°", "yaw", "5", 0), num("Pitch°", "pitch", "1", 33), num("Distance", "dist", "1", 29), num("Seconds", "t", "0.1", 1), waitChk(),
+        h("div", { class: "row" }, btn("Set from current view", () => { edit(() => Object.assign(a, viewCam())); refreshInspector(); }), btn("Look here", () => { if (a.x != null) cam.tx = a.x; if (a.z != null) cam.tz = a.z; if (a.yaw != null) cam.yaw = a.yaw; if (a.pitch != null) cam.pitch = clamp(a.pitch, 5, 89.5); if (a.dist != null) cam.dist = a.dist; scheduleDraw(); }), pickBtn("Pick the camera's target", (x, z) => { a.x = x; a.z = z; })),
+        h("div", { class: "hint" }, "Orbit / pan / zoom the editor camera to frame the shot, then press \"Set from current view\". x, z is the point the camera looks at."));
+      break;
+    case "follow": box.append(num("Seconds", "t", "0.1", 1), waitChk()); break;
+    case "walk": box.append(who(), xz(), optNum("Speed", "speed", "0.2", 3.6), fSel("Face after (player)", [["", "(unchanged)"]].concat(DIRS), () => a.face || "", (v) => { if (v) a.face = v; else delete a.face; }), h("div", { class: "row" }, pickBtn("Pick where to walk", (x, z) => { a.x = x; a.z = z; })), h("div", { class: "hint" }, "Blocks the script until they arrive. Pick an NPC by id to move them.")); break;
+    case "face": box.append(who(), fSel("Direction", DIRS, () => a.dir || "south", (v) => { a.dir = v; })); break;
+    case "fade": box.append(fSel("Fade", [["black", "to black"], ["clear", "to clear"]], () => (a.to === "black" ? "black" : "clear"), (v) => { a.to = v; }), num("Seconds", "t", "0.1", 1), waitChk()); break;
+    case "title": box.append(fText("Title", () => a.text || "", (v) => { a.text = v; }), fText("Subtitle", () => a.sub || "", (v) => { if (v) a.sub = v; else delete a.sub; }), num("Seconds", "t", "0.1", 3.5)); break;
+    case "wait": box.append(num("Seconds", "t", "0.1", 1)); break;
+    case "music": {
+      const list = typeof musicList !== "undefined" ? musicList : [], opts = [["", "(none)"]].concat(list.map((m) => [m.url, m.name || m.url.split("/").pop()]));
+      if (a.url && !opts.some((o) => o[0] === a.url)) opts.push([a.url, a.url.split("/").pop() + " (not in list)"]);
+      box.append(fSel("Track", opts, () => a.url || "", (v) => { a.url = v; if (v) delete a.restore; }), fCheck("Back to the scene's music", () => !!a.restore, (v) => { if (v) { a.restore = true; delete a.url; } else delete a.restore; refreshInspector(); }),
+        h("div", { class: "hint" }, "The cutscene's music; the scene's own music returns when the script ends."));
+      break;
+    }
+    case "tp": box.append(xz(), fCheck("Flash fade after", () => a.fade !== false, (v) => { a.fade = v; }), h("div", { class: "row" }, pickBtn("Pick where to teleport", (x, z) => { a.x = x; a.z = z; }))); break;
+    case "choice": {
+      if (!a.options) a.options = [];
+      box.append(fText("Speaker", () => a.who || "", (v) => { a.who = v; }), fArea("Question", () => a.text, (v) => { a.text = v; }));
+      a.options.forEach((o, i) => box.append(h("div", { class: "box" }, h("div", { class: "hd" }, h("b", {}, `Option ${i + 1}`), btn("✕", () => edit(() => { a.options.splice(i, 1); refreshInspector(); }))),
+        fText("Label", () => o.label, (v) => { o.label = v; }), actionsEditor(o, true))));
+      box.append(h("div", { class: "row" }, btn("+ option", () => edit(() => { a.options.push({ label: "Option " + (a.options.length + 1), actions: [] }); refreshInspector(); }))),
+        h("div", { class: "hint" }, "Each option runs its own steps. Put the rest of the scene inside the options (a choice's tail is only reached if an option ends without a battle or warp)."));
+      break;
+    }
+  }
+}
+/* "+ cutscene step..." dropdown, shared by every action list */
+function cineAddSelect(add) {
+  return h("select", { class: "cadd", onchange: (e) => { const t = e.target.value; if (!t) return; edit(() => add(mkStep(t))); refreshInspector(); } }, h("option", { value: "" }, "+ cutscene step..."), CINE_STEPS.map(([v, t]) => h("option", { value: v }, t)));
+}
+
+function actionsEditor(owner, nested) {
   if (!owner.actions) owner.actions = [];
   const wrap = h("div", {});
   const sceneIds = scenesList.filter((s) => s.kind === "hub").map((s) => s.id);
   const mk = (type) => type === "say" ? { type, who: "", text: "..." } : type === "chest" ? { type, loot: { gold: 100 } } : type === "warp" ? { type, scene: scene.id, x: null, z: null } : { type: "hub", action: "shop" };
+  /* an autorun entry that ends with the flag it is skipped by ("play once") keeps that flag last, so new steps go in before it */
+  const add = (a) => { const L = owner.actions, last = L[L.length - 1]; if (owner.unless && last && last.type === "flag" && last.key === owner.unless) L.splice(L.length - 1, 0, a); else L.push(a); };
   owner.actions.forEach((a, i) => {
     const box = h("div", { class: "box" }, h("div", { class: "hd" }, h("b", {}, `${i + 1}. ${a.type}`),
       btn("↑", () => edit(() => { if (i > 0) [owner.actions[i - 1], owner.actions[i]] = [owner.actions[i], owner.actions[i - 1]]; refreshInspector(); })),
       btn("↓", () => edit(() => { if (i < owner.actions.length - 1) [owner.actions[i + 1], owner.actions[i]] = [owner.actions[i], owner.actions[i + 1]]; refreshInspector(); })),
+      btn("⧉", () => edit(() => { owner.actions.splice(i + 1, 0, JSON.parse(JSON.stringify(a))); refreshInspector(); })),
       btn("✕", () => edit(() => { owner.actions.splice(i, 1); refreshInspector(); }))));
+    if (CINE_TYPE[a.type]) box.append(h("div", { class: "csum" }, cineSummary(a)));
     if (a.type === "say") box.append(fText("Speaker", () => a.who, (v) => { a.who = v; }), fArea("Text", () => a.text, (v) => { a.text = v; }));
     else if (a.type === "warp") box.append(fSel("To scene", sceneIds.includes(a.scene) ? sceneIds : [a.scene, ...sceneIds], () => a.scene, (v) => { a.scene = v; }),
       h("div", { class: "f" }, h("span", {}, "Arrive at"), h("div", { class: "num3" }, ...["x", "z"].map((k) => h("input", { type: "number", step: "0.5", placeholder: k + " (spawn)", value: a[k] == null ? "" : a[k], onchange: (e) => edit(() => { a[k] = e.target.value === "" ? null : parseFloat(e.target.value); }) })))),
       h("div", { class: "hint" }, "Leave x / z empty to arrive at that scene's spawn point."));
     else if (a.type === "chest") box.append(chestEditor(a), h("div", { class: "hint" }, "Gives this loot when opened. Pair it with a \"flag\" action before it and the chest stays empty afterwards."));
     else if (a.type === "flag") box.append(fText("Flag key", () => a.key, (v) => { a.key = v; }), h("div", { class: "hint" }, "Remembers that this happened. A chest uses its own id so it can only be opened once."));
+    else if (CINE_TYPE[a.type]) cineStepBody(a, box);
     else if (a.type !== "hub") box.append(h("div", { class: "hint" }, "This action type (" + a.type + ") has no editor here; it is kept as is."));
     else box.append(fSel("Hub control", HUB_ACTIONS.filter(Boolean), () => a.action, (v) => { a.action = v; }), h("div", { class: "hint" }, "Presses one of the hub's own buttons (shop, summon, battle…)."));
     wrap.append(box);
@@ -830,8 +929,35 @@ function actionsEditor(owner) {
       if (!owner.hideIf) owner.hideIf = owner.id;
       if (owner.trigger !== "talk") { owner.trigger = "talk"; owner.prompt = owner.prompt || "Open the chest"; }
     }
-    owner.actions.push(mk(t)); refreshInspector(); })))));
+    add(mk(t)); refreshInspector(); })))), h("div", { class: "row" }, cineAddSelect(add)));
+  if (!nested && owner.actions.length && scene.kind === "hub") wrap.append(h("div", { class: "row" }, btn("▶ Preview this event", () => previewActions(owner, { cine: !!owner.cine }), "Runs these steps in play mode (X skips, Esc stops)")));
   return wrap;
+}
+
+/* ---- scene autorun: scene.extra.autorun = [{if, unless, cine, actions}] — the first entry whose flags match plays when the scene loads ---- */
+function uniqueFlag(base) {
+  const used = JSON.stringify([scene.extra.autorun, scene.events, scene.npcs]); let i = 1, k;
+  do { k = base + "_" + i++; } while (used.includes('"' + k + '"'));
+  return k;
+}
+function autorunPanel() {
+  const ar = scene.extra.autorun || [], box = h("div", {}, h("h2", {}, "Scene autorun"));
+  box.append(h("div", { class: "hint" }, "Plays when this scene finishes loading: the first entry whose flags match. \"+ autorun entry\" makes a play-once cutscene (it sets its own flag at the end)."));
+  const drop = () => { if (scene.extra.autorun && !scene.extra.autorun.length) delete scene.extra.autorun; };
+  ar.forEach((e, i) => {
+    const flags = (label, k) => fText(label, () => e[k] || "", (v) => { if (v) e[k] = v; else delete e[k]; });
+    box.append(h("div", { class: "box" }, h("div", { class: "hd" }, h("b", {}, `Entry ${i + 1}`), btn("▶ Preview", () => previewActions(e, { cine: !!e.cine }), "Plays this entry in play mode (X skips, Esc stops)"),
+      btn("↑", () => edit(() => { if (i > 0) [ar[i - 1], ar[i]] = [ar[i], ar[i - 1]]; refreshInspector(); })),
+      btn("↓", () => edit(() => { if (i < ar.length - 1) [ar[i + 1], ar[i]] = [ar[i], ar[i + 1]]; refreshInspector(); })),
+      btn("✕", () => edit(() => { ar.splice(i, 1); drop(); refreshInspector(); }))),
+      flags("Play if (flags)", "if"), flags("Skip if (flags)", "unless"),
+      fCheck("Start on a black screen", () => !!e.cine, (v) => { if (v) e.cine = true; else delete e.cine; }),
+      h("h2", {}, "Steps"), actionsEditor(e)));
+  });
+  box.append(h("div", { class: "row" }, btn("+ autorun entry", () => edit(() => {
+    const key = uniqueFlag("cs_" + scene.id); (scene.extra.autorun = scene.extra.autorun || []).push({ unless: key, cine: true, actions: [{ type: "cine", on: true }, { type: "flag", key }] }); refreshInspector();
+  }))));
+  return box;
 }
 
 function groupInspector(p) {
@@ -856,7 +982,7 @@ function refreshInspector() {
   const it = getItem(sel);
   if (!scene) return;
   if (selSet.length > 1) { groupInspector(p); return; }
-  if (!it) { p.append(h("div", { class: "hint" }, "Nothing selected. Click something in the viewport (Select tool), or choose a tool on the left to add things."), h("div", { class: "hint" }, `Scene "${scene.name}" (${scene.kind}).`)); return; }
+  if (!it) { p.append(h("div", { class: "hint" }, "Nothing selected. Click something in the viewport (Select tool), or choose a tool on the left to add things."), h("div", { class: "hint" }, `Scene "${scene.name}" (${scene.kind}).`)); if (scene.kind === "hub") p.append(autorunPanel()); return; }
   const r = it.ref, t = it.type;
   p.append(h("h2", {}, t === "piece" ? "Piece · " + modelName(r.model) : t[0].toUpperCase() + t.slice(1)));
   const xz = () => { p.append(fNum("X", () => r.x, (v) => { r.x = v; }), fNum("Z", () => r.z, (v) => { r.z = v; })); };
@@ -953,18 +1079,112 @@ function startPlay() {
   if (scene.kind !== "hub") { toast("Play mode works on hub scenes (battle arenas have no walkable area)", "err"); return; }
   if (!sheets) { toast("Sprite sheets not loaded (/hub3d/sprites.json)", "err"); return; }
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-  play = { ed: scene, selSet: selSet.slice(), saved: { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, fov: cam.fov, tx: cam.tx, ty: cam.ty, tz: cam.tz }, p: { x: scene.spawn.x, z: scene.spawn.z, face: "south", moving: false, t: 0, target: null }, keys: {}, script: null, clock: 0, last: 0, cache: {}, inside: {}, done: {}, activeNpc: null, activeEv: null, loading: false, debug: false };
+  play = { ed: scene, selSet: selSet.slice(), saved: { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, fov: cam.fov, tx: cam.tx, ty: cam.ty, tz: cam.tz }, p: { x: scene.spawn.x, z: scene.spawn.z, face: "south", moving: false, t: 0, target: null }, keys: {}, script: null, clock: 0, last: 0, cache: {}, inside: {}, done: {}, activeNpc: null, activeEv: null, loading: false, debug: false, tasks: [], snap: new Map(), npcFace: {}, camFree: false, camReturn: false };
   setSel([]); cam.fov = 34; cam.pitch = 33; cam.yaw = 0; cam.dist = 29; cam.ty = 1.6; cam.tx = play.p.x; cam.tz = play.p.z + 1.5;
   document.body.classList.add("playing"); $("#btnWalk").textContent = "■ Stop"; $("#btnWalk").classList.add("on");
-  const hud = h("div", { id: "pHud" }, h("div", { class: "pBanner" }, "PLAY MODE · WASD move · Shift run · E interact · click to walk · RMB orbit · Esc stop · ", h("label", {}, h("input", { type: "checkbox", id: "pDebug", onchange: (e) => { play.debug = e.target.checked; } }), " show zones")),
-    h("div", { id: "pBubble" }), h("div", { id: "pHint" }), h("div", { id: "pSay", onclick: advance }, h("div", { class: "s-who" }), h("div", { class: "s-text" }), h("div", { class: "s-go" }, "[E] continue")), h("div", { id: "pNote" }));
+  const hud = h("div", { id: "pHud" }, h("div", { id: "pBars" }, h("i", { class: "t" }), h("i", { class: "b" })), h("div", { id: "pFade" }), h("div", { id: "pTitle" }, h("b"), h("span")), h("div", { class: "pBanner" }, "PLAY MODE · WASD move · Shift run · E interact · click to walk · RMB orbit · X skip cutscene · Esc stop · ", h("label", {}, h("input", { type: "checkbox", id: "pDebug", onchange: (e) => { play.debug = e.target.checked; } }), " show zones")),
+    h("div", { id: "pBubble" }), h("div", { id: "pHint" }), h("div", { id: "pSay", onclick: advance }, h("div", { class: "s-who" }), h("div", { class: "s-text" }), h("div", { class: "s-go" }, "[E] continue")), h("div", { id: "pChoices" }), h("div", { id: "pNote" }));
   $("#stage").append(hud); primeEvents(); cv.focus(); requestAnimationFrame(playTick);
 }
 function stopPlay() {
-  if (!play) return; const pl = play; play = null;
+  if (!play) return; const pl = play; play = null; for (const [n, o] of pl.snap) { n.x = o.x; n.z = o.z; } document.body.classList.remove("cine-prev"); endPick();
   scene = pl.ed; setSel(pl.selSet.filter((s) => getItem(s))); Object.assign(cam, pl.saved);
   document.body.classList.remove("playing"); $("#btnWalk").textContent = "▶ Play here"; $("#btnWalk").classList.remove("on"); const hud = $("#pHud"); if (hud) hud.remove();
   refreshUI(); scheduleDraw();
+}
+/* ---- cutscene preview: a lighter copy of the hub runner (doCine / cineWait in hub3d.js). No audio; an NPC's walk is a slide; flag / battle / chest
+   steps are ignored; NPCs a cutscene moves are put back when play mode stops (play.snap). X skips, Esc stops. ---- */
+const PCAM = { yaw: 0, pitch: 33, dist: 29, ty: 1.6 };
+const pEase = (p) => p * p * (3 - 2 * p);
+function pBarsOn(on) { const b = $("#pBars"); if (b) b.style.display = on ? "block" : "none"; document.body.classList.toggle("cine-prev", on); }
+function pFadeSet(to, t) { const f = $("#pFade"); if (!f) return; f.style.transition = t > 0 ? "opacity " + t + "s linear" : "none"; void f.offsetWidth; f.style.opacity = to; }
+function pTitle(text, sub, on) {
+  const el = $("#pTitle"); if (!el) return; el.querySelector("b").textContent = text || ""; el.querySelector("span").textContent = sub || "";
+  if (on) { el.style.display = "flex"; void el.offsetWidth; el.style.opacity = 1; } else { el.style.opacity = 0; setTimeout(() => { if (el.style.opacity === "0") el.style.display = "none"; }, 900); }
+}
+function pWait(dur, fn, end, isCam) {
+  const sc = play.script; sc.waiting = true; sc.lock = true;
+  play.tasks.push({ cam: !!isCam, t: 0, dur: Math.max(0.01, dur), fn, done: () => { if (end) end(); if (play && play.script === sc) { sc.lock = false; sc.waiting = false; stepScript(); } } });
+}
+function tickCine(dt) {
+  if (!play || !play.tasks.length) return;
+  for (const k of play.tasks.slice()) {
+    if (!play) return; k.t += dt; const p = Math.min(1, k.t / k.dur); if (k.fn) k.fn(p, dt);
+    if (p >= 1) { const i = play.tasks.indexOf(k); if (i >= 0) play.tasks.splice(i, 1); if (k.done) k.done(); }
+  }
+}
+function pEntity(who) { if (!who || who === "player") return play.p; return scene.npcs.find((n) => n.id === who || n.name === who) || null; }
+function snapNpc(n) { if (!play.snap.has(n)) play.snap.set(n, { x: n.x, z: n.z }); }
+/* returns true when the step blocks the script until it finishes */
+function doPCine(a) {
+  const sc = play.script, sk = !!sc.skip, t = a.t == null ? 1 : +a.t, p = play.p;
+  switch (a.type) {
+    case "music": return false;
+    case "cine": sc.cineRun = true; pBarsOn(a.on !== false); return false;
+    case "wait": if (!sk) { pWait(t); return true; } return false;
+    case "fade": pFadeSet(a.to === "black" ? 1 : 0, sk ? 0 : t); if (!sk && a.wait !== false && t > 0) { pWait(t); return true; } return false;
+    case "title": if (sk) return false; pTitle(a.text, a.sub, true); pWait(a.t == null ? 3.5 : a.t, null, () => pTitle("", "", false)); return true;
+    case "face": { const e = pEntity(a.who); if (!e || !a.dir) return false; if (e === p) p.face = a.dir; else play.npcFace[e.uid] = a.dir === "west"; return false; }
+    case "cam": {
+      play.camFree = true; play.camReturn = false; play.tasks = play.tasks.filter((k) => !k.cam);
+      const to = { x: a.x != null ? a.x : cam.tx, z: a.z != null ? a.z : cam.tz, yaw: a.yaw != null ? a.yaw : cam.yaw, pitch: a.pitch != null ? a.pitch : cam.pitch, dist: a.dist != null ? a.dist : cam.dist };
+      const fr = { x: cam.tx, z: cam.tz, ty: cam.ty, yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist }, ty1 = terrH(to.x, to.z) + PCAM.ty;
+      const apply = (e) => { cam.tx = fr.x + (to.x - fr.x) * e; cam.tz = fr.z + (to.z - fr.z) * e; cam.ty = fr.ty + (ty1 - fr.ty) * e; cam.yaw = fr.yaw + (to.yaw - fr.yaw) * e; cam.pitch = clamp(fr.pitch + (to.pitch - fr.pitch) * e, 5, 89.5); cam.dist = fr.dist + (to.dist - fr.dist) * e; };
+      if (sk || t <= 0) { apply(1); return false; }
+      if (a.wait === false) { play.tasks.push({ cam: true, t: 0, dur: t, fn: (q) => apply(pEase(q)), done: null }); return false; }
+      pWait(t, (q) => apply(pEase(q)), null, true); return true;
+    }
+    case "follow":
+      play.tasks = play.tasks.filter((k) => !k.cam); play.camFree = false; play.camReturn = true;
+      if (sk) { Object.assign(cam, { yaw: PCAM.yaw, pitch: PCAM.pitch, dist: PCAM.dist, ty: PCAM.ty, tx: p.x, tz: p.z + 1.5 }); play.camReturn = false; }
+      else if (a.wait !== false && t > 0) { pWait(t); return true; }
+      return false;
+    case "walk": {
+      const e = pEntity(a.who), x1 = +a.x, z1 = +a.z; if (!e || !isFinite(x1) || !isFinite(z1)) return false;
+      const isP = e === p; if (!isP) snapNpc(e);
+      const x0 = e.x, z0 = e.z, d = Math.hypot(x1 - x0, z1 - z0);
+      if (sk || d < 0.05) { e.x = x1; e.z = z1; if (isP) { p.moving = false; if (a.face) p.face = a.face; } return false; }
+      const dur = d / (a.speed || 3.6), dx = (x1 - x0) / d, dz = (z1 - z0) / d;
+      if (isP) { const sx = dx * cam.X[0] + dz * cam.X[2], sz = -(dx * cam.Z[0] + dz * cam.Z[2]); p.face = Math.abs(sx) > Math.abs(sz) ? (sx > 0 ? "east" : "west") : (sz > 0 ? "north" : "south"); }
+      else play.npcFace[e.uid] = (dx * cam.X[0] + dz * cam.X[2]) < 0;
+      pWait(dur, (q, dt) => { e.x = x0 + (x1 - x0) * q; e.z = z0 + (z1 - z0) * q; if (isP) { p.moving = true; p.t += dt; } }, () => { if (isP) { p.moving = false; p.t = 0; if (a.face) p.face = a.face; } });
+      return true;
+    }
+    case "tp": if (isFinite(+a.x) && isFinite(+a.z)) { p.x = +a.x; p.z = +a.z; p.target = null; primeEvents(); if (!play.camFree) { cam.tx = p.x; cam.tz = p.z + 1.5; } } return false;
+  }
+  return false;
+}
+function showPChoice(a) {
+  const sc = play.script, opts = a.options || []; if (!opts.length) { stepScript(); return; }
+  sc.waiting = true; sc.lock = true; sc.choosing = true; sc.skip = false; sc.choiceOpts = opts;      // a skipped cutscene still stops to ask
+  const b = $("#pSay"); b.querySelector(".s-who").textContent = a.who || sc.owner.name || ""; b.querySelector(".s-text").textContent = a.text || ""; b.querySelector(".s-go").style.display = "none"; b.style.display = "block";
+  const box = $("#pChoices"); box.innerHTML = ""; box.style.display = "flex";
+  opts.forEach((o, i) => box.append(h("button", { type: "button", onclick: (e) => { e.stopPropagation(); pickPChoice(sc, o); } }, `${i + 1}. ${o.label || "..."}`)));
+}
+function pickPChoice(sc, o) {
+  if (!play || play.script !== sc || !sc.choosing) return;
+  sc.choosing = false; sc.choiceOpts = null; sc.lock = false; sc.waiting = false;
+  const box = $("#pChoices"); box.style.display = "none"; box.innerHTML = ""; $("#pSay").style.display = "none"; $("#pSay .s-go").style.display = "";
+  sc.queue.unshift(...JSON.parse(JSON.stringify(o.actions || []))); stepScript();
+}
+function endPlayScript() {
+  const sc = play.script; play.script = null; play.tasks.length = 0;
+  $("#pSay").style.display = "none"; const box = $("#pChoices"); box.style.display = "none"; box.innerHTML = "";
+  if (sc && sc.cineRun) pBarsOn(false);
+  pFadeSet(0, 0.9); pTitle("", "", false);
+  if (play.camFree) { play.camFree = false; play.camReturn = true; }
+}
+function skipPlay() {
+  const sc = play && play.script; if (!sc || sc.skip || sc.choosing) return;
+  sc.skip = true; play.tasks.length = 0; sc.lock = false; sc.waiting = false; play.p.moving = false; play.p.t = 0; $("#pSay").style.display = "none"; pTitle("", "", false); stepScript();
+}
+function previewActions(owner, opt) {
+  if (!scene || scene.kind !== "hub") { toast("Preview works on hub scenes", "err"); return; }
+  if (!(owner.actions || []).length) { toast("Nothing to preview", "err"); return; }
+  const wasPlaying = !!play; startPlay(); if (!play) return;
+  const own = { name: owner.name || "", uid: owner.uid || 0, portrait: owner.portrait, actions: JSON.parse(JSON.stringify(owner.actions)) };   // a copy, so the editor's data is never touched
+  if (opt && opt.cine) { pFadeSet(1, 0); pBarsOn(true); }
+  setTimeout(() => { if (play && !play.script) runActions(own); }, wasPlaying ? 0 : (opt && opt.cine ? 450 : 150));
 }
 function note(msg) { const n = $("#pNote"); if (!n) return; n.textContent = msg; n.style.display = "block"; clearTimeout(note.t); note.t = setTimeout(() => { n.style.display = "none"; }, 2800); }
 function runActions(owner) {
@@ -972,16 +1192,18 @@ function runActions(owner) {
   play.script = { owner, queue: owner.actions.slice(), waiting: false }; if (owner.once) play.done[scene.id + ":" + owner.uid] = true; stepScript();
 }
 function stepScript() {
-  const sc = play.script;
-  while (sc && sc.queue.length) {
+  const sc = play && play.script;
+  while (sc && play && play.script === sc && sc.queue.length) {
     const a = sc.queue.shift();
-    if (a.type === "say") { sc.waiting = true; const b = $("#pSay"); b.querySelector(".s-who").textContent = a.who || sc.owner.name || ""; b.querySelector(".s-text").textContent = a.text || ""; b.style.display = "block"; return; }
-    if (a.type === "hub") { note(`Hub control "${a.action}" would run here (it only runs in the real game)`); continue; }
-    if (a.type === "warp") { play.script = null; $("#pSay").style.display = "none"; playWarp(a.scene, a.x, a.z); return; }
+    if (a.type === "choice") { showPChoice(a); return; }
+    if (CINE_TYPE[a.type]) { if (doPCine(a)) return; continue; }
+    if (a.type === "say") { if (sc.skip) continue; sc.waiting = true; const b = $("#pSay"); b.querySelector(".s-who").textContent = a.who === null ? "" : (a.who || sc.owner.name || ""); b.querySelector(".s-text").textContent = a.text || ""; b.querySelector(".s-go").style.display = ""; b.style.display = "block"; return; }
+    if (a.type === "hub") { if (!sc.skip) note(`Hub control "${a.action}" would run here (it only runs in the real game)`); continue; }
+    if (a.type === "warp") { endPlayScript(); playWarp(a.scene, a.x, a.z); return; }
   }
-  play.script = null; $("#pSay").style.display = "none";
+  if (play && play.script === sc) endPlayScript();
 }
-function advance() { if (play && play.script && play.script.waiting) { play.script.waiting = false; stepScript(); } }
+function advance() { if (play && play.script && play.script.waiting && !play.script.lock && !play.script.choosing) { play.script.waiting = false; stepScript(); } }
 async function playWarp(id, x, z) {
   play.loading = true; $("#loading").style.display = "block"; $("#loading").textContent = "Loading " + id + "…";
   try {
@@ -1020,7 +1242,13 @@ function playTick(now) {
   if (!play) return; requestAnimationFrame(playTick);
   const dt = Math.min(0.05, Math.max(0.001, (now - (play.last || now - 16)) / 1000)); play.last = now; play.clock += dt;
   if (!play.script && !play.loading) stepPlayer(dt); else play.p.moving = false;
-  const k = 1 - Math.pow(0.05, dt); cam.tx += (play.p.x - cam.tx) * k; cam.tz += (play.p.z + 1.5 - cam.tz) * k;
+  tickCine(dt); if (!play) return;
+  if (!play.camFree) {
+    const k = 1 - Math.pow(0.05, dt); cam.tx += (play.p.x - cam.tx) * k; cam.tz += (play.p.z + 1.5 - cam.tz) * k;
+    if (play.camReturn) {                                                         // ease back to the normal play camera after a cutscene shot
+      if (dragState) play.camReturn = false; else { const kk = 1 - Math.pow(0.02, dt); let far = 0; for (const q of ["yaw", "pitch", "dist", "ty"]) { const g = PCAM[q]; far = Math.max(far, Math.abs(g - cam[q])); cam[q] += (g - cam[q]) * kk; } if (far < 0.05) { Object.assign(cam, { yaw: PCAM.yaw, pitch: PCAM.pitch, dist: PCAM.dist, ty: PCAM.ty }); play.camReturn = false; } }
+    }
+  }
   const b = $("#pBubble"), hint = $("#pHint"), n = play.activeNpc;
   if (n && !play.script) { b.style.display = "block"; b.innerHTML = ""; b.append(h("b", {}, n.title ? `${n.name} · ${n.title}` : n.name), h("div", {}, n.line || ""), h("span", {}, "[E] " + ((n.actions && n.actions.length) ? "Talk" : (n.action || "…")))); } else b.style.display = "none";
   const ev = play.activeEv; hint.style.display = ev && !play.script ? "block" : "none"; if (ev) hint.textContent = "[E] " + (ev.prompt || ev.name || "Interact");
@@ -1041,7 +1269,7 @@ function drawPlayExtras() {
   for (const o of list) {
     if (o.k === "p") { const s = sheets.walk[p.face]; drawSprite(s, p.moving ? Math.floor(p.t * 11) % s.count : 0, p.x, p.z, scene.playerHeight || 2.4, false); }
     else { const n = o.n, s = sheets.npcs[n.sprite]; if (!s) { flat(gl.LINES, boxEdges([n.x - .4, 0, n.z - .4], [n.x + .4, n.h || 2.4, n.z + .4]), [1, 0, 1, 1]); continue; }
-      const toP = (p.x - n.x) * right[0] + (p.z - n.z) * right[2], faceRight = Math.abs(toP) < 0.3 ? true : toP > 0;
+      const toP = (p.x - n.x) * right[0] + (p.z - n.z) * right[2], ov = play.npcFace[n.uid], faceRight = ov != null ? !ov : (Math.abs(toP) < 0.3 ? true : toP > 0);
       drawSprite(s, Math.floor((play.clock + (n.uid * 1.37 % 10)) * 8) % s.count, n.x, n.z, n.h || 2.4, !faceRight, n.tint ? [n.tint[0], n.tint[1], n.tint[2], 1] : null); }
   }
   gl.depthMask(true);
@@ -1050,6 +1278,8 @@ function drawPlayExtras() {
 function playKey(e) {
   const k = e.key.toLowerCase();
   if (k === "escape") { e.preventDefault(); stopPlay(); return true; }
+  if (k === "x" && !e.repeat) { e.preventDefault(); skipPlay(); return true; }
+  if (/^[1-9]$/.test(k) && play.script && play.script.choosing) { const o = play.script.choiceOpts[+k - 1]; if (o) pickPChoice(play.script, o); return true; }
   if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", "shift"].includes(k)) { play.keys[k] = true; if (k.startsWith("arrow")) e.preventDefault(); return true; }
   if ((k === "e" || k === "enter" || k === " ") && !e.repeat) {
     e.preventDefault();
