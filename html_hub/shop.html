@@ -52,6 +52,17 @@
   #main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(380px, 1fr) minmax(360px, 460px); gap: 16px; padding: 16px 24px 18px; max-width: 1400px; width: 100%; margin: 0 auto; }
   .col { min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: 0 10px 30px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.03); overflow: hidden; }
 
+  /* buy / sell switch */
+  #mode { display: flex; gap: 8px; padding: 12px 12px 0; }
+  .mbtn { flex: 1; padding: 9px 0; border-radius: 10px; cursor: pointer; font: 800 13px var(--serif); letter-spacing: 2px; text-transform: uppercase; color: var(--dim);
+    border: 1px solid var(--line); background: rgba(255,255,255,.04); transition: .12s; }
+  .mbtn:hover { color: var(--text); border-color: var(--line-2); }
+  .mbtn.on { color: #2a1d05; background: linear-gradient(180deg, #f3d77f, #c3922f); border-color: var(--gold-l); box-shadow: 0 0 14px rgba(232,199,102,.35); }
+  .mbtn.sell.on { color: #0c2a17; background: linear-gradient(180deg, #8df0b4, #3fa86c); border-color: #c8ffe0; box-shadow: 0 0 14px rgba(111,227,154,.35); }
+  .price.gain { color: var(--good); }
+  .btn.sellbtn { color: #0c2a17; background: linear-gradient(180deg, #8df0b4, #3fa86c); border-color: #c8ffe0; box-shadow: 0 3px 0 #1d5a38, 0 6px 14px rgba(0,0,0,.4); }
+  .tag.rolled { color: #2a1d05; background: var(--gold); }
+
   /* tabs + controls */
   #tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 12px 8px; border-bottom: 1px solid var(--line); background: rgba(0,0,0,.18); }
   .tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 10px; cursor: pointer; user-select: none; font-size: 12.5px; font-weight: 700; color: var(--dim);
@@ -179,6 +190,7 @@
 
 <div id="main">
   <div class="col" id="left">
+    <div id="mode"><button class="mbtn" data-m="buy">Buy</button><button class="mbtn sell" data-m="sell">Sell</button></div>
     <div id="tabs"></div>
     <div id="ctl">
       <input id="q" type="search" placeholder="Search..." autocomplete="off" />
@@ -253,7 +265,14 @@
     { key: "items", label: "Items" }, { key: "weapon", label: "Weapons" }, { key: "offhand", label: "Off-Hand" },
     { key: "armor", label: "Armor" }, { key: "helmet", label: "Helmets" }, { key: "boots", label: "Boots" }, { key: "accessory", label: "Accessories" },
   ];
-  var data = null, tab = "items", sortMode = "rarity", query = "", selId = null, partyMode = null;
+  var data = null, tab = "items", sortMode = "rarity", query = "", selId = null, partyMode = null, mode = "buy";
+  function selling() { return mode === "sell"; }
+  // Sell entries reuse the buy cards: their price lives in `cost`, their stack size in `owned`.
+  function normalize(d) {
+    (d.sell_items || []).forEach(function (x) { x.cost = x.price; x.owned = x.count; });
+    (d.sell_equipment || []).forEach(function (x) { x.cost = x.price; x.owned = 0; });
+    return d;
+  }
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function rcol(r) { return "var(--r-" + (r || "common") + ")"; }
@@ -286,7 +305,8 @@
   }
   function visibleList() {
     var q = query.trim().toLowerCase();
-    var base = tab === "items" ? data.items.slice() : sortEquipment(data.equipment.filter(function (e) { return e.slot === tab; }));
+    var itemSrc = selling() ? (data.sell_items || []) : data.items, eqSrc = selling() ? (data.sell_equipment || []) : data.equipment;
+    var base = tab === "items" ? itemSrc.slice() : sortEquipment(eqSrc.filter(function (e) { return e.slot === tab; }));
     if (tab === "items") {
       if (sortMode === "plow") base.sort(function (a, b) { return a.cost - b.cost; });
       else if (sortMode === "phigh") base.sort(function (a, b) { return b.cost - a.cost; });
@@ -294,13 +314,15 @@
     if (q) base = base.filter(function (x) { return (x.name + " " + (x.subtype || "") + " " + (x.rarity || "") + " " + (x.description || "")).toLowerCase().indexOf(q) >= 0; });
     return base;
   }
-  function find(id) { var all = tab === "items" ? data.items : data.equipment; for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; }
+  function find(id) { var all = tab === "items" ? (selling() ? data.sell_items : data.items) : (selling() ? data.sell_equipment : data.equipment); for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; }
 
   // net "worth" of a delta: used only to flag an upgrade
   function netGain(d) { var n = 0; for (var k in d) n += d[k]; return n; }
   function fitsFor(e) { var out = []; party().forEach(function (h) { var f = e.fits && e.fits[h.id]; if (f) out.push({ hero: h, fit: f }); }); return out; }
 
   function renderTabs() {
+    var mb = document.querySelectorAll(".mbtn");
+    for (var mi = 0; mi < mb.length; mi++) mb[mi].classList.toggle("on", mb[mi].dataset.m === mode);
     var box = document.getElementById("tabs"); box.innerHTML = "";
     TABS.forEach(function (t) {
       var b = el("div", "tab" + (t.key === tab ? " active" : "")); b.appendChild(svg(t.key)); b.appendChild(document.createTextNode(t.label));
@@ -326,10 +348,11 @@
     }
     c.appendChild(mid);
     var side = el("div", "side");
-    var pr = el("div", "price" + (data.money < x.cost ? " poor" : "")); pr.appendChild(coin()); pr.appendChild(document.createTextNode(x.cost)); side.appendChild(pr);
+    var pr = el("div", "price" + (selling() ? " gain" : data.money < x.cost ? " poor" : "")); pr.appendChild(coin()); pr.appendChild(document.createTextNode((selling() ? "+" : "") + x.cost)); side.appendChild(pr);
     var row = el("div", "tagrow");
     if (!isItem) {
-      var fits = fitsFor(x);
+      var fits = selling() ? [] : fitsFor(x);
+      if (selling() && x.rolled) row.appendChild(el("span", "tag rolled", "ROLLED"));
       if (fits.length) {
         var who = el("div", "who");
         fits.forEach(function (f) { var im = el("img", f.fit.can ? "" : "no"); im.src = f.hero.portrait; im.alt = f.hero.name; im.title = f.hero.name + (f.fit.can ? "" : " can't equip this"); im.onerror = function () { im.style.visibility = "hidden"; }; who.appendChild(im); });
@@ -337,7 +360,7 @@
       }
       if (fits.some(function (f) { return f.fit.can && f.fit.delta && netGain(f.fit.delta) > 0; })) row.appendChild(el("span", "tag upg", "UPGRADE"));
     }
-    if (x.owned) row.appendChild(el("span", "tag own", "x" + x.owned));
+    if (x.owned && !(selling() && !isItem)) row.appendChild(el("span", "tag own", "x" + x.owned));
     if (row.children.length) side.appendChild(row);
     c.appendChild(side);
     c.onclick = function () { selId = x.id; playSfx(SFX.hover, 0.3); markSelected(); renderDetail(false); };
@@ -351,9 +374,11 @@
 
   function renderList(keepScroll) {
     var list = document.getElementById("list"), top = list.scrollTop; list.innerHTML = "";
-    document.getElementById("note").textContent = tab === "items" ? "Consumables are used in battle and from the field menu." : "Pick a piece to see what it does for each of your fighters.";
+    document.getElementById("note").textContent = selling()
+      ? (tab === "items" ? "The vendor pays half price. Sold items are gone for good." : "Only unequipped gear in your stash can be sold - take worn pieces off in Heroes first.")
+      : tab === "items" ? "Consumables are used in battle and from the field menu." : "Pick a piece to see what it does for each of your fighters.";
     var shown = visibleList();
-    if (!shown.length) list.appendChild(el("div", "empty", query ? "Nothing matches your search." : "Nothing for sale here."));
+    if (!shown.length) list.appendChild(el("div", "empty", query ? "Nothing matches your search." : selling() ? (tab === "items" ? "You have nothing sellable here." : "No spare gear of this kind in your stash.") : "Nothing for sale here."));
     shown.forEach(function (x) { list.appendChild(card(x, tab === "items")); });
     list.style.scrollBehavior = "auto"; list.scrollTop = keepScroll ? top : 0; list.style.scrollBehavior = "";
     if (!selId || !shown.some(function (x) { return x.id === selId; })) { selId = shown.length ? shown[0].id : null; markSelected(); }
@@ -383,6 +408,22 @@
       d.appendChild(g2);
     }
 
+    if (selling()) {
+      var srow = el("div", "buyrow");
+      var one = el("button", "btn sellbtn", "Sell" + (isItem ? " 1" : "") + " - +" + x.cost);
+      one.onclick = function () { isItem ? buy("/api/shop/sell_item", { item_id: x.id, count: 1 }) : buy("/api/shop/sell_equipment", { instance_id: x.id }); };
+      srow.appendChild(one);
+      if (isItem && x.count > 1) {
+        var all = el("button", "btn ghost", "Sell all " + x.count + " - +" + (x.cost * x.count));
+        all.onclick = function () { buy("/api/shop/sell_item", { item_id: x.id, count: x.count }); };
+        srow.appendChild(all);
+      }
+      srow.appendChild(el("span", "owned", isItem ? "You have " + x.count : (x.upgrade ? "Upgraded +" + x.upgrade + " (part of the upgrade cost is refunded)" : (x.rolled ? "Has rolled bonus stats" : ""))));
+      d.appendChild(srow);
+      d.appendChild(el("div", "hint", "Vendors pay half the catalog price."));
+      d.scrollTop = keepScroll ? keep : 0;
+      return;
+    }
     var buyrow = el("div", "buyrow"), poor = data.money < x.cost;
     var bb = el("button", "btn" + (isItem ? "" : " ghost"), isItem ? "Buy - " + x.cost : "Buy to stash - " + x.cost);
     bb.disabled = poor;
@@ -450,7 +491,7 @@
       .then(function (res) {
         playSfx(res.ok === false ? SFX.denied : SFX.buySell);
         toast(res.message, res.ok !== false);
-        if (res.items) { data = res; render(true); }
+        if (res.items) { data = normalize(res); render(true); }
       })
       .catch(function () { playSfx(SFX.denied); toast("Could not reach the hub server.", false); });
   }
@@ -461,6 +502,9 @@
     var t = ev.target && ev.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA") { ev.target.blur(); return; }
     window.location.href = "/";
   }, true);
+  Array.prototype.forEach.call(document.querySelectorAll(".mbtn"), function (b) {
+    b.addEventListener("click", function () { if (mode === b.dataset.m) return; mode = b.dataset.m; selId = null; render(false); });
+  });
   document.getElementById("sort-select").addEventListener("change", function (ev) { sortMode = ev.target.value; renderList(false); });
   document.getElementById("q").addEventListener("input", function (ev) { query = ev.target.value; renderList(false); renderDetail(false); });
   document.addEventListener("keydown", function (ev) {
@@ -477,7 +521,7 @@
   var vendorKey = ""; try { vendorKey = sessionStorage.getItem("h3dVendor") || ""; } catch (e) { /* best-effort */ }
   fetch("/api/shop" + (vendorKey ? "?vendor=" + encodeURIComponent(vendorKey) : "")).then(function (r) { return r.json(); })
     .then(function (d) {
-      data = d;
+      data = normalize(d);
       if (d.vendor) {
         document.querySelector("#top h1").textContent = d.vendor.name;
         document.querySelector("#top .sub").textContent = d.vendor.note;

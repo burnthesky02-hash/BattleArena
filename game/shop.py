@@ -238,3 +238,71 @@ def upgrade_weapon(player_state: PlayerState, instance_id: str,
     base_item = equipment_db.get(inst.base_id)
     base_name = base_item.name if base_item else item.name
     return True, f"{smith_name} reforges {base_name} to +{inst.upgrade_level} for {cost} gold."
+
+
+# ---- Selling --------------------------------------------------------------------------------------
+SELL_RATE = 0.5                      # vendors pay half the catalog price
+# Epic and better gear is summon-only (catalog cost 0), so it is valued by rarity instead.
+RARITY_BASE_VALUE = {"common": 400, "rare": 1600, "epic": 3200, "legendary": 6400, "mythic": 12800}
+ROLLED_STAT_VALUE = 6                # extra gold per point of rolled bonus stat
+
+
+def item_sell_price(item: Item) -> int:
+    return max(1, int(item.cost * SELL_RATE)) if item.cost > 0 else 0
+
+
+def equipment_sell_price(player_state: PlayerState, instance_id: str,
+                         equipment_db: Dict[str, Equipment]) -> int:
+    """What a vendor pays for one stash instance: half its catalog price (rarity value when the catalog has no
+    price), plus a little for rolled bonus stats, plus half of what was spent upgrading it at the blacksmith."""
+    from game.equipment_instances import weapon_upgrade_cost
+    inst = player_state.equipment_instances.get(instance_id)
+    if inst is None:
+        return 0
+    base = equipment_db.get(inst.base_id)
+    if base is None:
+        return 0
+    value = base.cost if base.cost > 0 else RARITY_BASE_VALUE.get(base.rarity, 400)
+    total = value * SELL_RATE + sum(max(0, v) for v in inst.bonus_stats.values()) * ROLLED_STAT_VALUE
+    for lvl in range(inst.upgrade_level):
+        total += weapon_upgrade_cost(base.rarity, lvl) * SELL_RATE
+    return max(1, int(total))
+
+
+def sell_item(player_state: PlayerState, item_id: str, count: int,
+              items_db: Dict[str, Item]) -> Tuple[bool, str]:
+    item = items_db.get(item_id)
+    if item is None:
+        return False, "That item doesn't exist."
+    price = item_sell_price(item)
+    if price <= 0:
+        return False, f"Nobody will buy {item.name}."
+    have = player_state.inventory.get(item_id, 0)
+    if have <= 0:
+        return False, f"You don't have any {item.name}."
+    try:
+        count = int(count)
+    except (TypeError, ValueError):
+        count = 1
+    count = max(1, min(count, have))
+    player_state.inventory[item_id] = have - count
+    if player_state.inventory[item_id] <= 0:
+        player_state.inventory.pop(item_id, None)
+    gain = price * count
+    player_state.money += gain
+    return True, f"Sold {count} x {item.name} for {gain} gold."
+
+
+def sell_equipment(player_state: PlayerState, instance_id: str,
+                   equipment_db: Dict[str, Equipment]) -> Tuple[bool, str]:
+    """Sells one unequipped stash instance (unequip worn gear first, same rule as salvaging)."""
+    item = equipment_db.get(instance_id)
+    if item is None or instance_id not in player_state.equipment_instances:
+        return False, "That equipment doesn't exist."
+    if instance_id not in player_state.equipment_stash:
+        return False, f"{item.name} isn't in your stash (unequip it first if it's worn)."
+    price = equipment_sell_price(player_state, instance_id, equipment_db)
+    player_state.take_from_stash(instance_id)
+    player_state.equipment_instances.pop(instance_id, None)
+    player_state.money += price
+    return True, f"Sold {item.name} for {price} gold."

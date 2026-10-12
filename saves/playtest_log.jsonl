@@ -66,3 +66,6 @@
 {"n": 13, "t": 141887, "kind": "flag", "msg": "fc_2", "ctx": "hub", "scene": "forest"}
 {"n": 14, "t": 141887, "kind": "fire", "msg": "forest/npc:briarmaw [fight]", "ctx": "hub", "scene": "forest"}
 {"n": 15, "t": 141895, "kind": "info", "msg": "resumed after a page change", "ctx": "battle", "scene": "forest"}
+{"n": 16, "t": 318209, "kind": "scene", "msg": "entered island", "ctx": "hub", "scene": "island"}
+{"n": 17, "t": 318209, "kind": "flag", "msg": "sq_pg_q, sq_pg1, sq_pg2, sq_fence_q, sq_c1, sq_c3, sq_net_q", "ctx": "hub", "scene": "island"}
+{"n": 18, "t": 318209, "kind": "fire", "msg": "island/event:forest_path", "ctx": "hub", "scene": "island"}

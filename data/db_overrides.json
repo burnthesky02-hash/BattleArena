@@ -1,0 +1,22 @@
+{
+ "shops": {
+  "island/shopkeeper": {
+   "id": "island/shopkeeper",
+   "name": "Marla's Goods",
+   "note": "A few basics for a farmhand with a sword.",
+   "for_heroes": [
+    "Kenji"
+   ],
+   "items": [
+    "potion",
+    "antidote",
+    "phoenix_down"
+   ],
+   "all_rare": false,
+   "equipment": [
+    "iron_twin_blades",
+    "armor_medium_common"
+   ]
+  }
+ }
+}

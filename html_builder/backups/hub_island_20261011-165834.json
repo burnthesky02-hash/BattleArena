@@ -32,12 +32,12 @@
   {
    "if": "st_quest",
    "unless": "st_sera",
-   "text": "Meet Sera at the arch of the Hollow Cave, north of the village"
+   "text": "Meet Miya at the arch of the Hollow Cave, north of the village"
   },
   {
    "if": "st_sera",
    "unless": "st_done",
-   "text": "Enter the Hollow Cave with Sera and follow the smugglers' road to the Colosseum"
+   "text": "Enter the Hollow Cave with Miya and follow the smugglers' road to the Colosseum"
   }
  ],
  "terrain": {
@@ -180,7 +180,7 @@
     },
     {
      "type": "say",
-     "who": "Kael",
+     "who": "Kenji",
      "text": "Suits me. I need to try an earn some money anyway."
     },
     {
@@ -190,7 +190,7 @@
     },
     {
      "type": "say",
-     "who": "Kael",
+     "who": "Kenji",
      "text": "I'm not really sure, but something tells me this is where I need to be... for now."
     },
     {
@@ -205,7 +205,7 @@
     },
     {
      "type": "say",
-     "who": "Kael",
+     "who": "Kenji",
      "text": "I'll check it out. Thanks for the tip, Osk."
     },
     {
@@ -240,7 +240,7 @@
     },
     {
      "type": "say",
-     "who": "Kael",
+     "who": "Kenji",
      "text": "Alright, Let's see what this Orrin guy has to say. Hopefully its a job, and maybe a meal would be nice."
     },
     {
@@ -289,6 +289,10 @@
  "music": {
   "url": "/assets/Music/mp3/04. Peaceful Village.mp3"
  },
+ "ambient": {
+  "url": "/assets/Music/mp3/Ocean.mp3",
+  "volume": 0.9
+ },
  "sqPieces": [
   [
    "/assets/3D/Stylized/SM_Stylized_Basket",
@@ -301,17 +305,17 @@
    -29
   ],
   [
-   "/assets/3D/Stylized/SM_Stylized_Chest",
+   "/assets/3D/Generated/SM_TreasureChest",
    47.7,
    -31.3
   ],
   [
-   "/assets/3D/Stylized/SM_Stylized_Chest",
+   "/assets/3D/Generated/SM_TreasureChest",
    33.5,
    13.1
   ],
   [
-   "/assets/3D/Stylized/SM_Stylized_Chest",
+   "/assets/3D/Generated/SM_TreasureChest",
    -44,
    8
   ]
@@ -353,14 +357,6 @@
    0,
    -0.5,
    1
-  ],
-  [
-   "/assets/3D/Stylized/SM_Stylized_Fountain",
-   -1,
-   5,
-   0,
-   1.362,
-   1.5
   ],
   [
    "/assets/3D/Stylized/SM_Stylized_Table_A",
@@ -2505,33 +2501,6 @@
    0.594,
    2.2,
    "ic_1"
-  ],
-  [
-   "/assets/3D/Stylized/SM_Stylized_Chest",
-   47.7,
-   -31.3,
-   6.26,
-   7.353,
-   1.4,
-   "!sq_c2"
-  ],
-  [
-   "/assets/3D/Stylized/SM_Stylized_Chest",
-   33.5,
-   13.1,
-   2.56,
-   0.595,
-   1.4,
-   "!sq_c3"
-  ],
-  [
-   "/assets/3D/Stylized/SM_Stylized_Chest",
-   -44,
-   8,
-   5.04,
-   1.43,
-   1.4,
-   "!sq_c4"
   ],
   [
    "/assets/3D/Stylized/SM_Cliff_02",
@@ -7455,10 +7424,10 @@
   ],
   [
    "/assets/3D/Paradise/SM_Plant_05",
-   -8.635,
-   -6.645,
+   -7,
+   -5,
    230,
-   5.133,
+   3,
    0.948
   ],
   [
@@ -7695,8 +7664,8 @@
   ],
   [
    "/assets/3D/Paradise/SM_Plant_05",
-   41.753,
-   1.206,
+   42,
+   0,
    1,
    2.588,
    1.079
@@ -8054,68 +8023,12 @@
    3.211
   ],
   [
-   "/assets/3D/Paradise/SM_Plant_03",
-   -24.761,
-   13.394,
-   200,
-   0.59,
-   1.238
-  ],
-  [
-   "/assets/3D/Paradise/SM_Plant_03",
-   -25.449,
-   10.636,
-   41,
-   0.59,
-   1.058
-  ],
-  [
    "/assets/3D/Paradise/SM_grass_02",
    -23.419,
    9.168,
    199,
    0.77,
    3.718
-  ],
-  [
-   "/assets/3D/Paradise/SM_Plant_05",
-   -24.511,
-   12.4,
-   28,
-   0.59,
-   1.206
-  ],
-  [
-   "/assets/3D/Paradise/SM_Plant_03",
-   -26.421,
-   9.366,
-   319,
-   0.627,
-   1.14
-  ],
-  [
-   "/assets/3D/Paradise/SM_Plant_05",
-   -23.149,
-   13.681,
-   93,
-   0.59,
-   1.092
-  ],
-  [
-   "/assets/3D/Paradise/SM_Plant_01",
-   -26.158,
-   13.791,
-   317,
-   0.59,
-   2.123
-  ],
-  [
-   "/assets/3D/Paradise/SM_Plant_03",
-   -26.52,
-   11.333,
-   275,
-   0.59,
-   0.874
   ],
   [
    "/assets/3D/Paradise/SM_grass_02",
@@ -8764,6 +8677,242 @@
    13,
    9.355,
    0.803
+  ],
+  [
+   "/assets/3D/Generated/SM_TreasureChest",
+   -46,
+   -32,
+   120,
+   9,
+   1,
+   "sq_c1"
+  ],
+  [
+   "/assets/3D/Generated/SM_TreasureChest",
+   47.7,
+   -31.3,
+   6.26,
+   7.353,
+   1,
+   "sq_c2"
+  ],
+  [
+   "/assets/3D/Generated/SM_TreasureChest",
+   36,
+   -4,
+   270,
+   5.5,
+   1,
+   "sq_c3"
+  ],
+  [
+   "/assets/3D/Generated/SM_TreasureChest",
+   -44,
+   8,
+   5.04,
+   1.43,
+   1,
+   "sq_c4"
+  ],
+  [
+   "/assets/3D/Generated/Fountain",
+   -1,
+   5,
+   0,
+   3,
+   6.5
+  ],
+  [
+   "/assets/3D/Generated/FountainFX_surface",
+   -1,
+   5,
+   0,
+   3,
+   6.5
+  ],
+  [
+   "/assets/3D/Generated/FountainFX_jets",
+   -1,
+   5,
+   0,
+   3,
+   6.5
+  ],
+  [
+   "/assets/3D/Stylized/SM_Dock_Straight",
+   1,
+   37,
+   0,
+   -4.335,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Dock_Straight",
+   1,
+   44,
+   0,
+   -4.335,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Dock_Straight",
+   -1,
+   44,
+   0,
+   -4.25,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Dock_Straight",
+   -1,
+   37,
+   0,
+   -4.335,
+   1
+  ],
+  [
+   "/assets/3D/Generated/Ship",
+   5,
+   42,
+   125,
+   1,
+   10
+  ],
+  [
+   "/assets/3D/Generated/StreetLight",
+   7,
+   1,
+   240,
+   4,
+   5
+  ],
+  [
+   "/assets/3D/Generated/StreetLight",
+   -5,
+   11,
+   0,
+   4,
+   5
+  ],
+  [
+   "/assets/3D/Generated/StreetLight",
+   -10,
+   -4,
+   210,
+   7.5,
+   5
+  ],
+  [
+   "/assets/3D/Generated/StreetLight",
+   21,
+   3,
+   300,
+   4,
+   5
+  ],
+  [
+   "/assets/3D/Stylized/SM_Door_Wall_01_wcream",
+   -27,
+   13,
+   0,
+   0.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Large_Wall_02_wcream",
+   -23,
+   9,
+   180,
+   0.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Window_Wall_01_wcream",
+   -23,
+   13,
+   0,
+   0.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Large_Wall_02_wcream",
+   -19,
+   9,
+   180,
+   0.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Large_Wall_03_wcream",
+   -19.352,
+   13,
+   90,
+   0.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Large_Wall_03_wcream",
+   -26.648,
+   9,
+   270,
+   0.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Door_01",
+   -25.57,
+   13.175,
+   0,
+   0.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Roof_02_rred",
+   -23,
+   12.85,
+   0,
+   3.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Roof_02_rred",
+   -23,
+   9.15,
+   180,
+   3.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Roof_Wall_wcream",
+   -23,
+   13.091,
+   0,
+   3.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Roof_Wall_wcream",
+   -23,
+   13.258,
+   180,
+   3.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Roof_Wall_wcream",
+   -23,
+   8.739,
+   0,
+   3.6,
+   1
+  ],
+  [
+   "/assets/3D/Stylized/SM_Roof_Wall_wcream",
+   -23,
+   8.906,
+   180,
+   3.6,
+   1
   ]
  ],
  "colliders": [
@@ -8894,9 +9043,9 @@
    "d": 1
   },
   {
-   "x": 13,
+   "x": 14,
    "z": 16.5,
-   "w": 8.5,
+   "w": 13.6,
    "d": 8.5
   },
   {
@@ -8990,12 +9139,6 @@
    "d": 7
   },
   {
-   "x": 41,
-   "z": -19,
-   "w": 7.4,
-   "d": 7.4
-  },
-  {
    "x": 45.976,
    "z": -14.077,
    "w": 0.5,
@@ -9035,13 +9178,13 @@
    "x": 2.75,
    "z": 29.9,
    "w": 0.5,
-   "d": 8.6
+   "d": 6.45
   },
   {
    "x": 0,
-   "z": 33.8,
-   "w": 6.1,
-   "d": 0.6
+   "z": 33,
+   "w": 12,
+   "d": 2
   },
   {
    "x": -24.525,
@@ -9066,18 +9209,6 @@
    "z": 25.4,
    "w": 0.5,
    "d": 0.5
-  },
-  {
-   "x": 3,
-   "z": 25.4,
-   "w": 0.5,
-   "d": 0.5
-  },
-  {
-   "x": 3.6,
-   "z": 24.4,
-   "w": 1,
-   "d": 1
   },
   {
    "x": -25.4,
@@ -10331,49 +10462,49 @@
   {
    "x": 54,
    "z": 16,
-   "w": 40,
+   "w": 38,
    "d": 2
   },
   {
    "x": -56,
    "z": 18,
-   "w": 36,
+   "w": 28.8,
    "d": 2
   },
   {
    "x": 54,
    "z": 18,
-   "w": 43,
+   "w": 34.4,
    "d": 2
   },
   {
    "x": -53,
    "z": 20,
-   "w": 42,
+   "w": 25.2,
    "d": 2
   },
   {
    "x": 55,
    "z": 20,
-   "w": 47.5,
+   "w": 42.75,
    "d": 2
   },
   {
    "x": -50.1,
    "z": 22,
-   "w": 47.8,
+   "w": 23.9,
    "d": 2
   },
   {
    "x": 42,
    "z": 22,
-   "w": 64,
+   "w": 22.4,
    "d": 2
   },
   {
    "x": -50.1,
    "z": 24,
-   "w": 47.8,
+   "w": 26.29,
    "d": 2
   },
   {
@@ -10385,13 +10516,13 @@
   {
    "x": 38.6,
    "z": 24,
-   "w": 70.8,
+   "w": 17.7,
    "d": 2
   },
   {
    "x": -50.1,
    "z": 24,
-   "w": 47.8,
+   "w": 26.29,
    "d": 2
   },
   {
@@ -10403,25 +10534,7 @@
   {
    "x": 38.6,
    "z": 24,
-   "w": 70.8,
-   "d": 2
-  },
-  {
-   "x": -50.1,
-   "z": 26,
-   "w": 47.8,
-   "d": 2
-  },
-  {
-   "x": -11.5,
-   "z": 26,
-   "w": 16.6,
-   "d": 2
-  },
-  {
-   "x": 38.6,
-   "z": 26,
-   "w": 70.8,
+   "w": 17.7,
    "d": 2
   },
   {
@@ -10439,7 +10552,25 @@
   {
    "x": 38.6,
    "z": 26,
-   "w": 70.8,
+   "w": 21.24,
+   "d": 2
+  },
+  {
+   "x": -50.1,
+   "z": 26,
+   "w": 47.8,
+   "d": 2
+  },
+  {
+   "x": -11.5,
+   "z": 26,
+   "w": 16.6,
+   "d": 2
+  },
+  {
+   "x": 38.6,
+   "z": 26,
+   "w": 21.24,
    "d": 2
   },
   {
@@ -10731,8 +10862,8 @@
    "d": 7.919
   },
   {
-   "x": -59,
-   "z": -29,
+   "x": -58.985,
+   "z": -28.971,
    "w": 28.479,
    "d": 34.384
   },
@@ -10741,6 +10872,48 @@
    "z": 5,
    "w": 6.99,
    "d": 6.708
+  },
+  {
+   "x": -5.001,
+   "z": 11.006,
+   "w": 2.065,
+   "d": 1.111
+  },
+  {
+   "x": 6.996,
+   "z": 0.996,
+   "w": 1.994,
+   "d": 2.344
+  },
+  {
+   "x": -10.002,
+   "z": -4.005,
+   "w": 2.344,
+   "d": 1.994
+  },
+  {
+   "x": 20.995,
+   "z": 3.002,
+   "w": 1.994,
+   "d": 2.344
+  },
+  {
+   "x": -23,
+   "z": 11,
+   "w": 8.4,
+   "d": 4.8
+  },
+  {
+   "x": -1,
+   "z": 37,
+   "w": 2.45,
+   "d": 7.583
+  },
+  {
+   "x": 1,
+   "z": 37,
+   "w": 2.45,
+   "d": 7.583
   }
  ],
  "npcs": [
@@ -10748,32 +10921,20 @@
    "id": "ferry",
    "name": "Ferryman Osk",
    "title": "Ferry",
-   "sprite": "Rook",
+   "sprite": "Ferryman",
    "x": 1.4,
    "z": 31,
-   "h": 2.3,
-   "tint": [
-    0.85,
-    1.1,
-    1.2,
-    1
-   ],
+   "h": 2.6,
    "line": "The ferry runs whenever the tide allows. Walk to the end of the pier when you want to head back to the colosseum."
   },
   {
    "id": "elder",
    "name": "Elder Mahina",
    "title": "Village Elder",
-   "sprite": "Lyra",
+   "sprite": "Elder",
    "x": -5,
    "z": 0.8,
-   "h": 2.4,
-   "tint": [
-    1.15,
-    1.05,
-    0.9,
-    1
-   ],
+   "h": 2.25,
    "line": "Welcome to Paradise Island. The mayor lives in the big blue-roofed house up the hill; he has been asking after a stranger who can fight.",
    "hideIf": "fq_done"
   },
@@ -10781,16 +10942,10 @@
    "id": "fisher",
    "name": "Pua",
    "title": "Fisher",
-   "sprite": "Kael",
+   "sprite": "Fisherman",
    "x": -23,
-   "z": 29,
-   "h": 2.3,
-   "tint": [
-    0.9,
-    1.1,
-    1,
-    1
-   ],
+   "z": 23,
+   "h": 2.4,
    "line": "Biting well today. Don't tell the gulls.",
    "showIf": "sq_net_done"
   },
@@ -10798,32 +10953,20 @@
    "id": "trader",
    "name": "Kai",
    "title": "Island Trader",
-   "sprite": "Yulia",
+   "sprite": "Townee",
    "x": 18,
    "z": -1,
-   "h": 2.4,
-   "tint": [
-    1.15,
-    1,
-    0.8,
-    1
-   ],
+   "h": 2.2,
    "line": "Coconuts, shells, and rumours from the mainland. The rumours are free. The crates on the beach are the harbour's; I'd leave them be."
   },
   {
    "id": "farmer",
    "name": "Old Tane",
    "title": "Farmer",
-   "sprite": "Draven",
+   "sprite": "Farmer",
    "x": -32.5,
    "z": -9.6,
    "h": 2.4,
-   "tint": [
-    0.9,
-    0.95,
-    1.1,
-    1
-   ],
    "line": "Turnips, beans and one very stubborn goat. The goblins have been at my fence ever since they moved into the Whispering Wood.",
    "showIf": "sq_fence_done"
   },
@@ -10831,24 +10974,19 @@
    "id": "keeper",
    "name": "Bram",
    "title": "Innkeeper",
-   "sprite": "Lyra",
+   "sprite": "Innkeeper",
    "x": -12.4,
    "z": -5.8,
-   "h": 2.4,
-   "tint": [
-    1.15,
-    0.95,
-    0.85,
-    1
-   ],
+   "h": 2.25,
    "actions": [
     {
      "type": "say",
      "who": "Bram",
-     "text": "Welcome to the Salty Anchor. A hot meal and a warm bed, on the house for anyone who looks as beaten as you do."
+     "text": "Welcome to the Salty Anchor. A hot meal and a warm bed will cost you 25 gold a night."
     },
     {
-     "type": "rest"
+     "type": "rest",
+     "cost": 25
     }
    ]
   },
@@ -10856,55 +10994,37 @@
    "id": "smith",
    "name": "Hild",
    "title": "Blacksmith",
-   "sprite": "Draven",
+   "sprite": "Blacksmith",
    "x": 33,
    "z": 15,
-   "h": 2.5,
-   "tint": [
-    1.2,
-    0.8,
-    0.7,
-    1
-   ],
+   "h": 2.6,
    "action": "heroes"
   },
   {
    "id": "shopkeeper",
    "name": "Marla",
    "title": "Item Shop",
-   "sprite": "Rook",
+   "sprite": "Shopkeeper",
    "x": 14.6,
    "z": 8.799999999999999,
-   "h": 2.3,
-   "tint": [
-    0.8,
-    1.05,
-    1.15,
-    1
-   ],
+   "h": 2.25,
    "action": "shop"
   },
   {
    "id": "harbourmaster",
    "name": "Harbourmaster Teo",
    "title": "Harbourmaster",
-   "sprite": "Kael",
-   "x": -21.7,
-   "z": 19.2,
-   "h": 2.4,
-   "tint": [
-    0.8,
-    0.95,
-    1.2,
-    1
-   ],
+   "sprite": "Dockmaster",
+   "x": -23,
+   "z": 14,
+   "h": 2.3,
    "line": "Mind the boats. The big ferry from the colosseum comes in at the long pier; mine are the little ones."
   },
   {
    "id": "scholar",
    "name": "Scholar Nema",
    "title": "Lore keeper",
-   "sprite": "Sera",
+   "sprite": "Miya",
    "x": -9,
    "z": -38,
    "h": 2.4,
@@ -10921,16 +11041,10 @@
    "id": "mayor0",
    "name": "Mayor Orrin",
    "title": "Mayor",
-   "sprite": "Kael",
+   "sprite": "Mayor",
    "x": 19.499999999999996,
    "z": -16.2,
    "h": 2.4,
-   "tint": [
-    1.25,
-    1.1,
-    0.75,
-    1
-   ],
    "hideIf": "fq_start",
    "actions": [
     {
@@ -10958,16 +11072,10 @@
    "id": "mayor1",
    "name": "Mayor Orrin",
    "title": "Mayor",
-   "sprite": "Kael",
+   "sprite": "Mayor",
    "x": 19.499999999999996,
    "z": -16.2,
    "h": 2.4,
-   "tint": [
-    1.25,
-    1.1,
-    0.75,
-    1
-   ],
    "showIf": "fq_start",
    "hideIf": "fq_seal",
    "actions": [
@@ -10982,16 +11090,10 @@
    "id": "mayor2",
    "name": "Mayor Orrin",
    "title": "Mayor",
-   "sprite": "Kael",
+   "sprite": "Mayor",
    "x": 19.499999999999996,
    "z": -16.2,
    "h": 2.4,
-   "tint": [
-    1.25,
-    1.1,
-    0.75,
-    1
-   ],
    "showIf": "fq_seal",
    "hideIf": "fq_done",
    "actions": [
@@ -11022,16 +11124,10 @@
    "id": "mayor3",
    "name": "Mayor Orrin",
    "title": "Mayor",
-   "sprite": "Kael",
+   "sprite": "Mayor",
    "x": 19.499999999999996,
    "z": -16.2,
    "h": 2.4,
-   "tint": [
-    1.25,
-    1.1,
-    0.75,
-    1
-   ],
    "showIf": "fq_done",
    "actions": [
     {
@@ -11045,16 +11141,10 @@
    "id": "warden0",
    "name": "Cave Warden",
    "title": "Guard of the cave",
-   "sprite": "Rook",
+   "sprite": "Warden",
    "x": 6.4,
    "z": -39.2,
    "h": 2.5,
-   "tint": [
-    0.7,
-    0.8,
-    1.05,
-    1
-   ],
    "hideIf": "fq_done",
    "actions": [
     {
@@ -11073,16 +11163,10 @@
    "id": "warden1",
    "name": "Cave Warden",
    "title": "Guard of the cave",
-   "sprite": "Rook",
+   "sprite": "Warden",
    "x": 6.4,
    "z": -39.2,
    "h": 2.5,
-   "tint": [
-    0.7,
-    0.8,
-    1.05,
-    1
-   ],
    "showIf": "fq_done",
    "actions": [
     {
@@ -11104,16 +11188,10 @@
   },
   {
    "title": "Fisher",
-   "sprite": "Kael",
+   "sprite": "Fisherman",
    "x": -23,
-   "z": 29,
-   "h": 2.3,
-   "tint": [
-    0.9,
-    1.1,
-    1,
-    1
-   ],
+   "z": 23,
+   "h": 2.4,
    "id": "sq_pua0",
    "name": "Pua",
    "actions": [
@@ -11136,16 +11214,10 @@
   },
   {
    "title": "Fisher",
-   "sprite": "Kael",
+   "sprite": "Fisherman",
    "x": -23,
-   "z": 29,
-   "h": 2.3,
-   "tint": [
-    0.9,
-    1.1,
-    1,
-    1
-   ],
+   "z": 23,
+   "h": 2.4,
    "id": "sq_pua1",
    "name": "Pua",
    "actions": [
@@ -11160,16 +11232,10 @@
   },
   {
    "title": "Fisher",
-   "sprite": "Kael",
+   "sprite": "Fisherman",
    "x": -23,
-   "z": 29,
-   "h": 2.3,
-   "tint": [
-    0.9,
-    1.1,
-    1,
-    1
-   ],
+   "z": 23,
+   "h": 2.4,
    "id": "sq_pua2",
    "name": "Pua",
    "actions": [
@@ -11201,16 +11267,10 @@
   },
   {
    "title": "Farmer",
-   "sprite": "Draven",
+   "sprite": "Farmer",
    "x": -32.5,
    "z": -9.6,
    "h": 2.4,
-   "tint": [
-    0.9,
-    0.95,
-    1.1,
-    1
-   ],
    "id": "sq_tane0",
    "name": "Old Tane",
    "actions": [
@@ -11233,16 +11293,10 @@
   },
   {
    "title": "Farmer",
-   "sprite": "Draven",
+   "sprite": "Farmer",
    "x": -32.5,
    "z": -9.6,
    "h": 2.4,
-   "tint": [
-    0.9,
-    0.95,
-    1.1,
-    1
-   ],
    "id": "sq_tane1",
    "name": "Old Tane",
    "actions": [
@@ -11257,16 +11311,10 @@
   },
   {
    "title": "Farmer",
-   "sprite": "Draven",
+   "sprite": "Farmer",
    "x": -32.5,
    "z": -9.6,
    "h": 2.4,
-   "tint": [
-    0.9,
-    0.95,
-    1.1,
-    1
-   ],
    "id": "sq_tane2",
    "name": "Old Tane",
    "actions": [
@@ -11332,7 +11380,7 @@
   },
   {
    "title": "Scholar",
-   "sprite": "Sera",
+   "sprite": "Miya",
    "x": -9,
    "z": -38,
    "h": 2.4,
@@ -11364,7 +11412,7 @@
   },
   {
    "title": "Scholar",
-   "sprite": "Sera",
+   "sprite": "Miya",
    "x": -9,
    "z": -38,
    "h": 2.4,
@@ -11417,16 +11465,10 @@
    "id": "sq_dice0",
    "name": "Dockhand Jory",
    "title": "Dice, 100g",
-   "sprite": "Kael",
-   "x": -17.2,
+   "sprite": "Gambler",
+   "x": -15,
    "z": 21.7,
-   "h": 2.3,
-   "tint": [
-    1.1,
-    0.9,
-    0.8,
-    1
-   ],
+   "h": 2.4,
    "actions": [
     {
      "type": "say",
@@ -11437,34 +11479,6 @@
      "type": "game",
      "game": "dice",
      "stake": 100
-    }
-   ],
-   "reach": 4
-  },
-  {
-   "id": "sq_dice1",
-   "name": "Big Lu",
-   "title": "High stakes, 400g",
-   "sprite": "Rook",
-   "x": -14.6,
-   "z": 21.1,
-   "h": 2.3,
-   "tint": [
-    1.2,
-    0.8,
-    0.8,
-    1
-   ],
-   "actions": [
-    {
-     "type": "say",
-     "who": "Big Lu",
-     "text": "Four hundred a throw. Come to lose it, or come to win it."
-    },
-    {
-     "type": "game",
-     "game": "dice",
-     "stake": 400
     }
    ],
    "reach": 4
@@ -11508,16 +11522,10 @@
   {
    "name": "Elder Mahina",
    "title": "Village Elder",
-   "sprite": "Lyra",
+   "sprite": "Elder",
    "x": -5,
    "z": 0.8,
-   "h": 2.4,
-   "tint": [
-    1.15,
-    1.05,
-    0.9,
-    1
-   ],
+   "h": 2.25,
    "id": "elder1",
    "showIf": "fq_done",
    "hideIf": "st_quest",
@@ -11530,7 +11538,7 @@
     {
      "type": "say",
      "who": "Elder Mahina",
-     "text": "There is one more favour I would ask. A young healer came off the morning boat: Sera, of the Tide Chapel on the mainland. She means to reach the Colosseum, and the harbour guild will not let her dock."
+     "text": "There is one more favour I would ask. A young healer came off the morning boat: Miya, of the Tide Chapel on the mainland. She means to reach the Colosseum, and the harbour guild will not let her dock."
     },
     {
      "type": "say",
@@ -11544,7 +11552,7 @@
     },
     {
      "type": "say",
-     "who": "Kael",
+     "who": "Kenji",
      "text": "The Colosseum? I was hoping to make my fortune somewhere with a crowd. Consider it done."
     },
     {
@@ -11556,16 +11564,10 @@
   {
    "name": "Elder Mahina",
    "title": "Village Elder",
-   "sprite": "Lyra",
+   "sprite": "Elder",
    "x": -5,
    "z": 0.8,
-   "h": 2.4,
-   "tint": [
-    1.15,
-    1.05,
-    0.9,
-    1
-   ],
+   "h": 2.25,
    "id": "elder2",
    "showIf": "st_quest",
    "hideIf": "st_sera",
@@ -11573,23 +11575,17 @@
     {
      "type": "say",
      "who": "Elder Mahina",
-     "text": "Sera is at the arch of the Hollow Cave, north of the village, past the old braziers. She has been waiting since dawn."
+     "text": "Miya is at the arch of the Hollow Cave, north of the village, past the old braziers. She has been waiting since dawn."
     }
    ]
   },
   {
    "name": "Elder Mahina",
    "title": "Village Elder",
-   "sprite": "Lyra",
+   "sprite": "Elder",
    "x": -5,
    "z": 0.8,
-   "h": 2.4,
-   "tint": [
-    1.15,
-    1.05,
-    0.9,
-    1
-   ],
+   "h": 2.25,
    "id": "elder3",
    "showIf": "st_sera",
    "hideIf": "st_done",
@@ -11603,9 +11599,9 @@
   },
   {
    "id": "sera_arch",
-   "name": "Sera",
+   "name": "Miya",
    "title": "Chapel healer",
-   "sprite": "Sera",
+   "sprite": "Miya",
    "x": -2.6,
    "z": -40.6,
    "h": 2.4,
@@ -11621,37 +11617,37 @@
    "actions": [
     {
      "type": "say",
-     "who": "Sera",
-     "text": "You must be the one Elder Mahina promised. I am Sera, a healer from the Tide Chapel on the mainland."
+     "who": "Miya",
+     "text": "You must be the one Elder Mahina promised. I am Miya, a healer from the Tide Chapel on the mainland."
     },
     {
      "type": "say",
-     "who": "Sera",
+     "who": "Miya",
      "text": "The Colosseum's infirmary has sent for chapel healers. The harbour guild turns strangers away from its docks, but the old smugglers' road runs under the sea and comes out in the arena's cellars."
     },
     {
      "type": "say",
-     "who": "Sera",
+     "who": "Miya",
      "text": "It runs through this cave. The chapel's records say a king was laid to rest here with his whole court, still waiting on a tide that never came. I would rather not meet them alone."
     },
     {
      "type": "say",
-     "who": "Kael",
-     "text": "I am Kael. A secret road under the sea to the Colosseum? Lead on. I was going that way anyway."
+     "who": "Kenji",
+     "text": "I am Kenji. A secret road under the sea to the Colosseum? Lead on. I was going that way anyway."
     },
     {
      "type": "say",
-     "who": "Sera",
+     "who": "Miya",
      "text": "I am no fighter, but I can keep you standing, and I know how the Chapel's seals are meant to be undone. Stay close."
     },
     {
      "type": "say",
      "who": null,
-     "text": "Sera takes up her staff and falls in beside you. She joins your party! Equip her before you head on."
+     "text": "Miya takes up her staff and falls in beside you. She joins your party! Equip her before you head on."
     },
     {
      "type": "recruit",
-     "name": "Sera"
+     "name": "Miya"
     },
     {
      "type": "flag",
@@ -11661,24 +11657,6 @@
   }
  ],
  "events": [
-  {
-   "id": "ferry_to_colosseum",
-   "name": "Ferry to the colosseum",
-   "x": 0,
-   "z": 32.4,
-   "w": 7,
-   "d": 1.6,
-   "trigger": "touch",
-   "once": false,
-   "actions": [
-    {
-     "type": "warp",
-     "scene": "outside",
-     "x": 0,
-     "z": 35.2
-    }
-   ]
-  },
   {
    "id": "forest_path",
    "name": "The Whispering Wood",
@@ -11790,12 +11768,14 @@
     {
      "type": "say",
      "who": "",
-     "text": "You cast a line off the pier and wait."
+     "text": "A weathered fishing pier juts out over the water."
     },
     {
      "type": "game",
      "game": "fish",
-     "stake": 0
+     "stake": 0,
+     "spot": "pier",
+     "scene": "fish_pier"
     }
    ]
   },
@@ -11825,8 +11805,8 @@
   {
    "id": "sq_c1",
    "name": "Treasure chest",
-   "x": -47,
-   "z": -29,
+   "x": -46,
+   "z": -32,
    "w": 3.4,
    "d": 3.4,
    "trigger": "talk",
@@ -11877,8 +11857,8 @@
   {
    "id": "sq_c3",
    "name": "Treasure chest",
-   "x": 40,
-   "z": 1,
+   "x": 35,
+   "z": -5,
    "w": 3.4,
    "d": 3.4,
    "trigger": "talk",
@@ -11947,7 +11927,7 @@
     {
      "type": "say",
      "who": null,
-     "text": "A chapel healer is waiting by the arch. Speak with Sera first: Elder Mahina asked you to see her through.",
+     "text": "A chapel healer is waiting by the arch. Speak with Miya first: Elder Mahina asked you to see her through.",
      "if": "st_quest"
     }
    ]
@@ -11956,413 +11936,73 @@
  "decals": [
   {
    "type": "glow",
-   "x": 0,
-   "z": 2,
-   "r": 4.5,
-   "color": [
-    0.45,
-    0.75,
-    1,
-    0.22
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 7.95,
-   "z": 5.27,
-   "r": 2.6,
+   "x": 6.7,
+   "z": 1.5,
+   "r": 10,
    "color": [
     1,
     0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -3.27,
-   "z": 9.95,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -7.94,
-   "z": 5.31,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -7.95,
-   "z": -1.27,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -3.31,
-   "z": -5.94,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 7.94,
-   "z": -1.31,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -10.2,
-   "z": -7,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 16,
-   "z": -16.6,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 22.4,
-   "z": -16.6,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 24.6,
-   "z": 11.2,
-   "r": 3.2,
-   "color": [
-    1,
-    0.55,
-    0.2,
-    0.8
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 23.7,
-   "z": 2.4,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 17.8,
-   "z": 10.2,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -20,
-   "z": 17.6,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 41,
-   "z": -19,
-   "r": 5,
-   "color": [
     0.4,
-    0.75,
-    1,
-    0.25
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 45.98,
-   "z": -14.08,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 36.08,
-   "z": -14.02,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 36.02,
-   "z": -23.92,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 45.92,
-   "z": -23.98,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -2.45,
-   "z": 31.9,
-   "r": 2.2,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.5
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 2.45,
-   "z": 31.9,
-   "r": 2.2,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.5
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -24.23,
-   "z": 30.2,
-   "r": 2.2,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.5
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -21.77,
-   "z": 30.2,
-   "r": 2.2,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.5
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -3,
-   "z": 25.4,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 3,
-   "z": 25.4,
-   "r": 2.6,
-   "color": [
-    1,
-    0.8,
-    0.45,
-    0.55
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -6.8,
-   "z": -41,
-   "r": 4,
-   "color": [
-    1,
-    0.6,
-    0.25,
-    0.8
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 6.8,
-   "z": -41,
-   "r": 4,
-   "color": [
-    1,
-    0.6,
-    0.25,
-    0.8
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 0,
-   "z": -53,
-   "r": 3.5,
-   "color": [
-    0.35,
-    0.55,
-    1,
-    0.35
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 0,
-   "z": -45,
-   "r": 3.5,
-   "color": [
-    0.9,
-    0.55,
-    0.3,
-    0.3
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -5,
-   "z": 0.8,
-   "r": 3,
-   "color": [
-    1,
-    0.8,
-    0.5,
-    0.7
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 1.4,
-   "z": 31,
-   "r": 3,
-   "color": [
-    0.5,
-    0.85,
-    1,
-    0.7
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 19.3,
-   "z": -16.2,
-   "r": 3,
-   "color": [
-    1,
-    0.85,
-    0.4,
-    0.7
-   ]
-  },
-  {
-   "type": "glow",
-   "x": -12.6,
-   "z": -5.8,
-   "r": 3,
-   "color": [
-    1,
-    0.7,
-    0.4,
-    0.7
-   ]
-  },
-  {
-   "type": "glow",
-   "x": 9.5,
-   "z": -30,
-   "r": 1.8,
-   "color": [
-    1,
-    0.85,
-    0.4,
-    0.6
+    1
    ],
-   "showIf": "sq_pg_q,!sq_pg1",
-   "sq": 1
+   "spin": 0,
+   "y": 5
+  },
+  {
+   "type": "glow",
+   "x": -4.4,
+   "z": 11,
+   "r": 10,
+   "color": [
+    1,
+    0.8,
+    0.4,
+    1
+   ],
+   "spin": 0,
+   "y": 5
+  },
+  {
+   "type": "glow",
+   "x": -10.6,
+   "z": -3.7,
+   "r": 10,
+   "color": [
+    1,
+    0.8,
+    0.4,
+    1
+   ],
+   "spin": 0,
+   "y": 8.5
+  },
+  {
+   "type": "glow",
+   "x": 21.3,
+   "z": 3.3,
+   "r": 10,
+   "color": [
+    1,
+    0.8,
+    0.4,
+    1
+   ],
+   "spin": 0,
+   "y": 5
+  },
+  {
+   "type": "glow",
+   "x": 116,
+   "z": -51,
+   "r": 1000,
+   "color": [
+    1,
+    0.8,
+    0.4,
+    1
+   ],
+   "spin": 0,
+   "y": 81
   }
  ],
  "spawn": {

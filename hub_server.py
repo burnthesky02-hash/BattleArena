@@ -104,6 +104,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import config
 import builder3d_api
+from game import demo as game_demo, vfs
+if game_demo.DEMO:
+    config.DEBUG = False                                  # the demo has no debug tools, whatever the flags say
+    for _d in (PROJECT_ROOT, Path(sys.argv[0]).resolve().parent):
+        if vfs.mount(_d / "game.pak", game_demo.pak_key()):      # the packed demo reads its art, pages and scenes from game.pak
+            break
 from ai.enemy_ai import decay_memory, make_enemy_ai_fn, new_rival_memory, opening_gauge
 from data.equipment_db import EQUIPMENT
 from data.hero_rarity import HERO_SUMMON_WEIGHTS, STORY_RARITY, rarity_multiplier, HERO_RARITY_COLOR, MAX_STARS, shard_cost_for_next_star, star_display
@@ -119,6 +125,7 @@ from engine import formulas
 from engine.combatant import Combatant
 from data import vendors as vendors_data
 from data.bosses import BOSSES, BOSS_SKILLS, WORLD_BOSSES, fixed_level_for
+from game import dbedit
 from game.equipment_instances import WEAPON_MAX_UPGRADE, weapon_upgrade_cost
 ALL_BOSSES = {**BOSSES, **WORLD_BOSSES}    # the battle debug menu offers rank bosses and story (world) bosses
 from data.leveling import ENEMY_GROWTH_SCALE, apply_growth, power_mult, scale_item_heal, TALENT_POINT_INTERVAL
@@ -169,14 +176,14 @@ except ImportError:
 HTTP_HOST, HTTP_PORT = "127.0.0.1", 8767
 WS_HOST, WS_PORT = "127.0.0.1", 8766
 
-HTML_DIR = PROJECT_ROOT / "html_hub"
-BATTLE_HTML_DIR = PROJECT_ROOT / "html_battle"
-WORLD_HTML_DIR = PROJECT_ROOT / "html_overworld"
-BUILDER_HTML_DIR = PROJECT_ROOT / "html_builder"
+HTML_DIR = vfs.root("html_hub", PROJECT_ROOT)
+BATTLE_HTML_DIR = vfs.root("html_battle", PROJECT_ROOT)
+WORLD_HTML_DIR = vfs.root("html_overworld", PROJECT_ROOT)
+BUILDER_HTML_DIR = vfs.root("html_builder", PROJECT_ROOT)
 BUILDER3D_BACKUP_DIR = BUILDER_HTML_DIR / "backups"   # timestamped copies of every scene the 3D editor overwrites
-DATA_DIR = PROJECT_ROOT / "data"
+DATA_DIR = vfs.root("data", PROJECT_ROOT)
 BATTLERS_DIR = DATA_DIR / "Battlers"
-ASSETS_DIR = PROJECT_ROOT / "Assets"  # sibling of data/ -- Music/, SFX/, and walking/ live here, served under /assets/ too
+ASSETS_DIR = vfs.root("Assets", PROJECT_ROOT)  # sibling of data/ -- Music/, SFX/, and walking/ live here, served under /assets/ too
 
 # Still hardcoded -- see the module docstring. Real Party Select/Battle Setup
 # screens (not yet built in HTML) are what would let the player choose these;
@@ -506,6 +513,7 @@ def _serialize_hub_state() -> dict:
         "slave": bool(story_slave),
         "roster_count": len(player_state.characters),
         "debug": config.DEBUG,
+        "demo": game_demo.DEMO,
         "debug_gem_grant": config.DEBUG_GEM_GRANT,
         # Same origin, same process now -- just a path, not a different port.
         "battle_url": "/party",
@@ -937,7 +945,26 @@ def _serialize_shop_state() -> dict:
                           "bonuses": dict(e.stat_bonuses), "owned": owned_counts.get(e.id, 0),
                           "fits": {cid: _shop_fit(c, e, edb) for cid, c in heroes_by_id.items()}})
     shop = vendors_data.shop_for(current_shop_key)
+    sell_items = [
+        {"id": it.id, "name": it.name, "description": it.description, "price": shop_logic.item_sell_price(it),
+         "count": n, "heal_hp": getattr(it, "heal_hp", 0), "heal_mp": getattr(it, "heal_mp", 0),
+         "revive": bool(getattr(it, "revive", False))}
+        for it in ITEMS.values()
+        if (n := player_state.inventory.get(it.id, 0)) > 0 and shop_logic.item_sell_price(it) > 0
+    ]
+    sell_equipment = []
+    for iid in player_state.equipment_stash:
+        inst = player_state.equipment_instances.get(iid)
+        e = edb.get(iid)
+        if inst is None or e is None:
+            continue
+        sell_equipment.append({"id": iid, "name": e.name, "slot": e.slot, "subtype": e.subtype, "rarity": e.rarity,
+                               "price": shop_logic.equipment_sell_price(player_state, iid, edb),
+                               "bonus_text": e.bonus_text(), "description": e.description,
+                               "bonuses": dict(e.stat_bonuses), "upgrade": inst.upgrade_level,
+                               "rolled": bool(inst.bonus_stats)})
     return {"money": player_state.money, "items": items, "equipment": equipment, "slots": list(SLOTS),
+            "sell_items": sell_items, "sell_equipment": sell_equipment,
             "vendor": {"name": shop["name"], "note": shop["note"], "for_heroes": shop["for_heroes"]},
             "equipment_shards": player_state.equipment_shards,
             "party_colosseum": [_shop_hero_card(c, edb) for c in colo],
@@ -1256,6 +1283,9 @@ class Handler(BaseHTTPRequestHandler):
         # exactly what happened before this fix: talking to the dungeon guardian, or triggering any
         # wild encounter, 404'd instead of opening the battle screen).
         route_path = self.path.split("?", 1)[0]
+        if game_demo.DEMO and route_path.startswith(("/builder3d", "/api/builder3d", "/database", "/api/db", "/api/debug", "/hub3d/playtest_bot")):
+            self._send_bytes(404, b"not found", "text/plain")           # no editor or debug tools in the demo
+            return
         if route_path in ("/", "/index.html"):
             self._send_html_file(HTML_DIR, "index.html")
             return
@@ -1267,7 +1297,7 @@ class Handler(BaseHTTPRequestHandler):
                 slots = [save_system.slot_summary(n) for n in range(1, save_system.SLOT_COUNT + 1)]
                 cur = save_system.get_slot()
                 cont = cur if slots[cur - 1].get("exists") else next((s["slot"] for s in sorted((s for s in slots if s.get("exists")), key=lambda s: -s.get("saved_at", 0))), None)
-                self._send_json(200, {"slots": slots, "current": cur, "continue": cont, "debug": bool(config.DEBUG)})
+                self._send_json(200, {"slots": slots, "current": cur, "continue": cont, "debug": bool(config.DEBUG), "demo": game_demo.DEMO})
             return
         if route_path in ("/heroes", "/heroes/", "/heroes/index.html"):
             self._send_html_file(HTML_DIR, "heroes.html")
@@ -1338,6 +1368,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             base = (HTML_DIR / "3d").resolve()
             fp = (base / rel).resolve()
+            if game_demo.DEMO and fp.stem in game_demo.LATE_SCENES:          # the story past the Hollow Cave is not in the demo
+                self._send_bytes(404, b"not found", "text/plain")
+                return
             ctype = {".js": "application/javascript", ".json": "application/json", ".webp": "image/webp",
                      ".png": "image/png", ".jpg": "image/jpeg"}.get(fp.suffix.lower())
             if ctype and base in fp.parents and fp.is_file():
@@ -1355,6 +1388,25 @@ class Handler(BaseHTTPRequestHandler):
             with _state_lock:
                 self._send_json(200, _serialize_world_state())
             return
+        if route_path in ("/database", "/database/", "/database/index.html"):
+            self._send_html_file(BUILDER_HTML_DIR, "database.html")
+            return
+        if route_path == "/api/db/schema":
+            with _state_lock:
+                self._send_json(200, dbedit.schema())
+            return
+        if route_path == "/api/db/rows":
+            q = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            tid = (q.get("table") or [""])[0]
+            if tid not in dbedit.TABLES:
+                self._send_json(404, {"ok": False, "error": "unknown table"})
+                return
+            with _state_lock:
+                try:
+                    self._send_json(200, dbedit.list_rows(tid))
+                except (OSError, ValueError) as exc:
+                    self._send_json(500, {"ok": False, "error": f"could not read {tid}: {exc}"})
+            return
         if route_path in ("/builder3d", "/builder3d/", "/builder3d/index.html"):
             self._send_html_file(BUILDER_HTML_DIR, "index3d.html")
             return
@@ -1369,6 +1421,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         if route_path == "/api/builder3d/models":
             self._send_json(200, {"models": builder3d_api.list_models(ASSETS_DIR / "3D")})
+            return
+        if route_path == "/api/builder3d/loot_options":                    # the scene editor's chest-loot pickers
+            _rord = {r: i for i, r in enumerate(EQUIP_RARITIES)}
+            self._send_json(200, {
+                "items": [{"id": it.id, "name": it.name} for it in ITEMS.values()],
+                "equipment": [{"id": e.id, "name": e.name, "slot": e.slot, "rarity": e.rarity}
+                              for e in sorted(EQUIPMENT.values(), key=lambda e: (e.slot, _rord.get(e.rarity, 9), e.name))]})
             return
         if route_path == "/api/palette":
             # Both html_overworld (to render tiles/props) and html_builder (to build its brush list
@@ -1442,6 +1501,9 @@ class Handler(BaseHTTPRequestHandler):
     # ------------------------------------------------------------------
     def do_POST(self):
         global debug_battle, story_slave
+        if game_demo.DEMO and self.path.startswith(("/api/builder3d", "/api/db", "/api/debug")):
+            self._send_bytes(404, b"not found", "text/plain")
+            return
         if self.path == "/api/debug/setup" and config.DEBUG:
             cfg, err = _validate_debug_setup(self._read_json_body())
             if cfg is None:
@@ -1484,6 +1546,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_buy(shop_logic.buy_equipment, EQUIPMENT, "equipment_id")
         elif self.path == "/api/shop/buy_equip":
             self._handle_buy_equip()
+        elif self.path == "/api/shop/sell_item":
+            self._handle_sell("item")
+        elif self.path == "/api/shop/sell_equipment":
+            self._handle_sell("equipment")
         elif self.path == "/api/party/confirm":
             self._handle_party_confirm()
         elif self.path == "/api/arena/buy_team":
@@ -1531,6 +1597,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_title(self.path.rsplit("/", 1)[1])
         elif self.path == "/api/menu/quit":
             self._handle_menu_quit()
+        elif self.path.startswith("/api/db/"):
+            self._handle_db(self.path[len("/api/db/"):])
         elif self.path == "/api/builder3d/scene":
             msg = self._read_json_body()
             try:
@@ -1540,6 +1608,32 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200 if result.get("ok") else 400, result)
         else:
             self._send_bytes(404, b"not found", "text/plain")
+
+    def _handle_db(self, action: str) -> None:
+        """Database editor (html_builder/database.html): save / reset / new / delete one row of a game-data table (game/dbedit.py)."""
+        msg = self._read_json_body()
+        tid = msg.get("table")
+        if tid not in dbedit.TABLES:
+            self._send_json(404, {"ok": False, "error": "unknown table"})
+            return
+        with _state_lock:
+            try:
+                if action == "save":
+                    out = dbedit.save_row(tid, msg.get("row") or {})
+                elif action == "reset":
+                    out = dbedit.reset_row(tid, str(msg.get("id")))
+                elif action == "new":
+                    out = {"row": dbedit.new_row(tid)}
+                elif action == "delete":
+                    dbedit.delete_row(tid, str(msg.get("id")))
+                    out = {}
+                else:
+                    self._send_json(404, {"ok": False, "error": "unknown action"})
+                    return
+            except (ValueError, KeyError, TypeError, OSError) as exc:
+                self._send_json(200, {"ok": False, "error": str(exc) or exc.__class__.__name__})
+                return
+        self._send_json(200, {"ok": True, **out})
 
     def _handle_bot_endpoint(self, path: str) -> None:
         """Debug-only playtest bot (html_hub/3d/playtest_bot.js): bot_log appends its log lines to saves/playtest_log.jsonl and
@@ -1716,6 +1810,18 @@ class Handler(BaseHTTPRequestHandler):
             if self._shop_refuses("item" if key == "item_id" else "equipment", msg.get(key)):
                 return
             ok, message = buy_fn(player_state, msg.get(key), db)
+            if ok:
+                save_system.save_game(player_state)
+            self._send_json(200, {"ok": ok, "message": message, **_serialize_shop_state()})
+
+    def _handle_sell(self, kind: str) -> None:
+        """Shop > Sell: any vendor buys any consumable you hold or any unequipped stash gear (half price)."""
+        msg = self._read_json_body()
+        with _state_lock:
+            if kind == "item":
+                ok, message = shop_logic.sell_item(player_state, msg.get("item_id"), msg.get("count", 1), ITEMS)
+            else:
+                ok, message = shop_logic.sell_equipment(player_state, msg.get("instance_id"), _resolved_equipment_db())
             if ok:
                 save_system.save_game(player_state)
             self._send_json(200, {"ok": ok, "message": message, **_serialize_shop_state()})
@@ -3294,10 +3400,13 @@ async def run_ws_server():
 
 
 def main():
+    if not game_demo.DEMO:                    # re-apply the database editor's saved edits (data/db_overrides.json) before anything is served
+        for problem in dbedit.init(DATA_DIR, HTML_DIR / "3d"):
+            print("db_overrides:", problem, file=sys.stderr)
     parser = argparse.ArgumentParser(description="Battle Arena -- Colosseum hub / Heroes / Summon / Battle (one real backend)")
     parser.add_argument("--debug", action="store_true", help="enable debug tools (same as DEBUG=1)")
     args = parser.parse_args()
-    if args.debug:
+    if args.debug and not game_demo.DEMO:
         config.DEBUG = True
 
     threading.Thread(target=run_http_server, daemon=True).start()

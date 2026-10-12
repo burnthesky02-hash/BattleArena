@@ -20,14 +20,26 @@ import time
 import traceback
 import webbrowser
 
-FROZEN = getattr(sys, "frozen", False)
-APP_DIR = os.path.dirname(sys.executable) if FROZEN else os.path.dirname(os.path.abspath(__file__))
-os.environ.setdefault("BATTLE_ARENA_HOME", APP_DIR)      # save_system.py keeps saves/ here
+FROZEN = getattr(sys, "frozen", False) or "__compiled__" in globals()          # PyInstaller sets sys.frozen, Nuitka defines __compiled__
+if FROZEN:
+    APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0] if "__compiled__" in globals() else sys.executable))
+else:
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
+try:
+    import demo_build as _demo_build             # only exists in the packaged demo (tools/build_demo.py)
+    DEMO = bool(getattr(_demo_build, "DEMO", False))
+except ImportError:
+    DEMO = False
+# The demo keeps its saves and its window profile under %LOCALAPPDATA%\SkyborneSagaDemo, so an unzipped folder can sit anywhere
+# (even a read-only one) and never touches the full game's saves.
+DATA_HOME = os.path.join(os.environ.get("LOCALAPPDATA") or APP_DIR, "SkyborneSagaDemo") if DEMO else APP_DIR
+os.makedirs(DATA_HOME, exist_ok=True)
+os.environ.setdefault("BATTLE_ARENA_HOME", DATA_HOME)      # save_system.py keeps saves/ here
 os.chdir(APP_DIR)
 if not FROZEN:
     sys.path.insert(0, APP_DIR)
 
-LOG_PATH = os.path.join(APP_DIR, "launcher.log")
+LOG_PATH = os.path.join(DATA_HOME, "launcher.log")
 URL = "http://127.0.0.1:8767/"
 HTTP_PORT = 8767
 _APP_PROC = None          # the game window process (set in _open_window)
@@ -86,7 +98,7 @@ def _open_window(use_browser: bool, fullscreen: bool = False) -> None:
               "close this program from the task manager / Ctrl+C when done.")
         webbrowser.open(URL)
         return
-    profile = os.path.join(os.environ.get("LOCALAPPDATA", APP_DIR), "BattleArena", "window-profile")
+    profile = os.path.join(os.environ.get("LOCALAPPDATA", APP_DIR), "SkyborneSagaDemo" if DEMO else "BattleArena", "window-profile")
     os.makedirs(profile, exist_ok=True)
     flags = [
         exe, f"--app={URL}", f"--user-data-dir={profile}", "--window-size=1366,820",
@@ -110,7 +122,7 @@ def main() -> None:
     args = sys.argv[1:]
     use_browser = "--browser" in args
     fullscreen = "--fullscreen" in args
-    sys.argv = [sys.argv[0]] + [a for a in args if a not in ("--browser", "--fullscreen")]   # hub_server has its own argparse
+    sys.argv = [sys.argv[0]] + [a for a in args if a not in ("--browser", "--fullscreen") and not (DEMO and a == "--debug")]   # hub_server has its own argparse
 
     if _port_open(HTTP_PORT):                       # server already running -> just open a window
         threading.Thread(target=_open_window, args=(use_browser, fullscreen), daemon=True).start()

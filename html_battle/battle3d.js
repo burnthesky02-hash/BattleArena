@@ -249,6 +249,9 @@ void main(){
   const MU = {};
   const modelCache = new Map();
   let mapList = [], mapId = "painted", curMap = null, mapToken = 0, mapErr = null;
+  // Until the fight's own arena (scene arena / saved pick) has loaded, the stage stays black: otherwise the painted arena flashes first.
+  let mapPending = false;
+  function mapDone() { if (!mapPending) return; mapPending = false; if (stageEl) stageEl.classList.remove("b3d-wait"); }
 
   function initMeshProgram() {
     mprog = gl.createProgram();
@@ -390,8 +393,8 @@ void main(){
     if (!auto) { try { localStorage.setItem("battleMap", id); } catch (e) {} }     // a scene's own arena is not remembered as the user's pick
     refreshButtons();
     if (id === "painted") { curMap = null; mapToken++; return; }
-    buildMap(id).then((m) => { if (m && mapId === id) curMap = m; })
-      .catch((e) => { console.warn("[B3D] map failed, using the painted arena:", e); curMap = null; mapErr = { id, msg: String(e && e.message || e) }; mapId = "painted"; refreshButtons(); });
+    buildMap(id).then((m) => { if (m && mapId === id) curMap = m; mapDone(); })
+      .catch((e) => { console.warn("[B3D] map failed, using the painted arena:", e); curMap = null; mapErr = { id, msg: String(e && e.message || e) }; mapId = "painted"; refreshButtons(); mapDone(); });
   };
   async function loadMapList(rescan) {
     try {
@@ -729,6 +732,7 @@ void main(){
     const st = document.createElement("style");
     st.textContent = `
       #b3d-canvas { position:absolute; inset:0; width:100%; height:100%; display:none; z-index:0; }
+      #stage.b3d-wait::after { content:""; position:absolute; inset:0; background:#060409; z-index:19; pointer-events:none; }
       #b3d-vignette { position:absolute; inset:0; pointer-events:none; display:none; z-index:0;
         background: radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0) 55%, rgba(4,2,12,.5) 100%); }
       body:not(.dbgmode) #b3d-bar { display:none !important; }      /* View / Cam / Map / Action cam buttons are debug-only */
@@ -810,6 +814,7 @@ void main(){
     const bg = new Image();
     bg.onload = () => { bgTex = makeTexture(bg); };
     bg.src = "/assets/Artwork/Background.webp";
-    loadMapList();
+    if (B3D.on) { mapPending = true; stageEl.classList.add("b3d-wait"); setTimeout(mapDone, 10000); }      // never stay black if the arena is slow or missing
+    loadMapList().then(() => { if (mapId === "painted") mapDone(); }, mapDone);
   };
 })();

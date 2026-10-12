@@ -22,3 +22,7 @@ uassetconverter/
 *.log
 launcher.log
 launcher.log
+
+# Demo build output
+build_demo/
+dist_demo/

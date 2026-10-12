@@ -295,7 +295,7 @@
   });
   document.addEventListener("pointerdown", function () { if (screen === "press") begin(); });
 
-  fetch("/api/title").then(function (r) { return r.json(); }).then(function (d) { info = d; })
+  fetch("/api/title").then(function (r) { return r.json(); }).then(function (d) { info = d; if (d && d.demo) $("tag").textContent = TAGLINE + "  \u00b7  Demo"; })
     .catch(function () { setMsg("The game server could not be reached."); });
 })();
 </script>

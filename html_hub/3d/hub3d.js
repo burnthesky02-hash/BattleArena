@@ -807,7 +807,7 @@ void main(){
         drawQuad({ tex: TEX.glow, origin: [dc.x, y, dc.z], right: rr, up: [0, 1, 0], w: hs, h: hs, ax: 0.5, ay: 0.5, tint: [col[0] * pulse * 0.45, col[1] * pulse * 0.45, col[2] * pulse * 0.45, 1] });
         continue;
       }
-      drawQuad({ tex: TEX.glyph, origin: [dc.x, gh(dc.x, dc.z) + 0.06, dc.z], right: [c, 0, s], up: [-s, 0, c],
+      drawQuad({ tex: TEX.glyph, origin: [dc.x, dc.y !== undefined ? dc.y : gh(dc.x, dc.z) + 0.06, dc.z], right: [c, 0, s], up: [-s, 0, c],
         w: dc.r * 2, h: dc.r * 2, ax: 0.5, ay: 0.5, tint: [col[0] * pulse, col[1] * pulse, col[2] * pulse, 1] });
     }
     drawSparkles();
@@ -1168,6 +1168,7 @@ void main(){
         let r = null; try { r = JSON.parse(sessionStorage.getItem("h3dFishReturn") || "null"); } catch (e) {}
         script.queue.unshift(r && r.scene ? { type: "warp", scene: r.scene, x: r.x, z: r.z, fresh: true } : { type: "warp", scene: "island", fresh: true }); continue;
       }
+      if (a.type === "warp" && demoBlocked(a.scene)) { script.queue.unshift({ type: "say", who: "", text: DEMO_END }); continue; }       // demo: the story stops at the Hollow Cave
       if (a.type === "warp") {
         const cp = !a.fresh && cpGet(a.scene);                                                             // a live save point in the place we are entering: continue there or start over?
         if (cp) { showChoice({ who: "", text: "A save point in there is still lit. Continue from it?", options: [
@@ -1271,6 +1272,7 @@ void main(){
   /* ---------- story: objective line, screen flash, scene autorun ---------- */
   function storyObjective() {
     const c = getCleared();
+    if (state && state.demo && c.has("fq_done") && c.has("st_sera")) return "That is the end of the demo. Thanks for playing! Keep exploring, fishing and fighting. The Hollow Cave stays sealed.";
     if (S && S.def && Array.isArray(S.def.objectives)) { for (const o of S.def.objectives) if (condOk(o, c)) return o.text || ""; }   // scene.objectives = [{if, unless, text}], first match wins
     if (S && S.name === "vault") return c.has("vt_boss") ? "The Warden has fallen. Take the lift back up to Outpost Kestrel."
       : c.has("vt_g3") ? "The north sector is cleared. The sealed door to the Warden's core is open."
@@ -1536,7 +1538,11 @@ void main(){
     if (!S || cam.free || cam.forScene === S.name) return; cam.forScene = S.name;
     const c = (S.def && S.def.camera) || {}; cam.goalPitch = c.pitch || 33; cam.goalDist = c.dist || 29;
   }
+  const DEMO_SCENES = ["island", "forest", "fish_pier", "fish_pond"];
+  const DEMO_END = "That is the end of the demo. Thanks for playing Skyborne Saga! The Hollow Cave stays sealed for now, but you are welcome to keep exploring the island and the Whispering Wood, fish, hunt for treasure and fight on.";
+  function demoBlocked(name) { return !!(state && state.demo) && name !== "@return" && DEMO_SCENES.indexOf(name) < 0; }
   async function switchScene(name, x, z, force) {
+    if (demoBlocked(name)) { name = "island"; x = null; z = null; }
     if (S && S.switching) return; if (S) S.switching = true;
     const old = S, refresh = !!(force && old && old.name === name);          // same-scene refresh after a flag changed: no loading screen
     if (hudEls.load && !refresh) { hudEls.load.textContent = "Loading…"; hudEls.load.classList.remove("done"); }

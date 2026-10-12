@@ -60,6 +60,7 @@
 <div id="app">
   <div id="top">
     <button id="btnBack" title="Leave the editor and return to the game (asks first if there are unsaved changes)">&larr; Back to Game</button>
+    <button id="btnDb" title="Open the Database Editor: quests, enemies, bosses, shops, items, gear and drop rates (asks first if there are unsaved changes)">Database</button>
     <h1>2.5D Scene Editor</h1>
     <select id="sceneSel" title="Open a scene"></select>
     <button id="btnNew">New scene…</button><button id="btnSave" title="Ctrl+S">Save</button><button id="btnWalk" title="Walk around the scene right here">▶ Play here</button><button id="btnPlay" title="Open the saved scene in the real game">Open in game ↗</button>
@@ -259,6 +260,7 @@ const DEF_FOG = () => ({ color: [0.2, 0.14, 0.3], near: 60, far: 150 });
 const HUB_KNOWN = ["name", "kit", "tile", "pieces", "colliders", "npcs", "events", "decals", "spawn", "bounds", "playerHeight", "light", "fog", "sky", "fx"];
 const BATTLE_KNOWN = ["name", "model", "scale", "offset", "rotY", "props", "light", "fog", "sky", "cullNearCamera", "fx"];
 const HUB_ACTIONS = ["", "battle", "ladder", "challenge", "summon", "heroes", "shop", "world", "save_and_quit"];
+let lootOpts = { items: [], equipment: [] };
 let scene = null, scenesList = [], npcSprites = [], modelList = [];
 let TERR = null;                                  // sculpted terrain runtime: { T (scene.extra.terrain), h, base, sc }
 let sel = null;                                   // primary selection { type, uid }
@@ -341,7 +343,9 @@ function getItem(s) {
   const a = scene[TYPES[s.type]]; if (!a) return null;
   const ref = a.find((i) => i.uid === s.uid); return ref ? { type: s.type, ref } : null;
 }
-const itemY = (it) => it.type === "piece" ? (it.ref.y || 0) : 0;
+/* A decal's height: its own absolute `y` when set, else where the game puts it by default (glow = ground + h (0.9), glyph = ground + 0.06). */
+const decalY = (d) => d.y !== undefined && d.y !== null ? d.y : (typeof terrH === "function" ? terrH(d.x, d.z) : 0) + (d.type === "glow" ? (d.h !== undefined ? d.h : 0.9) : 0.06);
+const itemY = (it) => it.type === "piece" ? (it.ref.y || 0) : it.type === "decal" ? decalY(it.ref) : 0;
 function setSel(a) { selSet = a.slice(); sel = selSet.length ? selSet[selSet.length - 1] : null; }
 const isSel = (type, uid) => selSet.some((s) => s.type === type && (type === "spawn" || s.uid === uid));
 const selItems = () => selSet.map(getItem).filter(Boolean);
@@ -360,7 +364,7 @@ function mirrorGroup(items, axis) {
 }
 function selBounds(items) { const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9]; for (const it of items) { const b = selBox(it); for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], b.mn[k]); mx[k] = Math.max(mx[k], b.mx[k]); } } return { mn, mx }; }
 function moveGroup(items, dx, dz) { for (const it of items) { it.ref.x = r3(it.ref.x + dx); it.ref.z = r3(it.ref.z + dz); } }
-function raiseGroup(items, dy) { for (const it of items) if (it.type === "piece") it.ref.y = r3((it.ref.y || 0) + dy); }
+function raiseGroup(items, dy) { for (const it of items) { if (it.type === "piece") it.ref.y = r3((it.ref.y || 0) + dy); else if (it.type === "decal") it.ref.y = r3(decalY(it.ref) + dy); } }
 function scaleGroup(items, f) {
   const [cx, cz] = centroid(items);
   for (const it of items) { const r = it.ref; r.x = r3(cx + (r.x - cx) * f); r.z = r3(cz + (r.z - cz) * f);
@@ -415,13 +419,13 @@ function pickBoxes() {
   const out = [];
   if (!scene) return out;
   if (layers.piece.vis && !layers.piece.lock) for (const p of scene.pieces) { const m = modelReady.get(p.model); const b = worldBox(m || { min: [-.5, 0, -.5], max: [.5, 1, .5] }, p); out.push({ type: "piece", uid: p.uid, mn: b.mn, mx: b.mx }); }
-  if (scene.kind !== "hub") return out;
+  if (scene.kind !== "hub") return out.filter((b) => selOk(b.type));
   if (layers.npc.vis && !layers.npc.lock) for (const n of scene.npcs) out.push({ type: "npc", uid: n.uid, mn: [n.x - 0.5, 0, n.z - 0.5], mx: [n.x + 0.5, n.h || 2.4, n.z + 0.5] });
   if (layers.event.vis && !layers.event.lock) for (const e of scene.events) out.push({ type: "event", uid: e.uid, mn: [e.x - e.w / 2, 0, e.z - e.d / 2], mx: [e.x + e.w / 2, 0.6, e.z + e.d / 2] });
   if (layers.collider.vis && !layers.collider.lock) for (const c of scene.colliders) out.push({ type: "collider", uid: c.uid, mn: [c.x - c.w / 2, 0, c.z - c.d / 2], mx: [c.x + c.w / 2, 1.5, c.z + c.d / 2] });
-  if (layers.decal.vis && !layers.decal.lock) for (const d of scene.decals) out.push({ type: "decal", uid: d.uid, mn: [d.x - 0.6, 0, d.z - 0.6], mx: [d.x + 0.6, 0.3, d.z + 0.6] });
+  if (layers.decal.vis && !layers.decal.lock) for (const d of scene.decals) out.push({ type: "decal", uid: d.uid, mn: [d.x - 0.6, decalY(d) - 0.45, d.z - 0.6], mx: [d.x + 0.6, decalY(d) + 0.45, d.z + 0.6] });
   out.push({ type: "spawn", uid: 0, mn: [scene.spawn.x - 0.5, 0, scene.spawn.z - 0.5], mx: [scene.spawn.x + 0.5, 1.2, scene.spawn.z + 0.5] });
-  return out;
+  return out.filter((b) => selOk(b.type));
 }
 /* Picking. Pieces are picked by their real triangles (what you see is what you click), so the big terrain / ground mesh no
    longer swallows everything standing on it; the nearest visible surface under the cursor wins. Colliders, events, NPCs, decals
@@ -473,6 +477,9 @@ function pick(sx, sy, cycle) {
 }
 const layers = { piece: { vis: true, lock: false, label: "Pieces" }, npc: { vis: true, lock: false, label: "NPCs" }, event: { vis: true, lock: false, label: "Events" }, collider: { vis: true, lock: false, label: "Colliders" }, decal: { vis: true, lock: false, label: "Decals" } };
 let grid = 1;
+/* Selection filter: pick only one kind of item with clicks / box-select / Ctrl+A ("all" = everything, as before). */
+let selFilter = "all";
+const selOk = (t) => selFilter === "all" || selFilter === t;
 /* ============================== drawing ============================== */
 let drawQueued = false, hoverG = null, curModel = null, placeRot = 0, placeScale = 1, ghostRect = null, tool = "select";
 const lastScale = {};
@@ -489,7 +496,7 @@ function selBox(it) {
     case "npc": return { mn: [r.x - .5, 0, r.z - .5], mx: [r.x + .5, r.h || 2.4, r.z + .5] };
     case "event": return { mn: [r.x - r.w / 2, 0, r.z - r.d / 2], mx: [r.x + r.w / 2, .6, r.z + r.d / 2] };
     case "collider": return { mn: [r.x - r.w / 2, 0, r.z - r.d / 2], mx: [r.x + r.w / 2, 1.5, r.z + r.d / 2] };
-    case "decal": return { mn: [r.x - r.r, 0, r.z - r.r], mx: [r.x + r.r, .3, r.z + r.r] };
+    case "decal": { const y = decalY(r); return { mn: [r.x - r.r, y - .15, r.z - r.r], mx: [r.x + r.r, y + .15, r.z + r.r] }; }
     case "spawn": return { mn: [r.x - .5, 0, r.z - .5], mx: [r.x + .5, 1.2, r.z + .5] };
   }
 }
@@ -533,7 +540,7 @@ function draw() {
     const b = scene.bounds; flat(gl.LINES, [b.minX, .05, b.minZ, b.maxX, .05, b.minZ, b.maxX, .05, b.minZ, b.maxX, .05, b.maxZ, b.maxX, .05, b.maxZ, b.minX, .05, b.maxZ, b.minX, .05, b.maxZ, b.minX, .05, b.minZ], [.4, 1, .5, .9]);
     if (layers.collider.vis) for (const c of scene.colliders) { flat(gl.TRIANGLES, rectTris(c.x - c.w / 2, c.z - c.d / 2, c.x + c.w / 2, c.z + c.d / 2, .06), [1, .2, .2, .28]); flat(gl.LINES, boxEdges([c.x - c.w / 2, 0, c.z - c.d / 2], [c.x + c.w / 2, 1.5, c.z + c.d / 2]), [1, .35, .35, .8]); }
     if (layers.event.vis) for (const e of scene.events) { flat(gl.TRIANGLES, rectTris(e.x - e.w / 2, e.z - e.d / 2, e.x + e.w / 2, e.z + e.d / 2, .07), e.trigger === "talk" ? [.3, .7, 1, .25] : [.8, .4, 1, .28]); flat(gl.LINES, boxEdges([e.x - e.w / 2, 0, e.z - e.d / 2], [e.x + e.w / 2, .6, e.z + e.d / 2]), e.trigger === "talk" ? [.4, .8, 1, .9] : [.85, .5, 1, .9]); }
-    if (layers.decal.vis) for (const d of scene.decals) { const c = d.color || [1, 1, 1, 1]; flat(gl.LINES, circleLines(d.x, d.z, d.r, .08), [c[0], c[1], c[2], 1]); }
+    if (layers.decal.vis) for (const d of scene.decals) { const c = d.color || [1, 1, 1, 1], y = decalY(d), gy = terrH(d.x, d.z); flat(gl.LINES, circleLines(d.x, d.z, d.r, Math.max(.08, y)), [c[0], c[1], c[2], 1]); if (y - gy > .3) flat(gl.LINES, [d.x, gy, d.z, d.x, y, d.z], [c[0], c[1], c[2], .7]); }
     if (layers.npc.vis) for (const n of scene.npcs) { flat(gl.LINES, boxEdges([n.x - .45, 0, n.z - .45], [n.x + .45, n.h || 2.4, n.z + .45]), [.4, .75, 1, 1]); if (sel && sel.type === "npc" && sel.uid === n.uid) flat(gl.LINES, circleLines(n.x, n.z, n.reach || 4.6, .1), [1, .85, .4, .7]); }
     const sp = scene.spawn; flat(gl.LINES, boxEdges([sp.x - .35, 0, sp.z - .35], [sp.x + .35, scene.playerHeight || 2.4, sp.z + .35]), [.4, 1, .4, 1]); flat(gl.LINES, circleLines(sp.x, sp.z, .8, .1), [.4, 1, .4, 1]);
   } else {
@@ -714,7 +721,7 @@ window.addEventListener("keydown", (e) => {
   if ((k === "[" || k === "]") && multi) { checkpoint(); scaleGroup(grp, k === "]" ? 1.1 : 1 / 1.1); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); return; }
   if ((k === "PageUp" || k === "PageDown") && multi) { checkpoint(); raiseGroup(grp, (k === "PageUp" ? 1 : -1) * (grid || 0.5)); refreshInspectorValues(); scheduleDraw(); return; }
   if ((k === "[" || k === "]") && it.type === "piece") { checkpoint(); it.ref.sc = r3(it.ref.sc * (k === "]" ? 1.1 : 1 / 1.1)); refreshInspectorValues(); scheduleDraw(); return; }
-  if ((k === "PageUp" || k === "PageDown") && it.type === "piece") { checkpoint(); it.ref.y = r3((it.ref.y || 0) + (k === "PageUp" ? 1 : -1) * (grid || 0.5)); refreshInspectorValues(); scheduleDraw(); return; }
+  if ((k === "PageUp" || k === "PageDown") && (it.type === "piece" || it.type === "decal")) { checkpoint(); raiseGroup([it], (k === "PageUp" ? 1 : -1) * (grid || 0.5)); refreshInspectorValues(); scheduleDraw(); return; }
   if (k.startsWith("Arrow")) { e.preventDefault(); checkpoint(); const st = (grid || 0.5) * (e.shiftKey ? 4 : 1), rt = V.norm([cam.X[0], 0, cam.X[2]]), fw = V.norm([-cam.Z[0], 0, -cam.Z[2]]); const sx = Math.abs(rt[0]) > Math.abs(rt[2]) ? Math.sign(rt[0]) : 0, sz = Math.abs(rt[2]) >= Math.abs(rt[0]) ? Math.sign(rt[2]) : 0, fx = Math.abs(fw[0]) > Math.abs(fw[2]) ? Math.sign(fw[0]) : 0, fz = Math.abs(fw[2]) >= Math.abs(fw[0]) ? Math.sign(fw[2]) : 0; const dir = { ArrowLeft: [-sx, -sz], ArrowRight: [sx, sz], ArrowUp: [fx, fz], ArrowDown: [-fx, -fz] }[k]; moveGroup(grp, dir[0] * st, dir[1] * st); refreshInspectorValues(); refreshOutliner(); scheduleDraw(); }
 });
 function frameScene() {
@@ -770,11 +777,38 @@ function fCheck(label, get, set) { return h("div", { class: "f" }, h("span", {},
 function btn(label, fn, cls) { return h("button", { class: cls || "", onclick: fn }, label); }
 function refreshInspectorValues() { live.forEach((f) => f()); }
 
+/* A chest's loot (the "chest" action): gold / gems / shards / tickets / items / up to 4 pieces of gear. The server clamps the amounts. */
+function chestEditor(a) {
+  const L = a.loot || (a.loot = {}), box = h("div", {});
+  const setNum = (key, max) => (v) => { v = Math.max(0, Math.min(max, Math.round(v))); if (v) L[key] = v; else delete L[key]; };
+  const pick = (opts, cur, onch) => h("select", { onchange: (e) => edit(() => onch(e.target.value)) }, (opts.some((o) => o[0] === cur) ? opts : [[cur, cur + " (unknown)"], ...opts]).map(([v, t]) => h("option", { value: v, selected: v === cur }, t)));
+  const tk = (kind) => (L.tickets && L.tickets[kind]) || 0;
+  const setTk = (kind) => (v) => { v = Math.max(0, Math.min(20, Math.round(v))); L.tickets = L.tickets || {}; if (v) L.tickets[kind] = v; else delete L.tickets[kind]; if (!Object.keys(L.tickets).length) delete L.tickets; };
+  box.append(fText("Message", () => a.text || "", (v) => { if (v) a.text = v; else delete a.text; }),
+    fNum("Gold (max 5000)", () => L.gold || 0, setNum("gold", 5000), "10"), fNum("Gems (max 100)", () => L.gems || 0, setNum("gems", 100), "1"),
+    fNum("Equip. shards (max 200)", () => L.shards || 0, setNum("shards", 200), "1"),
+    fNum("Common tickets", () => tk("common"), setTk("common"), "1"), fNum("Premium tickets", () => tk("premium"), setTk("premium"), "1"));
+  const itemOpts = lootOpts.items.map((i) => [i.id, i.name]), eqOpts = lootOpts.equipment.map((e) => [e.id, `${e.name} (${e.rarity} ${e.slot})`]);
+  box.append(h("h2", {}, "Items"));
+  Object.entries(L.items || {}).forEach(([iid, n]) => box.append(h("div", { class: "row" },
+    pick(itemOpts, iid, (nv) => { if (nv === iid) return; const it = L.items, cnt = it[iid]; const rebuilt = {}; for (const k in it) { if (k === iid) rebuilt[nv] = (rebuilt[nv] || 0) + cnt; else rebuilt[k] = (rebuilt[k] || 0) + it[k]; } L.items = rebuilt; refreshInspector(); }),
+    fNum("", () => L.items[iid] || 1, (v) => { L.items[iid] = Math.max(1, Math.min(20, Math.round(v))); }, "1"),
+    btn("✕", () => edit(() => { delete L.items[iid]; if (!Object.keys(L.items).length) delete L.items; refreshInspector(); })))));
+  box.append(h("div", { class: "row" }, btn("+ item", () => edit(() => { L.items = L.items || {}; const free = lootOpts.items.find((i) => !(i.id in L.items)); if (free) L.items[free.id] = 1; refreshInspector(); }))));
+  box.append(h("h2", {}, "Equipment (max 4)"));
+  (L.equipment || []).forEach((eid, i) => box.append(h("div", { class: "row" },
+    pick(eqOpts, eid, (nv) => { L.equipment[i] = nv; }),
+    btn("✕", () => edit(() => { L.equipment.splice(i, 1); if (!L.equipment.length) delete L.equipment; refreshInspector(); })))));
+  if ((L.equipment || []).length < 4) box.append(h("div", { class: "row" }, btn("+ equipment", () => edit(() => { L.equipment = L.equipment || []; if (lootOpts.equipment.length) L.equipment.push(lootOpts.equipment[0].id); refreshInspector(); }))));
+  if (!lootOpts.items.length) box.append(h("div", { class: "hint" }, "Item / equipment lists did not load (is hub_server.py up to date?)."));
+  return box;
+}
+
 function actionsEditor(owner) {
   if (!owner.actions) owner.actions = [];
   const wrap = h("div", {});
   const sceneIds = scenesList.filter((s) => s.kind === "hub").map((s) => s.id);
-  const mk = (type) => type === "say" ? { type, who: "", text: "..." } : type === "warp" ? { type, scene: scene.id, x: null, z: null } : { type: "hub", action: "shop" };
+  const mk = (type) => type === "say" ? { type, who: "", text: "..." } : type === "chest" ? { type, loot: { gold: 100 } } : type === "warp" ? { type, scene: scene.id, x: null, z: null } : { type: "hub", action: "shop" };
   owner.actions.forEach((a, i) => {
     const box = h("div", { class: "box" }, h("div", { class: "hd" }, h("b", {}, `${i + 1}. ${a.type}`),
       btn("↑", () => edit(() => { if (i > 0) [owner.actions[i - 1], owner.actions[i]] = [owner.actions[i], owner.actions[i - 1]]; refreshInspector(); })),
@@ -784,10 +818,19 @@ function actionsEditor(owner) {
     else if (a.type === "warp") box.append(fSel("To scene", sceneIds.includes(a.scene) ? sceneIds : [a.scene, ...sceneIds], () => a.scene, (v) => { a.scene = v; }),
       h("div", { class: "f" }, h("span", {}, "Arrive at"), h("div", { class: "num3" }, ...["x", "z"].map((k) => h("input", { type: "number", step: "0.5", placeholder: k + " (spawn)", value: a[k] == null ? "" : a[k], onchange: (e) => edit(() => { a[k] = e.target.value === "" ? null : parseFloat(e.target.value); }) })))),
       h("div", { class: "hint" }, "Leave x / z empty to arrive at that scene's spawn point."));
+    else if (a.type === "chest") box.append(chestEditor(a), h("div", { class: "hint" }, "Gives this loot when opened. Pair it with a \"flag\" action before it and the chest stays empty afterwards."));
+    else if (a.type === "flag") box.append(fText("Flag key", () => a.key, (v) => { a.key = v; }), h("div", { class: "hint" }, "Remembers that this happened. A chest uses its own id so it can only be opened once."));
+    else if (a.type !== "hub") box.append(h("div", { class: "hint" }, "This action type (" + a.type + ") has no editor here; it is kept as is."));
     else box.append(fSel("Hub control", HUB_ACTIONS.filter(Boolean), () => a.action, (v) => { a.action = v; }), h("div", { class: "hint" }, "Presses one of the hub's own buttons (shop, summon, battle…)."));
     wrap.append(box);
   });
-  wrap.append(h("div", { class: "row" }, ...["say", "warp", "hub"].map((t) => btn("+ " + (t === "hub" ? "hub control" : t), () => edit(() => { owner.actions.push(mk(t)); refreshInspector(); })))));
+  wrap.append(h("div", { class: "row" }, ...["say", "warp", "hub", "chest"].map((t) => btn("+ " + (t === "hub" ? "hub control" : t), () => edit(() => {
+    if (t === "chest" && owner.id) {      // a one-time chest: remember it by the event's id, and hide the sparkle/prompt once it is open
+      if (!owner.actions.some((x) => x.type === "flag")) owner.actions.push({ type: "flag", key: owner.id });
+      if (!owner.hideIf) owner.hideIf = owner.id;
+      if (owner.trigger !== "talk") { owner.trigger = "talk"; owner.prompt = owner.prompt || "Open the chest"; }
+    }
+    owner.actions.push(mk(t)); refreshInspector(); })))));
   return wrap;
 }
 
@@ -836,7 +879,7 @@ function refreshInspector() {
     if (r.trigger === "talk") p.append(fText("Prompt", () => r.prompt, (v) => { r.prompt = v; }));
     xz(); p.append(fNum("Width", () => r.w, (v) => { if (v > 0) r.w = v; }), fNum("Depth", () => r.d, (v) => { if (v > 0) r.d = v; }), fCheck("Only once", () => r.once, (v) => { r.once = v; }), h("h2", {}, "Actions (run in order)"), actionsEditor(r));
   } else if (t === "collider") { xz(); p.append(fNum("Width", () => r.w, (v) => { if (v > 0) r.w = v; }), fNum("Depth", () => r.d, (v) => { if (v > 0) r.d = v; })); }
-  else if (t === "decal") { p.append(fSel("Type", ["glow", "glyph"], () => r.type, (v) => { r.type = v; })); xz(); p.append(fNum("Radius", () => r.r, (v) => { if (v > 0) r.r = v; }), fColor("Colour", () => r.color || [1, 1, 1], (c) => { r.color = [c[0], c[1], c[2], 1]; }), fNum("Spin °/s", () => r.spin || 0, (v) => { r.spin = v; }, "1")); }
+  else if (t === "decal") { p.append(fSel("Type", ["glow", "glyph"], () => r.type, (v) => { r.type = v; })); xz(); p.append(fNum("Y (height)", () => r3(decalY(r)), (v) => { r.y = v; }), h("div", { class: "row" }, btn("Auto height", () => edit(() => { delete r.y; refreshInspector(); })), h("span", { class: "hint" }, r.y == null ? "following the ground" : "fixed height")), fNum("Radius", () => r.r, (v) => { if (v > 0) r.r = v; }), fColor("Colour", () => r.color || [1, 1, 1], (c) => { r.color = [c[0], c[1], c[2], 1]; }), fNum("Spin °/s", () => r.spin || 0, (v) => { r.spin = v; }, "1")); }
   else if (t === "spawn") { xz(); p.append(h("div", { class: "hint" }, "Where the player appears when the scene loads (and where a warp with no coordinates lands).")); }
   if (t !== "spawn") p.append(h("div", { class: "row", style: "margin-top:12px" }, btn("Duplicate", dupSel), btn("Delete", removeSel)));
 }
@@ -1508,6 +1551,17 @@ function setGizMode(m) { gizMode = m; document.querySelectorAll("#gizModes butto
   [["move", "Move", "W"], ["rotate", "Rotate", "R"], ["scale", "Scale", "S"]].forEach(([m, t, k]) => box.append(h("button", { "data-m": m, class: m === gizMode ? "on" : "", onclick: () => setGizMode(m), title: t + " (" + k + ")" + (m === "scale" ? " · drag an axis to stretch just that axis, hold Shift to scale all axes" : "") }, t, h("kbd", {}, k))));
   $("#tools").after(box);
 })();
+(function buildSelFilter() {
+  const box = h("div", { id: "selFilter", class: "opts", style: "margin-top:6px" }, h("span", { class: "hint", style: "margin-right:6px" }, "Select"));
+  [["all", "All"], ["piece", "Pieces"], ["npc", "NPCs"], ["event", "Events"], ["collider", "Colliders"], ["decal", "Decals"], ["spawn", "Spawn"]].forEach(([m, t]) =>
+    box.append(h("button", { "data-f": m, class: m === selFilter ? "on" : "", title: m === "all" ? "Clicks and box-select pick anything" : "Clicks, box-select and Ctrl+A pick only " + t.toLowerCase(), onclick: () => setSelFilter(m) }, t)));
+  $("#gizModes").after(box);
+})();
+function setSelFilter(f) {
+  selFilter = f; document.querySelectorAll("#selFilter button").forEach((b) => b.classList.toggle("on", b.dataset.f === f));
+  if (f !== "all" && selSet.some((s) => s.type !== f)) { setSel(selSet.filter((s) => s.type === f)); refreshInspector(); highlightOutliner(); }
+  scheduleDraw();
+}
 const gizSnap = (items) => items.map((it) => ({ r: it.ref, v: { x: it.ref.x, y: it.ref.y, z: it.ref.z, rot: it.ref.rot, sc: it.ref.sc, sa: it.ref.sa ? it.ref.sa.slice() : null, w: it.ref.w, d: it.ref.d, r: it.ref.r } }));
 const gizRestore = (S) => { for (const s of S) for (const k in s.v) if (s.v[k] !== undefined) s.r[k] = s.v[k]; };
 function gizGeom() {
@@ -1516,7 +1570,7 @@ function gizGeom() {
   const b = selBounds(items), o = [(b.mn[0] + b.mx[0]) / 2, (b.mn[1] + b.mx[1]) / 2, (b.mn[2] + b.mx[2]) / 2];
   if (gizMode !== "move") { const c = centroid(items); o[0] = c[0]; o[2] = c[1]; }          // rotate / scale pivot = the group centroid (what rotateGroup / scaleGroup use)
   const so = project(o); if (!so) return null;
-  const dc = Math.hypot(o[0] - cam.pos[0], o[1] - cam.pos[1], o[2] - cam.pos[2]), ppu = cam.h / (2 * Math.tan(cam.fov * Math.PI / 360) * Math.max(0.1, dc)), L = 90 / Math.max(1e-4, ppu), hasPiece = items.some((i) => i.type === "piece");
+  const dc = Math.hypot(o[0] - cam.pos[0], o[1] - cam.pos[1], o[2] - cam.pos[2]), ppu = cam.h / (2 * Math.tan(cam.fov * Math.PI / 360) * Math.max(0.1, dc)), L = 90 / Math.max(1e-4, ppu), hasPiece = items.some((i) => i.type === "piece" || i.type === "decal");
   const axes = [], ring = [];
   if (gizMode === "rotate") { for (let i = 0; i <= 72; i++) { const a = i / 72 * 6.2832, p = project([o[0] + Math.cos(a) * L * 0.85, o[1], o[2] + Math.sin(a) * L * 0.85]); if (p) ring.push(p); } }
   else for (let i = 0; i < 3; i++) { if (i === 1 && !hasPiece) continue; const tip = project([o[0] + GAX[i][0] * L, o[1] + GAX[i][1] * L, o[2] + GAX[i][2] * L]); if (tip) axes.push({ i, tip }); }
@@ -2169,6 +2223,7 @@ function playScene() {
 }
 
 /* ============================== boot ============================== */
+$("#btnDb").onclick = () => { if (dirty && !confirm("You have unsaved changes. Leave the editor without saving?")) return; dirty = false; window.location.href = "/database"; };
 $("#btnBack").onclick = () => { if (dirty && !confirm("You have unsaved changes. Leave the editor without saving?")) return; dirty = false; window.location.href = "/"; };
 $("#btnNew").onclick = newSceneDialog; $("#btnSave").onclick = saveScene; $("#btnPlay").onclick = playScene; $("#btnWalk").onclick = () => (play ? stopPlay() : startPlay()); $("#btnUndo").onclick = undo; $("#btnRedo").onclick = redo;
 $("#sceneSel").onchange = (e) => { const [k, ...r] = e.target.value.split(":"); openScene(k, r.join(":")); };
@@ -2182,6 +2237,7 @@ const _sd = setDirty; setDirty = function (d) { _sd(d); $("#btnUndo").disabled =
   try {
     const [sc, md, sp] = await Promise.all([getJSON("/api/builder3d/scenes"), getJSON("/api/builder3d/models"), getJSON("/hub3d/sprites.json").catch(() => ({ npcs: {} }))]);
     imageList = await getJSON("/api/builder3d/images").then((r) => r.images || []).catch(() => []);
+    lootOpts = await getJSON("/api/builder3d/loot_options").catch(() => lootOpts);
     musicList = await getJSON("/api/builder3d/music").then((r) => r.music || []).catch(() => []);
     scenesList = sc.scenes; modelList = md.models; npcSprites = Object.keys(sp.npcs || {}); sheets = sp.walk ? sp : null;
   } catch (e) { toast("Could not reach the editor API: " + e.message + ". Is hub_server.py running?", "err"); }
