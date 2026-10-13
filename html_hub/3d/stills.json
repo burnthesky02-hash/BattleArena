@@ -9,7 +9,8 @@
   "dg_boss": "Bosses/DrownedSovereign/Drowned_Sovereign.png",
   "dg_g1": "Battlers/Enemies/Stone-Gargoyle.png",
   "dg_g2": "Battlers/Enemies/Venom-Spider.png",
-  "dg_g3": "Battlers/Enemies/Dark-Cultist.png"
+  "dg_g3": "Battlers/Enemies/Dark-Cultist.png",
+  "ds_champ": "Battlers/Enemies/Dark-Cultist.png"
  },
  "vault": {
   "vt_g1": "Bosses/VaultSentinel/Vault-Sentinel.png",

@@ -134,6 +134,7 @@
     const eye = S && !cam.free ? [S.player.x, 1.6 + (cam.ty || 0), S.player.z] : target, fw = camLimit(eye, full);
     cam.lim = instant || cam.lim === undefined ? fw : (fw < cam.lim ? lerp(cam.lim, fw, 1 - Math.pow(0.0001, dt)) : lerp(cam.lim, fw, 1 - Math.pow(0.12, dt)));
     const pos = cam.lim >= 0.999 ? full : V.add(eye, V.mul(V.sub(full, eye), cam.lim));
+    if (cam.shk > 0.002) { pos[0] += (Math.random() - 0.5) * cam.shk; pos[1] += (Math.random() - 0.5) * cam.shk * 0.7; pos[2] += (Math.random() - 0.5) * cam.shk; }   // `shake` action
     cam.eff = V.len ? V.len(V.sub(pos, eye)) : cam.dist * cam.lim;
     if (cam.lim < 0.999) { target[0] = eye[0] + (target[0] - eye[0]) * cam.lim; target[2] = eye[2] + (target[2] - eye[2]) * cam.lim; }
     const L = lookAt(pos, target, [0, 1, 0]);
@@ -562,10 +563,11 @@ void main(){
     const models = {};
     await Promise.all(names.map(async (n) => { models[n] = await loadModel(kit + n + ".glb"); onProgress && onProgress(++done / (names.length + 1)); }));
     if (def.terrain && def.terrain.base && def.terrain.mesh && models[def.terrain.mesh]) { try { deformGroundMesh(models[def.terrain.mesh], def); } catch (err) { console.warn("terrain mesh", err); } }
-    const T = def.tile || 4, items = [], cleared = getCleared(), lodRx = def.lod ? new RegExp(def.lod.match || "tree") : null;
+    const T = def.tile || 4, items = [], cleared = getCleared(), lodRx = def.lod ? new RegExp(def.lod.match || "tree") : null, rv = new Set();
     for (const p of def.pieces) {
-      let ins = null;                                   // "I:x0,z0,x1,z1" = hidden while the player stands inside that rectangle (roofs of enterable buildings)
+      let ins = null, rev = null;                       // "I:x0,z0,x1,z1" = hidden while the player stands inside that rectangle (roofs of enterable buildings)
       if (typeof p[6] === "string" && p[6].slice(0, 2) === "I:") ins = p[6].slice(2).split(",").map(Number);
+      else if (typeof p[6] === "string" && p[6].slice(0, 2) === "R:") { rev = p[6].slice(2); if (cleared.has(rev)) rv.add(rev); }   // "R:key" = built, but invisible until flag key is set or a `reveal {key}` action runs (secret rooms)
       else if (p[6] && !visible(pieceVis(p[6]), cleared)) continue;
       const [name, x, z, rot, y, sc] = p, mdl = models[name], lodRe = lodRx && lodRx.test(name), sv = Array.isArray(sc) ? sc : (sc === undefined || sc === null ? T : sc), sx = Array.isArray(sv) ? sv[0] : sv, s = Array.isArray(sv) ? sv[1] : sv, sz = Array.isArray(sv) ? sv[2] : sv, mm = trs(x, y || 0, z, rot || 0, sv);
       let pc = null;
@@ -577,7 +579,7 @@ void main(){
         const lo = o.min, hi = o.max, cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2;
         const c = [mm[0] * cx + mm[8] * cz + mm[12], (lo[1] + hi[1]) / 2 * s + (y || 0), mm[2] * cx + mm[10] * cz + mm[14]];
         const m = o.material;
-        items.push({ g, mat: m, inside: ins, model: new Float32Array(mm), lo, hi, sc: Math.max(sx, sz), inv: affInv(mm), bot: lo[1] * s + (y || 0), center: c, top: hi[1] * s + (y || 0), rad: Math.max((hi[0] - lo[0]) * sx, (hi[2] - lo[2]) * sz) / 2,
+        items.push({ g, mat: m, inside: ins, rev, grp: typeof p[7] === "string" ? p[7] : null, model: new Float32Array(mm), lo, hi, sc: Math.max(sx, sz), inv: affInv(mm), bot: lo[1] * s + (y || 0), center: c, top: hi[1] * s + (y || 0), rad: Math.max((hi[0] - lo[0]) * sx, (hi[2] - lo[2]) * sz) / 2,
           tex: m.image >= 0 ? mdl.texs[m.image] : null, mode: m.alphaMode === "BLEND" ? 2 : m.alphaMode === "MASK" ? 1 : 0, pc, wk: waterKind(name, def) });
         const li = items[items.length - 1]; li.gk = gkOf(g, m, li.tex);
       }
@@ -614,7 +616,7 @@ void main(){
     const events = (def.events || []).filter((e) => visible(e, cleared)).map((e) => Object.assign({ w: 3, d: 3, trigger: "touch", inside: false, done: false }, e));
     const skyInfo = await buildSky(def.sky);
     let paint = null; if (def.terrain && def.terrain.paint && def.terrain.paint.data) { try { paint = await buildPaint(def.terrain, decodeTerrain(def.terrain)); } catch (err) { console.warn("terrain paint", err); } }
-    return { name, def, lodDist: def.lod ? (+def.lod.dist || 60) : 0, skyInfo, paint, items, npcs, events, sheets, stex, colliders, terrain: decodeTerrain(def.terrain), walk: (def.walk || []).map((w) => Object.assign({}, w)), bounds: def.bounds || { minX: -24, maxX: 24, minZ: -16, maxZ: 16 },
+    return { name, def, rv, lodDist: def.lod ? (+def.lod.dist || 60) : 0, skyInfo, paint, items, npcs, events, sheets, stex, colliders, terrain: decodeTerrain(def.terrain), walk: (def.walk || []).map((w) => Object.assign({}, w)), bounds: def.bounds || { minX: -24, maxX: 24, minZ: -16, maxZ: 16 },
       player: { x: def.spawn ? def.spawn.x : 0, z: def.spawn ? def.spawn.z : 8, face: "south", moving: false, t: 0, target: null, wantNpc: null, h: def.playerHeight || 2.3 } };
   }
 
@@ -686,6 +688,7 @@ void main(){
     }
     const lodD = S.lodDist * G.view, lodList = [], fcn = (S._fc = (S._fc || 0) + 1), cxp0 = cam.pos[0], czp0 = cam.pos[2], lodFP = !!(S.def.lod && S.def.lod.from === "player"), lox = lodFP ? pp.x : cxp0, loz = lodFP ? pp.z : czp0;   // lod.from "player": measure from the hero, not the (far, high) camera
     for (const it of S.items) {
+      if (it.rev && !S.rv.has(it.rev)) continue;                          // secret-room pieces stay invisible until revealed
       { const c = it.center, r = Math.hypot(it.rad * 1.42, (it.top - it.bot) * 0.5) + 0.5; let out = false;
         for (let k = 0; k < 24; k += 4) if (fr[k] * c[0] + fr[k + 1] * c[1] + fr[k + 2] * c[2] + fr[k + 3] < -r) { out = true; break; }
         if (out) continue; }
@@ -1098,6 +1101,22 @@ void main(){
       if (a.wait === false) { cine.tasks.push({ cam: true, t: 0, dur: t, fn: (p) => apply(ease(p)), done: null }); return false; }
       cineWait(t, (p) => apply(ease(p)), null, true); return true;
     }
+    if (a.type === "reveal") { if (S && S.rv && a.key) S.rv.add(a.key); return false; }                       // show the "R:key" pieces now (the scene reload at the end of the script then keeps them via the flag)
+    if (a.type === "shake") {                                                                                    // {t, amp, wait}: rumble the camera (amp in metres, fades out); runs alongside the next steps unless wait:true
+      if (sk) return false;
+      const amp = a.amp != null ? +a.amp : 0.35, fn = (p) => { cam.shk = amp * (1 - p); }, end = () => { cam.shk = 0; };
+      if (a.wait) { cineWait(t, fn, end); return true; }
+      cine.tasks.push({ cam: false, t: 0, dur: Math.max(0.05, t), fn, done: end }); return false;
+    }
+    if (a.type === "slide") {                                                                                    // {grp, dx, dy, dz, t, wait}: glide every piece tagged "G:grp" (8th piece element) by that offset (metres)
+      const its = (S.items || []).filter((it) => it.grp && it.grp === a.grp); if (!its.length) return false;
+      const dx = +a.dx || 0, dy = +a.dy || 0, dz = +a.dz || 0, o = its.map((it) => ({ m: [it.model[12], it.model[13], it.model[14]], c: it.center.slice(), top: it.top, bot: it.bot }));
+      const apply = (e) => its.forEach((it, i) => { const q = o[i]; it.model[12] = q.m[0] + dx * e; it.model[13] = q.m[1] + dy * e; it.model[14] = q.m[2] + dz * e; it.center = [q.c[0] + dx * e, q.c[1] + dy * e, q.c[2] + dz * e]; it.top = q.top + dy * e; it.bot = q.bot + dy * e; });
+      if (sk || t <= 0) { apply(1); return false; }
+      const fn = (p) => apply(p * p * (3 - 2 * p));
+      if (a.wait === false) { cine.tasks.push({ cam: false, t: 0, dur: t, fn, done: null }); return false; }
+      cineWait(t, fn, null, false); return true;
+    }
     if (a.type === "follow") { dropCamTasks(); cam.free = false; sceneCam(); if (!sk && a.wait !== false && t > 0) { cineWait(t); return true; } return false; }
     if (a.type === "walk") {
       const e = cineEntity(a.who); if (!e) return false;
@@ -1114,7 +1133,7 @@ void main(){
     }
     return false;
   }
-  const CINE_TYPES = new Set(["music", "cine", "wait", "fade", "title", "face", "cam", "follow", "walk"]);
+  const CINE_TYPES = new Set(["music", "cine", "wait", "fade", "title", "face", "cam", "follow", "walk", "slide", "reveal", "shake"]);
   function skipCine() {
     if (!script || !script.cineRun || script.skip || script.choosing) return;
     script.skip = true; cine.tasks.length = 0; script.lock = false; script.waiting = false; S.player.moving = false; S.player.t = 0;

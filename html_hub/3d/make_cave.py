@@ -796,13 +796,13 @@ for (i, j) in F:
             if (i + di, j + dj) not in F: blocked.add((i + di, j + dj))
 wallc = {c for c in blocked if any((c[0] + di, c[1] + dj) in F for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)))}
 wr = random.Random(555)
-WALLS = ("SM_cv_wall_rock",) * 3                      # user's Cave-Wall mesh (Assets/3D/Generated), decimated + sized 4x6x4 -> SM_cv_wall_rock.glb
-for c in sorted(wallc):
-    h = (c[0] * 73856093 ^ c[1] * 19349663) & 0xFFFF
-    sc = 1.05 + ((h >> 8) % 6) * .07; sy = 0.85 + ((h >> 13) % 9) * .11
-    jx = (((h >> 3) % 7) - 3) * .22; jz = (((h >> 6) % 7) - 3) * .22
-    put(WALLS[h % 3], X(c[0]) + jx, X(c[1]) + jz, (0, 90, 180, 270)[(h >> 4) % 4], 0, [round(sc, 3), round(sy, 3), round(sc, 3)])
-    if (h >> 11) % 7 == 0: put("SM_cv_wall_rock", X(c[0]), X(c[1]), (0, 90, 180, 270)[(h >> 5) % 4], 0, [1.0, 1.5, 1.0])
+# Walls: long stretched blocks that follow the outline of the floor (see cave_walls.py): same height, overlapping, turning at corners.
+# The wall mesh is 4 x 6 x 4 m (SM_cv_wall_rock.glb, the user's Cave-Wall decimated); each block is scaled along its length.
+import cave_walls
+WALL_BLOCKS = cave_walls.pieces(set(F))
+for x, z, rot, sc in WALL_BLOCKS:
+    put("SM_cv_wall_rock", x, z, rot, -cave_walls.SINK, sc)
+print("wall cells", len(wallc), "-> wall blocks", len(WALL_BLOCKS))
 rows = {}
 for (i, j) in blocked: rows.setdefault(j, []).append(i)
 for j, xs in rows.items():
@@ -861,7 +861,7 @@ for (c, rt) in POOLLANE: put("SM_floor_plank_01", X(c[0]), X(c[1]), rt, 0.06, 1.
 def build_gate(g):
     z = X(g["cj"]); x0 = X(g["ci"]); key = g["key"]
     for l, i in enumerate((-1, 0, 1)):
-        put("SM_cv_wall_rock", x0 + X(i), z, 90 * (i + 1), 0, 1.0, key)
+        put("SM_cv_wall_rock", x0 + X(i), z, 90 * (i + 1), -cave_walls.SINK, [1.2, cave_walls.HEIGHT, 1.2], key)      # same height as the walls around the door
     block(x0, z, 12, 4, key)
     for (dx, nm), rt in zip(((-4.3, "SM_rock_02"), (3.6, "SM_rock_03"), (0.4, "SM_rock_01")), g["rot"]): put(nm, x0 + dx, z + 2.6, rt, 0, 1.4, key)
     if g["glowcol"]: DEC.append(dict(type="glyph", x=round(x0, 3), z=round(z + 2.4, 2), r=4.0, spin=20, color=g["glowcol"], hideIf=key))
@@ -1023,6 +1023,8 @@ d = dict(name="Hollow Cave", kit="", tile=4, pieces=P, colliders=COL, npcs=NP, e
          bounds=dict(minX=X(min(xs)) - 6, maxX=X(max(xs)) + 6, minZ=X(min(zs)) - 6, maxZ=X(max(zs)) + 6), spawn=dict(x=SPAWN[0], z=SPAWN[1]), playerHeight=2.4, minimap=MINIMAP,
          sky=dict(type="gradient", stops=[[0, "#05070d"], [1, "#0d1420"]]), fx=[dict(type="dust", amount=.25)],
          light=dict(dir=[-0.35, -1, -0.25], color=[0.74, 0.82, 1.0], ambient=[0.36, 0.42, 0.56]), fog=dict(color=[0.035, 0.06, 0.105], near=32, far=100), cull=165, music=dict(url="/assets/Music/mp3/11. Dangerous Cave.mp3"))
+import cave_props; cave_props.apply(d["pieces"])           # prop sizes + upright stalagmites (cave_props.py)
+import cave_secrets; cave_secrets.apply(d, F, ASSET, FLOOR_IMG)   # the two secret rooms (cave_secrets.py)
 import cave_story; cave_story.apply(d)                       # story layer: Miya joins on the island, guards vs the Sovereign, the knock-out (cave_story.py)
 _gx = next(e for e in d["events"] if e["id"] == "dg_guards_cs"); assert cell_of(_gx["x"], _gx["z"]) in F, "guard cutscene trigger is not on floor"
 for _n in d["npcs"]:

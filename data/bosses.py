@@ -1109,10 +1109,33 @@ WARMUP_GOBLIN = _guardian(
     {"money": 0, "gems": 0, "xp": 0}, {"money": 0, "gems": 0, "xp": 0}, (60, 130, 60))
 WARMUP_GOBLIN.tutorial = True
 
+# ======================================================================
+# THE HOLLOW CHAMPION -- secret mini boss in the Hollow Cave (the Champion's Tomb behind the Crypt's glyph seal,
+# html_hub/3d/cave_secrets.py). Optional; uses the Dark Cultist's static art until it gets its own.
+# ======================================================================
+HOLLOW_CHAMPION = _guardian(
+    "hollow_champion_boss", "Hollow Champion", "Battlers/Enemies/Dark-Cultist.png", 1.5,
+    Stats(max_hp=165, max_mp=100, atk=24, def_=20, mag=10, res=14, spd=11, luk=10),
+    Stats(max_hp=15, max_mp=0, atk=2, def_=2, mag=1, res=1, spd=1, luk=0), 2.2, 0,
+    ["power_strike", "sunder", "iron_stance", "crushing_blow"],
+    "A long-dead arena champion who still fights by the book. Sunder the sturdiest hero first, Power Strike the weakest, Iron Stance when hurt, and a slow Crushing Blow he telegraphs.",
+    [{"shake": True}, {"say": ("Hollow Champion", "Another challenger... Good. The sand has been thirsty.")},
+     {"announce": "THE HOLLOW CHAMPION"}],
+    [{"id": "crushing", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
+        {"announce": "CRUSHING BLOW"}, {"log": "The Champion lifts his blade in both hands..."},
+        {"force_skill": {"skill": "crushing_blow", "target": "highest_hp", "cast": 2.5, "brace": 1.2}}]},
+     {"id": "stance", "when": {"hp_below": 0.5}, "steps": [
+        {"shake": True}, {"say": ("Hollow Champion", "Is that all? Then let me show you a champion's guard.")},
+        {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}}]}],
+    [{"say": ("Hollow Champion", "At last... the crowd... falls silent.")}],
+    [{"say": ("Hollow Champion", "Rest, challenger. The sand will remember you.")}],
+    {"money": 700, "gems": 20, "xp": 220}, {"money": 180, "gems": 4, "xp": 60}, (110, 70, 160))
+
 
 WORLD_BOSSES: Dict[str, BossDef] = {BRIARMAW.id: BRIARMAW, ANCIENT_GUARDIAN.id: ANCIENT_GUARDIAN, DROWNED_SOVEREIGN.id: DROWNED_SOVEREIGN, VAULT_WARDEN.id: VAULT_WARDEN,
                                 VAULT_SENTINEL.id: VAULT_SENTINEL, PHASE_STALKER.id: PHASE_STALKER, RIFT_COLOSSUS.id: RIFT_COLOSSUS,
-                                RIFT_HARBINGER.id: RIFT_HARBINGER, SKRAAG.id: SKRAAG, WARMUP_GOBLIN.id: WARMUP_GOBLIN}
+                                RIFT_HARBINGER.id: RIFT_HARBINGER, SKRAAG.id: SKRAAG, WARMUP_GOBLIN.id: WARMUP_GOBLIN,
+                                HOLLOW_CHAMPION.id: HOLLOW_CHAMPION}
 
 
 # Every boss fights at a SET level, whatever the party's level (Andrew: "bosses should be a set level"). This overrides
@@ -1125,6 +1148,7 @@ BOSS_FIXED_LEVELS: Dict[str, int] = {
     "briarmaw_boss": 5,             # Whispering Wood
     "ancient_guardian_boss": 8,     # island ruins cave
     "drowned_sovereign_boss": 12,   # Hollow Cave
+    "hollow_champion_boss": 11,     # Hollow Cave secret room (Champion's Tomb)
     "vault_sentinel_boss": 14,      # Shard Vault, west
     "phase_stalker_boss": 15,       # Shard Vault, east
     "colosseum_champion_boss": 16,  # Colosseum rank 1 gate
