@@ -15,7 +15,7 @@ HERO_LORE: Dict[str, str] = {
     "Brutus": "Built like the arena wall he trains against. Brutus doesn't dodge -- he plants his feet, lets the hit land, and answers it with a slam that cracks the stone underfoot.",
     "Petra": "A former siege-engineer who decided armor was a more interesting problem than architecture. She studies an opponent's swing before the fight even starts, and punishes it the moment it repeats.",
     "Draven": "Exiled from a northern legion for refusing to fall back. Draven treats every match as the last stand he was never allowed to make, and by the finish, he usually means it.",
-    "Yulia": "The undefeated champion's bodyguard, until the champion asked her to fight instead of just guard. Her wall of light has never once come down mid-round.",
+    "Reya": "A royal courier from the outer villages of Veyra, until the soldiers evacuated the rich and forgot her home. She runs supplies through the ash, trusts no hero, and holds her ground behind a wall of light because she has already lost someone to arriving too late.",
     # melee_dps
     "Bran": "A farmhand who found out the hard way that his swing could put a bandit through a fence post. He fights the same way he worked the fields -- flat out, no half measures.",
     "Vex": "Grew up picking locks and pockets before picking fights paid better. Twin blades, twin openings -- Vex is already gone before an opponent finishes reacting to the first cut.",

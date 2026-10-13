@@ -188,7 +188,7 @@ def _migrate_equipment(data: dict) -> tuple:
 
 
 # Heroes renamed after saves existed (Oct 9): an old save still has the old names.
-RENAMED_HEROES = {"Kael": "Kenji", "Sera": "Miya"}
+RENAMED_HEROES = {"Kael": "Kenji", "Sera": "Miya", "Yulia": "Reya"}
 
 
 def load_game(path: str = None) -> PlayerState:

@@ -324,7 +324,9 @@ SLAVE_BOSS_MULT = {"max_hp": 0.25, "atk": 0.50, "mag": 0.50, "def_": 0.75, "res"
 # The 0.25 HP factor above was tuned back when a slave had three borrowed allies; Kenji alone now tears through the
 # Unbroken Pair in ~4 rounds at 90% HP. Per-boss overrides (the champion's old numbers still play fine), plus a
 # per-level ramp because a mythic Kenji out-grows the bosses' own flat growth.
-SLAVE_BOSS_MULT_BY = {"unbroken_pair_boss": {"max_hp": 0.50, "atk": 0.60, "mag": 0.60, "def_": 0.80, "res": 0.80}}
+# Oct 13: the twins' own ATK growth went up ~1.7x (they were far too weak), so the slave ATK/MAG factor drops 0.60 -> 0.40
+# to keep the solo Pit fight where it was (sim, ungeared solo Kenji: ~15% win at L20, ~35% at L25).
+SLAVE_BOSS_MULT_BY = {"unbroken_pair_boss": {"max_hp": 0.50, "atk": 0.40, "mag": 0.40, "def_": 0.80, "res": 0.80}}
 SLAVE_BOSS_RAMP_FROM = 14      # Kenji level where the per-level ramp starts
 SLAVE_BOSS_RAMP_HP = 0.015
 SLAVE_BOSS_RAMP_OTHER = 0.008
@@ -1580,6 +1582,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_story_away()
         elif self.path == "/api/story/chest":
             self._handle_story_chest()
+        elif self.path == "/api/story/build":
+            self._handle_story_build()
         elif self.path == "/api/story/pass_time":
             self._handle_pass_time()
         elif self.path == "/api/story/game":
@@ -2166,6 +2170,31 @@ class Handler(BaseHTTPRequestHandler):
         lead = str(body.get("text") or "")[:90] or "You open the chest and find"
         msg = (lead + ": " + ", ".join(found) + ".") if found else "The chest is empty."
         self._send_json(200, {"ok": bool(found), "message": msg})
+
+    def _handle_story_build(self) -> None:
+        """Dawnwatch's mason takes payment for a rebuild phase. Body {cost: {gold, shards}}; both are checked before either is spent, so a
+        refused build costs nothing. The phase itself is a story flag kept in the browser (the `build` action only runs its `then` on ok)."""
+        body = self._read_json_body()
+        cost = body.get("cost") or {}
+
+        def _n(v, hi):
+            try:
+                return max(0, min(hi, int(v)))
+            except (TypeError, ValueError):
+                return 0
+        gold, shards = _n(cost.get("gold"), 100000), _n(cost.get("shards"), 1000)
+        with _state_lock:
+            have_gold, have_shards = int(player_state.money), int(player_state.equipment_shards)
+            if have_gold < gold or have_shards < shards:
+                need = []
+                if have_gold < gold: need.append(f"{gold} gold (you have {have_gold})")
+                if have_shards < shards: need.append(f"{shards} shards (you have {have_shards})")
+                self._send_json(200, {"ok": False, "message": "The masons need " + " and ".join(need) + " before they can start."})
+                return
+            player_state.money -= gold
+            player_state.add_equipment_shards(-shards)
+            save_system.save_game(player_state)
+        self._send_json(200, {"ok": True, "message": f"You hand over {gold} gold and {shards} shards."})
 
     def _handle_fishing(self, action: str) -> None:
         """POST /api/fishing/<cast|result|buy|equip> -- the rules live in game/fishing.py (this only moves JSON and saves)."""

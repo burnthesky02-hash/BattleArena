@@ -426,7 +426,9 @@ SELENE_SPRITE = {
 RONAN_MEMBER = BossMember(
     key="ronan", name="Ronan", sprite=RONAN_SPRITE,
     base_stats=Stats(max_hp=280, max_mp=120, atk=18, def_=22, mag=6, res=12, spd=9, luk=8),
-    growth=Stats(max_hp=22, max_mp=0, atk=1, def_=2, mag=0, res=1, spd=1, luk=0),
+    # Oct 13 rebalance: atk/def growth were still the pre-level-99 numbers (atk 1), so at their set level 20 the twins
+    # hit for ~nothing (ATK ~70 vs hero DEF 110-216, whole fights dealt <10 damage). atk 1 -> 1.7, def 2 -> 2.1.
+    growth=Stats(max_hp=22, max_mp=0, atk=1.7, def_=2.1, mag=0, res=1, spd=1, luk=0),
     hp_mult=2.0,
     skill_ids=["stalwart_oath", "claymore_sweep", "crushing_cleave", "power_strike"],
     persona=(
@@ -442,7 +444,7 @@ RONAN_MEMBER = BossMember(
 SELENE_MEMBER = BossMember(
     key="selene", name="Selene", sprite=SELENE_SPRITE,
     base_stats=Stats(max_hp=170, max_mp=110, atk=22, def_=10, mag=14, res=18, spd=20, luk=22),
-    growth=Stats(max_hp=14, max_mp=0, atk=1, def_=1, mag=0, res=1, spd=1, luk=1),
+    growth=Stats(max_hp=14, max_mp=0, atk=1.9, def_=1.1, mag=0, res=1, spd=1, luk=1),   # Oct 13: atk 1 -> 1.9
     hp_mult=2.0,
     skill_ids=["twin_fangs", "rending_edge", "crimson_flurry", "assassinate"],
     persona=(

@@ -49,7 +49,7 @@ HERO_SKILLS: Dict[str, List[str]] = {
     "Brutus": ["grit_teeth", "heavy_slam", "ground_slam"],
     "Petra": ["fortify", "overpower", "crushing_counter"],
     "Draven": ["iron_resolve", "colossus_blow", "dravens_fury"],
-    "Yulia": ["unbreakable", "titans_judgment", "aegis_wall"],
+    "Reya": ["unbreakable", "titans_judgment", "aegis_wall"],
     # melee_dps
     "Bran": ["flurry", "overhead_chop", "reckless_swing"],
     "Vex": ["twin_fangs", "savage_cut", "rending_strike"],

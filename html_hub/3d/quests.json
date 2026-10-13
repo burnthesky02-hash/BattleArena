@@ -66,13 +66,23 @@
    "title": "Slave of the Colosseum",
    "giver": "",
    "where": "The Pit",
-   "summary": "You are in the Colosseum's pit. Win fights for the Overseer and climb the ladder to earn your freedom.",
+   "summary": "You are in the Colosseum's pit. Win fights for the Overseer and climb the ladder. The crowd wants to buy your collar.",
    "accept": "st_jailed",
    "done": "st_free",
    "steps": [
     {
-     "text": "Fight for the Overseer until you rise past the freedom rank and win your release.",
+     "text": "Fight for the Overseer until you rise past the freedom rank.",
      "if": "st_jailed",
+     "unless": "st_ceremony"
+    },
+    {
+     "text": "The releasing ceremony is at dawn. Rest on your cot in your cell to pass the night.",
+     "if": "st_ceremony",
+     "unless": "st_night"
+    },
+    {
+     "text": "Someone is coming for you in the dark.",
+     "if": "st_night",
      "unless": "st_free"
     }
    ]
@@ -80,56 +90,22 @@
   {
    "id": "m_sera",
    "kind": "main",
-   "title": "The Infirmary",
+   "title": "Find Miya",
    "giver": "",
-   "where": "Olympus Colosseum",
-   "summary": "Miya was taken to the Colosseum infirmary while Kenji was thrown in the Pit.",
+   "where": "Outpost Kestrel",
+   "summary": "Captain Varro said Miya was taken to the Colosseum infirmary. Rook says she never was.",
    "accept": "st_hurt",
    "done": "st_sera_back",
    "steps": [
     {
-     "text": "Win your freedom in the Pit, then find Miya.",
+     "text": "Win your way out of the Pit, then find Miya.",
      "if": "st_hurt",
-     "unless": "st_free"
+     "unless": "st_space"
     },
     {
-     "text": "Find Miya in the Colosseum infirmary, on the west side of the concourse.",
-     "if": "st_free",
+     "text": "Find Miya. She is waiting for you at the edge of the landing pad.",
+     "if": "st_space",
      "unless": "st_sera_back"
-    }
-   ]
-  },
-  {
-   "id": "m_home",
-   "kind": "main",
-   "title": "The Way Home",
-   "giver": "",
-   "where": "Olympus Colosseum",
-   "summary": "You are free. Leave through the main gate and take the ferry home.",
-   "accept": "st_free",
-   "done": "st_siege",
-   "steps": [
-    {
-     "text": "You are free! Leave through the main gate and take the ferry home to Paradise Island.",
-     "if": "st_free",
-     "unless": "st_siege"
-    }
-   ]
-  },
-  {
-   "id": "m_siege",
-   "kind": "main",
-   "title": "Defend the Colosseum",
-   "giver": "",
-   "where": "Olympus Colosseum",
-   "summary": "Raiders have stormed the Colosseum gate.",
-   "accept": "st_siege",
-   "done": "st_space",
-   "steps": [
-    {
-     "text": "Defend the Colosseum!",
-     "if": "st_siege",
-     "unless": "st_space"
     }
    ]
   },
@@ -144,8 +120,13 @@
    "done": "st_lyra",
    "steps": [
     {
-     "text": "Speak with Captain Rhea.",
+     "text": "Reunite with Miya, then hear Rook out. He is near the landing pad.",
      "if": "st_landed",
+     "unless": "st_rook_told"
+    },
+    {
+     "text": "Rook says the answers are in the Vault. Speak with Captain Rhea first.",
+     "if": "st_rook_told",
      "unless": "st_met"
     },
     {
@@ -194,7 +175,7 @@
    "giver": "Captain Rhea",
    "where": "Outpost Kestrel, then the Reach",
    "summary": "A new coordinate has resolved on the rift console.",
-   "accept": "vt_boss",
+   "accept": "rc_arrive",
    "done": "rc_end",
    "steps": [
     {
@@ -216,6 +197,117 @@
      "text": "The Harbinger has fallen. Step through the rift gate back to Outpost Kestrel.",
      "if": "rc_boss",
      "unless": "rc_end"
+    }
+   ]
+  },
+  {
+   "id": "m_mind",
+   "kind": "main",
+   "title": "The Door in the Vault",
+   "giver": "Rook",
+   "where": "The Shard Vault",
+   "summary": "Rook says the sealed door at the heart of the Vault has never opened for anyone. He wants to see what it does for you.",
+   "accept": "vt_boss",
+   "done": "st_mind",
+   "steps": [
+    {
+     "text": "The Warden has fallen. Rook is waiting at the end of the arena.",
+     "if": "vt_boss",
+     "unless": "st_mind_a"
+    },
+    {
+     "text": "The door has opened.",
+     "if": "st_mind_a",
+     "unless": "st_mind"
+    }
+   ]
+  },
+  {
+   "id": "m_strange",
+   "kind": "main",
+   "title": "Rebuild Dawnwatch",
+   "giver": "Brannoch",
+   "where": "Dawnwatch Keep",
+   "summary": "The Mind has the shard and Kenji's party has fallen into a world with nowhere to go. A mason named Brannoch wants to raise the ruined keep of Dawnwatch again. Find its people, win its fights and pay for its stone.",
+   "accept": "st_mind",
+   "done": "hp_4",
+   "steps": [
+    {
+     "text": "Speak with the mason, Brannoch, by the camp.",
+     "if": "st_mind",
+     "unless": "hr_mason"
+    },
+    {
+     "text": "Phase II, the Camp: find Orla (west rubble) and Tilda (old chapel cellar, east), then pay Brannoch (600 gold, 12 shards).",
+     "if": "hr_mason",
+     "unless": "hp_2"
+    },
+    {
+     "text": "Phase III, the Village: find Pell (the wagon outside the south gate) and Wick (the east pond), defeat the Hollow Knight at the keep door, then pay Brannoch (1800 gold, 35 shards).",
+     "if": "hp_2",
+     "unless": "hp_3"
+    },
+    {
+     "text": "Phase IV, the Castle Town: find Sennet (north-east library ruin) and Dove (north-east tower), defeat the Cult Seer outside the north postern, then pay Brannoch (4200 gold, 70 shards).",
+     "if": "hp_3",
+     "unless": "hp_4"
+    }
+   ]
+  },
+  {
+   "id": "m_eldergate",
+   "kind": "main",
+   "title": "Under the Ruins",
+   "giver": "Brannoch",
+   "where": "Dawnwatch, north-west ruin",
+   "summary": "Brannoch cannot lift or dig under a humming paved ring in the north-west ruin. Kenji's mark answers it. Dawnwatch's real name is Eldergate, and a buried network of gates lies beneath it.",
+   "accept": "hr_mason",
+   "done": "eg_veyra_go",
+   "steps": [
+    {
+     "text": "Lay your hand on the humming ring stone in Dawnwatch's north-west ruin.",
+     "if": "hr_mason",
+     "unless": "eg_open"
+    },
+    {
+     "text": "Beneath the ruins, read the Chronicle plates (hall and east alcove) and the Watcher's Ledger (west alcove), then touch the Core.",
+     "if": "eg_open",
+     "unless": "eg_core",
+     "count": [
+      "eg_t1",
+      "eg_t2",
+      "eg_t3",
+      "eg_t4",
+      "eg_t5",
+      "eg_ledger"
+     ]
+    },
+    {
+     "text": "Step through the open Veyra gate (third from the east along the north wall).",
+     "if": "eg_core",
+     "unless": "eg_veyra_go"
+    }
+   ]
+  },
+  {
+   "id": "m_veyra",
+   "kind": "main",
+   "title": "Veyra, the Kingdom of Ash",
+   "giver": "Reya",
+   "where": "Cinder Hollow, Veyra",
+   "summary": "Veyra is a kingdom burning its own hearth to keep warm. In the outer village of Cinder Hollow, a courier named Reya guards the last of the medicine. The royal garrison took the rest.",
+   "accept": "eg_veyra_go",
+   "done": "vy_join",
+   "steps": [
+    {
+     "text": "Recover Cinder Hollow's confiscated medicine from the royal garrison on the north road.",
+     "if": "eg_veyra_go",
+     "unless": "vy_supplies"
+    },
+    {
+     "text": "Take the medicine to Marta in the sick house, west of the well.",
+     "if": "vy_supplies",
+     "unless": "vy_join"
     }
    ]
   },
@@ -416,9 +508,9 @@
     "mark": "main!"
    }
   ],
-  "olympus/sera_infirmary": [
+  "asteroid/miya_reunion": [
    {
-    "if": "st_free,st_hurt",
+    "if": "st_space,st_hurt",
     "unless": "st_sera_back",
     "mark": "main!"
    }
@@ -428,6 +520,43 @@
    {
     "unless": "st_met",
     "mark": "main!"
+   }
+  ],
+  "asteroid/rook_base": [
+   {
+    "if": "st_sera_back",
+    "unless": "st_rook_told",
+    "mark": "main!"
+   }
+  ],
+  "vault/vt_rook_end": [
+   {
+    "if": "vt_boss",
+    "unless": "st_mind_a",
+    "mark": "main!"
+   }
+  ],
+  "strange/brannoch": [
+   {
+    "unless": "hr_mason",
+    "mark": "main!"
+   },
+   {
+    "unless": "hp_4",
+    "mark": "main?"
+   }
+  ],
+  "veyra/marta": [
+   {
+    "if": "vy_supplies",
+    "unless": "vy_returned",
+    "mark": "main?"
+   }
+  ],
+  "veyra/reya": [
+   {
+    "unless": "vy_supplies",
+    "mark": "main?"
    }
   ],
   "asteroid/lyra": [
@@ -464,4 +593,4 @@
   "asteroid/sq_kade2": "side?",
   "island/ferry": "travel"
  }
-}
+}

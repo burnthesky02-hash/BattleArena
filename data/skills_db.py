@@ -136,7 +136,7 @@ SKILLS = {
     "aegis_wall": Skill(
         id="aegis_wall", name="Aegis Wall", mp_cost=10, power=1.6, kind="physical",
         target=TargetType.SINGLE_ENEMY, status_to_apply="def_down", status_chance=0.4, lifesteal=0.2,
-        description="Yulia bulls through the target's guard and mends her own wounds with the impact.",
+        description="Reya bulls through the target's guard and mends her own wounds with the impact.",
     ),
 
     # melee_dps (replaces the shared "holy_reset" slot)
@@ -288,11 +288,11 @@ SKILLS = {
     "unbreakable": Skill(
         id="unbreakable", name="Unbreakable", mp_cost=9, power=0.0, kind="status",
         target=TargetType.SELF, status_to_apply="def_up", status_chance=1.0,
-        description="Yulia hardens herself against anything the enemy can throw, raising her own defense.",
+        description="Reya hardens herself against anything the enemy can throw, raising her own defense.",
     ),
     "titans_judgment": Skill(
         id="titans_judgment", name="Titan's Judgment", mp_cost=11, power=2.1, kind="physical",
-        target=TargetType.ALL_ENEMIES, description="Yulia brings down a devastating blow across every enemy at once.",
+        target=TargetType.ALL_ENEMIES, description="Reya brings down a devastating blow across every enemy at once.",
     ),
 
     # melee_dps (replace the shared "cleave" and "crushing_blow" slots)

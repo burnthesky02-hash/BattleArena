@@ -3,8 +3,182 @@
  "freeRank": 3,
  "autorun": [
   {
-   "if": "st_done",
-   "unless": "st_free",
+   "if": "st_night",
+   "unless": "st_rook",
+   "cine": true,
+   "actions": [
+    {
+     "type": "cine",
+     "on": true
+    },
+    {
+     "type": "tp",
+     "x": 0,
+     "z": -2.8,
+     "fade": false
+    },
+    {
+     "type": "face",
+     "who": "player",
+     "dir": "south"
+    },
+    {
+     "type": "cam",
+     "x": 0,
+     "z": -2.2,
+     "yaw": 0,
+     "pitch": 26,
+     "dist": 15,
+     "t": 0
+    },
+    {
+     "type": "wait",
+     "t": 0.6
+    },
+    {
+     "type": "title",
+     "text": "THE NIGHT BEFORE",
+     "sub": "Tomorrow, the releasing ceremony.",
+     "t": 3.6
+    },
+    {
+     "type": "fade",
+     "to": "clear",
+     "t": 1.6
+    },
+    {
+     "type": "say",
+     "who": "",
+     "text": "You cannot sleep. The crowd above has finally gone quiet, and the torches are burning low in their brackets."
+    },
+    {
+     "type": "say",
+     "who": "",
+     "text": "Somewhere down the corridor, iron scrapes softly against stone. A latch turns. Footsteps, very careful ones, coming this way."
+    },
+    {
+     "type": "walk",
+     "who": "rook_night",
+     "x": 0,
+     "z": -0.4,
+     "speed": 2.4
+    },
+    {
+     "type": "say",
+     "who": "Hooded Prisoner",
+     "text": "Quiet. Not a word until I say. You are Kenji, the swordsman off the island?"
+    },
+    {
+     "type": "say",
+     "who": "Kenji",
+     "text": "Who are you? How did you get out of your cell?"
+    },
+    {
+     "type": "say",
+     "who": "Hooded Prisoner",
+     "text": "A lock is only as good as the man paid to turn it. Listen to me, because we don't have long. There is no ceremony."
+    },
+    {
+     "type": "say",
+     "who": "Hooded Prisoner",
+     "text": "Nobody goes free from the Pit. At dawn they walk you down to the Hall of Doors under the sands, and you are never seen again. The Colosseum is not what it seems."
+    },
+    {
+     "type": "say",
+     "who": "Kenji",
+     "text": "The Overseer said the crowd bought my collar."
+    },
+    {
+     "type": "say",
+     "who": "Hooded Prisoner",
+     "text": "The crowd cheers for whatever it is told to cheer for. Champions are what this place is for."
+    },
+    {
+     "type": "face",
+     "who": "rook_night",
+     "dir": "east"
+    },
+    {
+     "type": "say",
+     "who": "",
+     "text": "The stranger pushes back his hood. A lean face, a bow slung across his back, and the eyes of a man who has not slept in days."
+    },
+    {
+     "type": "say",
+     "who": "Rook",
+     "text": "The name is Rook. I would shake your hand, but the guards on the stairs do not allow a lot of time for manners."
+    },
+    {
+     "type": "say",
+     "who": "Kenji",
+     "text": "I'm not going anywhere. Miya is in the infirmary somewhere above us. I'm not leaving without her."
+    },
+    {
+     "type": "say",
+     "who": "Rook",
+     "text": "Miya was never in the infirmary. Varro said that for your ears, so you'd keep fighting."
+    },
+    {
+     "type": "say",
+     "who": "Rook",
+     "text": "His men left her in the cave for dead when the Sovereign fell. My people found her. She is alive, she is safe, and she is already back at my base asking after you."
+    },
+    {
+     "type": "say",
+     "who": "Kenji",
+     "text": "...She's alive?"
+    },
+    {
+     "type": "shake",
+     "t": 0.9,
+     "amp": 0.15,
+     "wait": false
+    },
+    {
+     "type": "say",
+     "who": "",
+     "text": "Far above, a door slams. Boots on the stairs. A voice echoes down the corridor: \"Check the cells!\""
+    },
+    {
+     "type": "say",
+     "who": "Rook",
+     "text": "That is our time gone. Come with me. Outpost Kestrel, the base I told you about. I will explain everything there, I swear it on the bow."
+    },
+    {
+     "type": "say",
+     "who": "Kenji",
+     "text": "...All right. Take me to her."
+    },
+    {
+     "type": "say",
+     "who": "",
+     "text": "Rook presses something small and humming into his palm. The air above the cot tears open, pale and steady, nothing like the violet doors of the masked raiders."
+    },
+    {
+     "type": "flag",
+     "key": "st_rook"
+    },
+    {
+     "type": "flag",
+     "key": "st_free"
+    },
+    {
+     "type": "flag",
+     "key": "st_space"
+    },
+    {
+     "type": "flash"
+    },
+    {
+     "type": "warp",
+     "scene": "asteroid",
+     "x": 0,
+     "z": 6
+    }
+   ]
+  },
+  {
+   "if": "st_done,!st_ceremony,!st_free",
    "minRank": "freeRank",
    "actions": [
     {
@@ -20,22 +194,47 @@
     {
      "type": "say",
      "who": "Overseer Vex",
-     "text": "The Colosseum doesn't keep a champion in a cage. The stairs are open. Go on, before I change my mind."
+     "text": "But the Colosseum does not turn a champion loose in the middle of the night. There is a ceremony. Dawn, tomorrow, on the sands, the whole city watching."
+    },
+    {
+     "type": "say",
+     "who": "Overseer Vex",
+     "text": "Until then you wait. Back to your cell, champion. Sleep. Don't make me regret being generous."
+    },
+    {
+     "type": "fade",
+     "to": "black",
+     "t": 0.8
+    },
+    {
+     "type": "tp",
+     "x": 0,
+     "z": -2.8,
+     "fade": false
+    },
+    {
+     "type": "face",
+     "who": "player",
+     "dir": "south"
+    },
+    {
+     "type": "fade",
+     "to": "clear",
+     "t": 0.8
     },
     {
      "type": "say",
      "who": "",
-     "text": "The collar clicks open and falls away. Light spills down the stairs from the sands above."
+     "text": "A guard walks you back to your cell and leaves you alone with the torchlight. Tomorrow. For the first time in a long while the word sounds almost like a promise."
+    },
+    {
+     "type": "say",
+     "who": "",
+     "text": "Rest on your cot until the morning comes."
     },
     {
      "type": "flag",
-     "key": "st_free"
-    },
-    {
-     "type": "warp",
-     "scene": "olympus",
-     "x": 0,
-     "z": 11
+     "key": "st_ceremony"
     }
    ]
   },
@@ -84,6 +283,9 @@
    ]
   }
  ],
+ "music": {
+  "url": "/assets/Music/mp3/21. Malicious Scheme.mp3"
+ },
  "name": "The Pit",
  "kit": "",
  "tile": 4,
@@ -1910,46 +2112,12 @@
    "h": 2.4
   },
   {
-   "id": "summon",
-   "name": "Hanna",
-   "title": "Cell-block seer",
-   "sprite": "Miya",
-   "x": 10.5,
-   "z": 18,
-   "line": "The old glyph under my cell still answers. Pay the toll and see who comes.",
-   "tint": [
-    0.85,
-    0.8,
-    1,
-    1
-   ],
-   "action": "summon",
-   "reach": 5,
-   "h": 2.4
-  },
-  {
-   "id": "save",
-   "name": "The Scribe",
-   "title": "Keeper of ledgers",
-   "sprite": "Lyra",
-   "x": 14.5,
-   "z": 5.8,
-   "tint": [
-    0.75,
-    0.88,
-    1.15,
-    1
-   ],
-   "action": "save_and_quit",
-   "h": 2.4
-  },
-  {
    "id": "pr1",
    "name": "Brann",
    "title": "Prisoner",
    "sprite": "Rook",
    "x": -16,
-   "z": -4.2,
+   "z": -1,
    "tint": [
     0.55,
     0.55,
@@ -1972,7 +2140,7 @@
    "title": "Prisoner",
    "sprite": "Lyra",
    "x": -8,
-   "z": -4.2,
+   "z": -1,
    "tint": [
     0.55,
     0.55,
@@ -1995,7 +2163,7 @@
    "title": "Prisoner",
    "sprite": "Kenji",
    "x": 8,
-   "z": -4.2,
+   "z": -1,
    "tint": [
     0.55,
     0.55,
@@ -2018,7 +2186,7 @@
    "title": "Prisoner",
    "sprite": "Draven",
    "x": 16,
-   "z": -4.2,
+   "z": -1,
    "tint": [
     0.55,
     0.55,
@@ -2034,6 +2202,31 @@
    ],
    "line": "...",
    "h": 2.4
+  },
+  {
+   "id": "rook_night",
+   "name": "Hooded Prisoner",
+   "title": "Stranger",
+   "sprite": "Rook",
+   "x": 0,
+   "z": 7.5,
+   "h": 2.4,
+   "tint": [
+    0.5,
+    0.5,
+    0.6,
+    1
+   ],
+   "showIf": "st_night",
+   "hideIf": "st_rook",
+   "reach": 0.1,
+   "actions": [
+    {
+     "type": "say",
+     "who": "Hooded Prisoner",
+     "text": "Not now."
+    }
+   ]
   }
  ],
  "events": [
@@ -2067,7 +2260,8 @@
     {
      "type": "pass_time"
     }
-   ]
+   ],
+   "hideIf": "st_ceremony"
   },
   {
    "id": "pit_exit",
@@ -2101,6 +2295,41 @@
      "type": "say",
      "who": "",
      "text": "The arena door rumbles with the noise of the crowd. Gatekeeper Brakk opens it when it is your turn. Speak to him to challenge the next rank."
+    }
+   ]
+  },
+  {
+   "id": "pit_cot_night",
+   "name": "Your cot",
+   "x": 0,
+   "z": -5,
+   "w": 3.8,
+   "d": 3.4,
+   "trigger": "talk",
+   "prompt": "Sleep until the ceremony",
+   "showIf": "st_ceremony",
+   "hideIf": "st_night",
+   "actions": [
+    {
+     "type": "say",
+     "who": "",
+     "text": "You lie back on the cot. Tomorrow you walk out into the light. You tell yourself that, over and over, until the roar above fades and sleep almost comes."
+    },
+    {
+     "type": "fade",
+     "to": "black",
+     "t": 1.2
+    },
+    {
+     "type": "flag",
+     "key": "st_night"
+    },
+    {
+     "type": "warp",
+     "scene": "prison",
+     "x": 0,
+     "z": -2.8,
+     "fresh": true
     }
    ]
   }
@@ -2344,7 +2573,11 @@
    "amount": 0.25
   }
  ],
- "music": {
-  "url": "/assets/Music/mp3/21. Malicious Scheme.mp3"
- }
+ "objectives": [
+  {
+   "if": "st_ceremony",
+   "unless": "st_night",
+   "text": "The releasing ceremony is at dawn. Rest on your cot in your cell to pass the night."
+  }
+ ]
 }

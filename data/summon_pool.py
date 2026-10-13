@@ -141,7 +141,7 @@ RECRUITABLE_ROSTER: List[RecruitableHero] = [
     RecruitableHero("Brutus", "tank", "rare"),
     RecruitableHero("Petra", "tank", "epic"),
     RecruitableHero("Draven", "tank", "legendary"),
-    RecruitableHero("Yulia", "tank", "mythic"),
+    RecruitableHero("Reya", "tank", "mythic"),
 ]
 
 # Precomputed rarity -> [RecruitableHero, ...] (one per class, 5 total) so

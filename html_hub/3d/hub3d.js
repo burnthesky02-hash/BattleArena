@@ -1014,6 +1014,9 @@ void main(){
     olympus:  { to: "outside" }, prison: { to: "outside" },
     asteroid: { scene: "asteroid", x: -26,   z: -19.5, text: "Medics drag you back to the base repair bench and patch the whole party up." },
     vault:    { to: "asteroid" }, reach: { to: "asteroid" },
+    strange:  { scene: "strange",   x: 6,     z: 28.5,  text: "You come to beside the camp crystal at Dawnwatch, healed, with the mason muttering that somebody should really mind the road." },
+    eldergate: { to: "strange" },
+    veyra:    { scene: "veyra",    x: -15.4, z: 5.2,   text: "You wake on a cot by the cookfire in Cinder Hollow. Marta has dressed every wound and Reya, arms folded, pretends she was not worried." },
   };
   function cpFlag(name, def) { return ((def && def.restart) || "") + "cp" + ((def && def.restart) ? "" : "_" + name); }
   function cpAll() { try { return JSON.parse(localStorage.getItem(CP_KEY) || "{}") || {}; } catch (e) { return {}; } }
@@ -1234,6 +1237,7 @@ void main(){
       if (a.type === "chest") { script.waiting = true; restParty("/api/story/chest", { loot: a.loot || {}, text: a.text || "" }); return; }
       if (a.type === "game") { script.waiting = true; restParty("/api/story/game", { game: a.game, stake: a.stake || 0 }); return; }   // fish | dice (server rolls it)
       if (a.type === "recruit") { script.waiting = true; restParty("/api/story/recruit", { name: a.name }); return; }
+      if (a.type === "build") { script.waiting = true; script.lock = true; buildStep(a); return; }                  // {cost:{gold,shards}, then:[...], who}: the mason takes the payment; `then` runs only if the server accepted it
       if (a.type === "away") {                                                                                 // {name, away:true|false}: a story hero leaves / rejoins the party (Miya in the infirmary)
         const sc = script; script.waiting = true; script.lock = true;
         fetch("/api/story/away", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: a.name, away: a.away !== false }) }).then((r) => r.json()).catch(() => ({})).then((r) => {
@@ -1275,6 +1279,15 @@ void main(){
     catch (e) { endAmbush(); setFade(0, 0.4); say("", "The battle server could not be reached."); return; }
     savePos();
     location.href = "/battle?return=hub3d&scene=" + encodeURIComponent(S.name || "olympus") + (a.key ? "&key=" + encodeURIComponent(a.key) : "") + (S.def && S.def.restart ? "&restart=" + encodeURIComponent(S.def.restart) : "");
+  }
+  async function buildStep(a) {
+    const sc = script; let r = { ok: false, message: "The masons shrug. Nothing happens." };
+    try { r = await (await fetch("/api/story/build", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cost: a.cost || {} }) })).json(); if (O && O.refresh) O.refresh(); } catch (e) {}
+    if (!sc || script !== sc) return;
+    sc.lock = false; sc.waiting = false;
+    if (r && r.ok) { sc.queue.unshift(...(a.then || [])); if (r.message) sc.queue.unshift({ type: "say", who: a.who || "", text: r.message }); }
+    else sc.queue.unshift({ type: "say", who: a.who || "", text: (r && r.message) || "Not enough to go on." }, { type: "end" });
+    stepScript();
   }
   async function restParty(url, body, fade) {
     const sc = script; if (sc) sc.lock = true;                         // E / click cannot skip past the action while the server is still answering
@@ -1552,7 +1565,9 @@ void main(){
       document.body.classList.toggle("h3d-nocolo", !colo);
     } catch (e) {}
   }
-  function applySceneMusic() { applyColosseumUI(); try { if (O && O.music) O.music(S && S.def && S.def.music ? S.def.music : null, S && S.def && S.def.ambient ? S.def.ambient : null); } catch (e) {} }   // scene.music = {url, intro?} set in the 3D editor; scene.ambient = {url, volume?} is a looping sound bed under it
+  /* scene.music is {url, intro?}, or a list of {if, unless, url, ...}: the first entry whose flags hold plays (Dawnwatch's theme follows its phase) */
+  function sceneMusic() { const m = S && S.def && S.def.music; if (Array.isArray(m)) { const c = getCleared(); return m.find((e) => condOk(e, c)) || null; } return m || null; }
+  function applySceneMusic() { applyColosseumUI(); try { if (O && O.music) O.music(sceneMusic(), S && S.def && S.def.ambient ? S.def.ambient : null); } catch (e) {} }   // scene.music = {url, intro?} set in the 3D editor; scene.ambient = {url, volume?} is a looping sound bed under it
   function sceneCam() {                                   // scene.camera = {pitch, dist}: a per-scene default tilt / zoom, applied when the scene changes
     if (!S || cam.free || cam.forScene === S.name) return; cam.forScene = S.name;
     const c = (S.def && S.def.camera) || {}; cam.goalPitch = c.pitch || 33; cam.goalDist = c.dist || 29;
