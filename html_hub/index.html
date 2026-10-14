@@ -829,7 +829,7 @@
   document.getElementById("map-builder3d-btn").addEventListener("click", function () { window.location.href = "/builder3d"; });
   // ---- Debug menu (only shown when the server runs with --debug) ----
   var dbg = { menu: null, tab: "Economy" };
-  var TABS = ["Economy", "Heroes", "Gear", "Items", "Ladder", "Quests", "Cheats", "Reset"];
+  var TABS = ["Economy", "Heroes", "Gear", "Items", "Ladder", "Quests", "Dawnwatch", "Cheats", "Reset"];
   // Story chapters and the progress flags each one owns (flags live in this browser's localStorage "h3dCleared").
   var QUESTS = [
     { name: "Paradise Island: Elder Mahina and Miya", start: "st_intro", done: "st_sera", flags: ["st_intro", "st_quest", "st_sera", "st_cave_in"] },
@@ -839,6 +839,24 @@
     { name: "Outpost Kestrel: Rhea and Lyra", start: "st_landed", done: "st_lyra", flags: ["st_space", "st_landed", "st_met", "st_lyra"] },
     { name: "The Shard Vault: guardians and the Warden", start: "vt_g1", done: "vt_boss", flags: ["vt_g1", "vt_g2", "vt_g3", "vt_boss", "vc_*"] }
   ];
+  // Dawnwatch (scene "strange"): the four rebuild phases are cumulative story flags. The Dawnwatch tab sets them directly.
+  var DW_PH = { 2: ["hr_mason", "hr_orla", "hr_tilda"], 3: ["hr_pell", "hr_wick"], 4: ["hr_sennet", "hr_dove"] };
+  var DW_GATE = { 2: ["hg_orla"], 3: ["hg_pell", "hg_knight"], 4: ["hg_seer"] };
+  var DW_ALL = ["hp_2", "hp_3", "hp_4", "hp_2_seen", "hp_3_seen", "hp_4_seen", "hr_mason", "hr_orla", "hr_tilda", "hr_pell", "hr_wick", "hr_sennet", "hr_dove", "hg_orla", "hg_pell", "hg_knight", "hg_seer"];
+  var DW_NAME = { 1: "I  Ruins", 2: "II  Camp", 3: "III  Village", 4: "IV  Castle Town" };
+  function dwPhase(f) { return f.indexOf("hp_4") >= 0 ? 4 : f.indexOf("hp_3") >= 0 ? 3 : f.indexOf("hp_2") >= 0 ? 2 : 1; }
+  function dwApply(p, skipSeen, eg, go) {
+    var f = getFlags().filter(function (x) { return DW_ALL.indexOf(x) < 0 && x !== "eg_open"; });
+    ["st_intro", "st_strange"].forEach(function (x) { if (f.indexOf(x) < 0) f.push(x); });
+    for (var q = 2; q <= p; q++) {
+      f.push("hp_" + q); if (skipSeen) f.push("hp_" + q + "_seen");
+      (DW_PH[q] || []).concat(DW_GATE[q] || []).forEach(function (x) { f.push(x); });
+    }
+    if (eg) f.push("eg_open");
+    try { localStorage.setItem("h3dCleared", JSON.stringify(f)); sessionStorage.removeItem("h3dPos"); sessionStorage.setItem("hubStarted", "1"); } catch (e) {}
+    playSfx(SFX.confirm); showToast("Dawnwatch set to phase " + DW_NAME[p] + ". Reloading...");
+    setTimeout(function () { if (go) location.href = "/?notitle=1&scene=strange&at=0,50"; else location.reload(); }, 500);
+  }
   function inQuest(q, f) { return q.flags.some(function (p) { return p.slice(-1) === "*" ? f.indexOf(p.slice(0, -1)) === 0 : p === f; }); }
   function getFlags() { try { return JSON.parse(localStorage.getItem("h3dCleared") || "[]"); } catch (e) { return []; } }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -864,7 +882,18 @@
     var m = dbg.menu, h = '<h3><span>Debug Menu</span><span class="dbg-btn" id="dbg-close">Close</span></h3><div id="dbg-tabs">';
     TABS.forEach(function (t) { h += '<div class="dbg-tab' + (t === dbg.tab ? " on" : "") + '" data-tab="' + t + '">' + t + '</div>'; });
     h += "</div>";
-    if (dbg.tab === "Cheats") {
+    if (dbg.tab === "Dawnwatch") {
+      var fl = getFlags(), cp = dwPhase(fl);
+      var dwSeen = true, dwEg = fl.indexOf("eg_open") >= 0; try { dwSeen = localStorage.getItem("h3dDwSeen") !== "0"; } catch (e) {}
+      h += '<div class="dbg-sec">Dawnwatch rebuild phase (now: ' + DW_NAME[cp] + (dwEg ? ", Eldergate open" : "") + ')</div>';
+      [1, 2, 3, 4].forEach(function (p) {
+        h += '<div class="dbg-row"><span style="flex:1">Phase ' + DW_NAME[p] + (p === cp ? ' <small>(current)</small>' : '') + '</span>' +
+             '<button class="dbg-btn" data-dw="' + p + '">Set and warp to Dawnwatch</button><button class="dbg-btn" data-dw="' + p + 'r">Set, stay here</button></div>';
+      });
+      h += '<div class="dbg-row"><label style="min-width:240px"><input type="checkbox" id="d-dwseen"' + (dwSeen ? " checked" : "") + '> Skip the reveal cutscenes</label></div>' +
+           '<div class="dbg-row"><label style="min-width:240px"><input type="checkbox" id="d-dweg"' + (dwEg ? " checked" : "") + '> Eldergate already open (glowing arch)</label></div>' +
+           '<div class="dbg-row" style="color:var(--dim)">Sets the phase flags, marks that phase\'s residents as found and its gate fights as won, then reloads. Quest and cutscene flags for the other chapters are left alone. Testing only.</div>';
+    } else if (dbg.tab === "Cheats") {
       var nc = false; try { nc = localStorage.getItem("h3dNoclip") === "1"; } catch (e) {} var pf = false; try { pf = localStorage.getItem("h3dPerf") === "1"; } catch (e) {} var ne = false; try { ne = localStorage.getItem("h3dNoEnc") === "1"; } catch (e) {}
       h += '<div class="dbg-sec">Movement</div><div class="dbg-row"><label>Noclip</label><button class="dbg-btn" id="d-noclip">' + (nc ? "ON - click to turn off" : "OFF - click to walk through walls") + '</button></div>' +
            '<div class="dbg-row" style="color:var(--dim)">In the 3D scenes the hero ignores walls, colliders, NPC bodies and the map edge. Saved in this browser.</div>' +
@@ -944,6 +973,12 @@
     if (t.id === "d-reset") {
       if (t.dataset.armed) { dbgAct({ action: "reset_game" }); return; }
       t.dataset.armed = "1"; t.textContent = "Click again to confirm RESET"; return;
+    }
+    if (t.id === "d-dwseen") { try { localStorage.setItem("h3dDwSeen", t.checked ? "1" : "0"); } catch (e) {} return; }
+    if (t.dataset.dw) {
+      var dwp = parseInt(t.dataset.dw, 10), dwStay = /r$/.test(t.dataset.dw);
+      var dwChk = document.getElementById("d-dwseen"), dwEgChk = document.getElementById("d-dweg");
+      dwApply(dwp, dwChk ? dwChk.checked : true, dwEgChk ? dwEgChk.checked : false, !dwStay); return;
     }
     if (t.id === "d-noenc") {
       try { localStorage.setItem("h3dNoEnc", localStorage.getItem("h3dNoEnc") === "1" ? "0" : "1"); } catch (e) {}
