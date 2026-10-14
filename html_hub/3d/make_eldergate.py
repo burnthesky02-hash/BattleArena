@@ -3,7 +3,7 @@ Reached by the Sunken Stair in the north-west ruin of Dawnwatch (strange.json, o
 Layout on a 6 m grid (cell gx,gz centred at x=gx*6, z=gz*6; x = east, z = south, the camera looks north):
   Processional Hall (south, x -9..9, z -3..27): stair landing at the south end, four Chronicle plates I-IV down both walls.
   Rotunda (north, 9x9 cells): the Core (centre), six gates along the north wall, the Watcher's Ledger (west alcove) and the Last King's seat (east alcove, plate V).
-Story flags (all eg_*):  eg_enter (arrival scene seen)  eg_t1..eg_t5 (plates read)  eg_ledger (Watcher's Ledger read)  eg_core (Core woken: the Veyra gate is open)
+Story flags (eg_*; the Lethenia gate opens on dn_end from make_dawn.py):  eg_enter (arrival scene seen)  eg_t1..eg_t5 (plates read)  eg_ledger (Watcher's Ledger read)  eg_core (Core woken: the Veyra gate is open)
 Run:  python make_eldergate.py [outdir]   (re-running overwrites hand edits made in /builder3d)"""
 import json, math, os, sys, random
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
@@ -158,22 +158,29 @@ GATE_Z = -49.0
 GATES = [
     ("Hollowmere", "A DROWNED KINGDOM. THE WATER DID NOT RECEDE. THE GATE SHOWS ONLY SLOW GREEN LIGHT."),
     ("The Glass Reach", "A MERCHANT-PRINCEDOM AT ITS NOON. THREE MOONS, SIX THOUSAND LANTERNS. THE GATE IS DARK; ITS KEY IS MISSING."),
-    ("Veyra, the Kingdom of Ash", "A KINGDOM THAT BURNS ITS OWN HEARTH TO KEEP WARM. TWENTY WINTERS INTO THE ASHFALL."),
     ("Ninefold", "NINE REALMS AT WAR, EACH TOLD THE OTHERS STARTED IT. THE GATE IS SEALED FROM THE OTHER SIDE."),
-    ("Cinderhold", "NOTHING REMAINS BUT WIND. THE GATE REMEMBERS A CITY AND OFFERS ONLY DUST."),
+    ("Veyra, the Kingdom of Ash", "A KINGDOM THAT BURNS ITS OWN HEARTH TO KEEP WARM. TWENTY WINTERS INTO THE ASHFALL."),
+    ("Lethenia, the Quiet Kingdom", "A KINGDOM WITHOUT A WAR IN THREE HUNDRED YEARS. THE GATE IS DARK AND ASKS NOTHING OF YOU."),
     ("The Last Orchard", "A GARDEN WORLD, OR WHAT IS LEFT OF ONE. THE GATE FLICKERS AND GIVES NOTHING."),
 ]
 GX = [-22.0, -13.2, -4.4, 4.4, 13.2, 22.0]
+LETH = 4                                                        # the second gate to wake (x = 13.2); opens with dn_end (Veyra, Chapter E)
 VEYRA = 3                                                       # index: x = 4.4 (the 4th from the west)
 for i, (nm, txt) in enumerate(GATES):
     x = GX[i]
     on = i == VEYRA
-    put("SM_dg_gate", x, GATE_Z, 0, 0, 1.5, spec="H:eg_core" if on else None); block(x, GATE_Z, 6.0, 1.5, "eg_core" if on else None)
+    onL = i == LETH
+    put("SM_dg_gate", x, GATE_Z, 0, 0, 1.5, spec="H:eg_core" if on else ("H:dn_end" if onL else None)); block(x, GATE_Z, 6.0, 1.5, "eg_core" if on else ("dn_end" if onL else None))
     if on:
         put("SM_dg_crystal", x - 3.6, GATE_Z + 2.0, 20, 0, 1.3, spec="H:eg_core"); put("SM_dg_crystal", x + 3.6, GATE_Z + 2.0, 130, 0, 1.3, spec="H:eg_core")
         put("SM_dg_crystal", x - 3.6, GATE_Z + 2.0, 20, 0, 1.6, spec="S:eg_core"); put("SM_dg_crystal", x + 3.6, GATE_Z + 2.0, 130, 0, 1.6, spec="S:eg_core")
         glow(x, GATE_Z + 1.5, 6, GREY, hide="eg_core"); glow(x, GATE_Z + 2.0, 12, [1, .62, .3, .55], show="eg_core")
         glyph(x, GATE_Z + 3.5, 3.4, [1, .62, .3, 1], 45, show="eg_core")
+    elif onL:
+        put("SM_dg_crystal", x - 3.6, GATE_Z + 2.0, 20, 0, 1.3, spec="H:dn_end"); put("SM_dg_crystal", x + 3.6, GATE_Z + 2.0, 130, 0, 1.3, spec="H:dn_end")
+        put("SM_dg_crystal", x - 3.6, GATE_Z + 2.0, 20, 0, 1.6, spec="S:dn_end"); put("SM_dg_crystal", x + 3.6, GATE_Z + 2.0, 130, 0, 1.6, spec="S:dn_end")
+        glow(x, GATE_Z + 1.5, 6, GREY, hide="dn_end"); glow(x, GATE_Z + 2.0, 12, [0.7, 0.85, 1.0, 0.55], show="dn_end")
+        glyph(x, GATE_Z + 3.5, 3.4, [0.7, 0.85, 1.0, 1], 45, show="dn_end")
     else:
         put("SM_dg_crystal", x - 3.6, GATE_Z + 2.0, 20 * i, 0, 1.0); put("SM_dg_crystal", x + 3.6, GATE_Z + 2.0, 130 + i, 0, 1.0)
         glow(x, GATE_Z + 1.5, 6, GREY)
@@ -183,6 +190,9 @@ for i, (nm, txt) in enumerate(GATES):
     if on:
         acts.append(SAY("Gate Plaque", "THIS GATE ALONE STILL ANSWERS THE KEY IN THE ROYAL HAND.", hide="eg_core"))
         acts.append(SAY("Gate Plaque", "THE GATE IS OPEN. THE ASH IS FALLING ON THE FAR SIDE; THE WINTER IS OLD.", show="eg_core"))
+    if onL:
+        acts.append(SAY("Gate Plaque", "THIS GATE HAS NOT ANSWERED IN LIVING MEMORY.", **{"unless": "dn_end"}))
+        acts.append(SAY("Gate Plaque", "THE GATE IS OPEN. IT IS WARM ON THE FAR SIDE, AND CALM, AND NOBODY WILL SHOUT AT YOU.", **{"if": "dn_end"}))
     event("eg_plq%d" % i, "Gate plaque", x, GATE_Z + 7.9, acts, "Read the plaque", 3.4, 2.2)
 
 # ---- the Veyra gate itself
@@ -196,6 +206,21 @@ event("eg_veyra", "The Veyra gate", GX[VEYRA], GATE_Z + 4.4, [
             ACT("warp", scene="veyra", x=0, z=28, fresh=True)]),
         dict(label="Not yet", actions=[ACT("end")])])],
     "Look through the gate", 7.0, 3.6, show="eg_core")
+
+# ---- the Lethenia gate: woken when Veyra's Wall went out (Chapter E, make_dawn.py); the world itself is a later chapter
+event("eg_leth", "The Lethenia gate", GX[LETH], GATE_Z + 4.4, [
+    SAY("", "The gate holds open on a wall of soft white light. The air from the far side is warm, and smells of rain, and of bread, and of nothing at all that has ever hurt anyone. Somewhere beyond it, a bell rings once, pleasantly."),
+    SAY("Miya", "I don't like how nice that is."),
+    SAY("Lyra", "Nor I. That is the sound of a place where no one has raised their voice in three hundred years."),
+    dict(type="choice", who="Kenji", text="Step through to Lethenia?", options=[
+        dict(label="Step through (you can come back through this gate)", actions=[
+            SAY("Kenji", "Then we should go and see what that cost."),
+            ACT("flag", key="eg_leth_go"),
+            ACT("fade", to="black", t=1.4),
+            ACT("title", text="Lethenia", sub="The Quiet Kingdom", t=3.4),
+            ACT("warp", scene="hushmere", x=0, z=50, fresh=True)]),
+        dict(label="Not yet", actions=[ACT("end")])])],
+    "Look through the gate", 7.0, 3.6, show="dn_end")
 
 # ---- the Watcher's Ledger (west alcove)
 LX, LZ = -39.0, -30.0
@@ -257,7 +282,9 @@ CORE = [
     SAY("Kenji", "No. If there are people at the other end of that door, I am going. And when I get there I do the one thing he did not plan for.", **{"unless": "eg_core_done", "if": "eg_core"}),
     ACT("flag", key="eg_core_done", **{"if": "eg_core"}),
     ACT("follow", t=1.2, **{"if": "eg_core"}),
-    SAY("", "The Core hums low and steady. Behind you, the amber gate waits.", **{"if": "eg_core_done"}),
+    SAY("", "The Core hums low and steady. Behind you, the amber gate waits.", **{"if": "eg_core_done", "unless": "dn_end"}),
+    SAY("", "The Core hums low and steady, and somewhere under the hum there is a second note it did not have before. Along the north wall, a second gate is burning white.", **{"if": "dn_end"}),
+    SAY("Lyra", "It woke the moment the Wall went out. Veyra's grief has opened a door. I do not like what it implies about doors.", **{"if": "dn_end"}),
 ]
 event("eg_core", "The Core", CX, CZ + 4.4, CORE, "Touch the Core", 5.0, 3.6)
 
@@ -288,6 +315,7 @@ OBJ = [
     {"unless": "eg_ledger", "text": "Look into the Watcher's Ledger in the west alcove of the great hall."},
     {"unless": "eg_t5", "text": "Read the Last King's plate in the east alcove."},
     {"unless": "eg_core", "text": "Touch the Core in the centre of the great hall."},
+    {"if": "dn_end", "text": "A second gate, Lethenia, burns white along the north wall (fifth from the west). Step through when ready."},
     {"unless": "eg_veyra_go", "text": "The Veyra gate is open, third from the east along the north wall. Step through when ready."},
     {"text": "Eldergate's other gates are silent. Return when Veyra has changed."},
 ]

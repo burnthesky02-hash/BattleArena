@@ -312,6 +312,265 @@
    ]
   },
   {
+   "id": "m_ashroad",
+   "kind": "main",
+   "title": "The Road of Ash",
+   "giver": "Reya",
+   "where": "North of Cinder Hollow, Veyra",
+   "summary": "Reya's brother Tomas was sent to the capital, Solgard, six years ago. The only road there runs north through the abandoned provinces. Somewhere along it, the Crown has hung its hunger on a hill.",
+   "accept": "vy_join",
+   "done": "ar_end",
+   "steps": [
+    {
+     "text": "Take the Road of Ash north, past the garrison. Old Maud keeps a fire at the Wayfarers' Rest.",
+     "if": "vy_join",
+     "unless": "ar_arrive"
+    },
+    {
+     "text": "Reach Harrow's Ford, three days up the road, and the Tithe Spire that is freezing it. Defeat the Spire Warden.",
+     "if": "ar_arrive",
+     "unless": "ar_warden"
+    },
+    {
+     "text": "Decide what to do with the Tithe Spire. You can sever it, or leave it humming.",
+     "if": "ar_warden",
+     "unless": "ar_spire_done"
+    },
+    {
+     "text": "Walk on to the old toll bridge. Quartermaster Hesk holds it for the Cold Gate.",
+     "if": "ar_spire_done",
+     "unless": "ar_hesk"
+    },
+    {
+     "text": "Find the Underdrain hatch behind the east pier and knock three, then two.",
+     "if": "ar_hesk",
+     "unless": "ar_end"
+    }
+   ]
+  },
+  {
+   "id": "m_solgard",
+   "kind": "main",
+   "title": "Solgard, the Sunwall City",
+   "giver": "Reya",
+   "where": "Solgard, Veyra",
+   "summary": "Under the Sunwall is Veyra's last city, warm and kind and fed by something it does not look at. Reya's brother Tomas is in the Works, where the kindlers are kept.",
+   "accept": "ar_end",
+   "done": "sg_end",
+   "steps": [
+    {
+     "text": "Speak with the lamplighter, Odo, at the foot of the Underdrain.",
+     "if": "ar_end",
+     "unless": "sg_odo"
+    },
+    {
+     "text": "Climb the drain stair and enter the Bright Ring. Mind the gold mark on your right hand.",
+     "if": "sg_odo",
+     "unless": "sg_speech"
+    },
+    {
+     "text": "The Works lies east of the palace. Get past Overseer Cathal at its gate.",
+     "if": "sg_speech",
+     "unless": "sg_overseer"
+    },
+    {
+     "text": "Cross the Works to the Great Valve and find Tomas.",
+     "if": "sg_overseer",
+     "unless": "sg_tomas"
+    },
+    {
+     "text": "Decide how to answer Tomas.",
+     "if": "sg_tomas",
+     "unless": "sg_tomas2"
+    },
+    {
+     "text": "Take the kindler's key to the Great Valve and go down to the Emberheart.",
+     "if": "sg_tomas2",
+     "unless": "sg_end"
+    }
+   ]
+  },
+  {
+   "id": "m_heart",
+   "kind": "main",
+   "title": "The Heart beneath the Throne",
+   "giver": "Reya",
+   "where": "Beneath the palace, Solgard",
+   "summary": "Under Solgard's throne the Emberheart beats, the last of an old god's warmth, and every child in the Works is piped into it. Queen Maelis waits at the bottom, and so does someone who does not want you to see her face.",
+   "accept": "sg_end",
+   "done": "eh_end",
+   "steps": [
+    {
+     "text": "Go down the valve stair and defeat Captain Rhenn at the inner gate.",
+     "if": "sg_end",
+     "unless": "eh_captain"
+    },
+    {
+     "text": "Cross the Gallery of Names and enter the Emberheart chamber.",
+     "if": "eh_captain",
+     "unless": "eh_parley"
+    },
+    {
+     "text": "Defeat the Ember Regent that guards the Heart.",
+     "if": "eh_parley",
+     "unless": "eh_regent"
+    },
+    {
+     "text": "Reconnect the Emberheart, and decide what becomes of Queen Maelis.",
+     "if": "eh_regent",
+     "unless": "eh_end"
+    }
+   ]
+  },
+  {
+   "id": "m_dawn",
+   "kind": "main",
+   "title": "Solgard, Dawn",
+   "giver": "Reya",
+   "where": "The Palace Square, Solgard",
+   "summary": "The Emberheart burns for itself, the Sunwall is out, and the sky is back. Reya has a brother to say goodbye to, and the counsellor in the crowd has something to say.",
+   "accept": "eh_end",
+   "done": "dn_end",
+   "steps": [
+    {
+     "text": "Climb out into the dawn and find Tomas by the fountain.",
+     "if": "eh_end",
+     "unless": "dn_tomas"
+    },
+    {
+     "text": "Speak to the counsellor who stands apart at the east edge of the square.",
+     "if": "dn_tomas",
+     "unless": "dn_watch"
+    },
+    {
+     "text": "Step onto the Veyra ring in the south of the square and return to Eldergate.",
+     "if": "dn_watch",
+     "unless": "dn_end"
+    }
+   ]
+  },
+  {
+   "id": "m_hushmere",
+   "kind": "main",
+   "title": "A World That Smiles",
+   "giver": "Neris",
+   "where": "Hushmere, Lethenia",
+   "summary": "Lethenia has had no war in three hundred years. Its capital, Hushmere, smiles at strangers and never raises its voice. A junior archivist named Neris has noticed that people go missing without anyone being sad about it.",
+   "accept": "eg_leth_go",
+   "done": "hs_end",
+   "steps": [
+    {
+     "text": "Leave the Quiet Garden and talk to the attendant, Sorrel.",
+     "if": "eg_leth_go",
+     "unless": "hs_welcome"
+    },
+    {
+     "text": "Cross the Avenue to the Concord Square. An archivist wants a word.",
+     "if": "hs_welcome",
+     "unless": "hs_neris"
+    },
+    {
+     "text": "Speak to the Concordant of Care in the Hall of Concord, east of the square.",
+     "if": "hs_neris",
+     "unless": "hs_official"
+    },
+    {
+     "text": "Meet Neris at the lower stair, in the west corner of the square.",
+     "if": "hs_official",
+     "unless": "hs_end"
+    }
+   ]
+  },
+  {
+   "id": "m_lowerhush",
+   "kind": "main",
+   "title": "The Happiness Protocol",
+   "giver": "Neris",
+   "where": "The Lower Districts, Hushmere",
+   "summary": "Beneath Hushmere's white streets lies the Rest, where citizens who will not stay calm are quietly relocated. Neris has looked for her mentor there eleven times.",
+   "accept": "hs_end",
+   "done": "lh_end",
+   "steps": [
+    {
+     "text": "Follow Neris down into the Lower Districts.",
+     "if": "hs_end",
+     "unless": "lh_arrive"
+    },
+    {
+     "text": "Cross the Quiet Rows to Mender's Row.",
+     "if": "lh_arrive",
+     "unless": "lh_woman"
+    },
+    {
+     "text": "Find Oriel on the bench by the fountain, and decide what to do for her.",
+     "if": "lh_woman",
+     "unless": "lh_choice"
+    },
+    {
+     "text": "Open the Sealed Annex and defeat the Correction Warden at its far door.",
+     "if": "lh_choice",
+     "unless": "lh_warden"
+    },
+    {
+     "text": "Find Archivist Corrow in the Archive Facility.",
+     "if": "lh_warden",
+     "unless": "lh_corrow"
+    },
+    {
+     "text": "Read the Correction Rolls on his desk.",
+     "if": "lh_corrow",
+     "unless": "lh_ledger"
+    },
+    {
+     "text": "Leave the facility by the stair at its south end.",
+     "if": "lh_ledger",
+     "unless": "lh_end"
+    }
+   ]
+  },
+  {
+   "id": "m_songhall",
+   "kind": "main",
+   "title": "The People Who Chose This",
+   "giver": "Neris",
+   "where": "The Hall of Songs, Hushmere",
+   "summary": "Neris knows people in the old Hall of Songs who have begun to ask questions. They will not agree with each other, or with Kenji.",
+   "accept": "lh_end",
+   "done": "sh_end",
+   "steps": [
+    {
+     "text": "Climb to the Hall of Songs and face Tavian.",
+     "if": "lh_end",
+     "unless": "sh_arrive"
+    },
+    {
+     "text": "Hear Ivel, Hanne, Orsk and Elder Varro argue it out.",
+     "if": "sh_arrive",
+     "unless": "sh_debate"
+    },
+    {
+     "text": "Take the floor and tell the Hall what you saw.",
+     "if": "sh_debate",
+     "unless": "sh_speech"
+    },
+    {
+     "text": "Follow Maren Aldwyn through the Old Quarter.",
+     "if": "sh_speech",
+     "unless": "sh_walk"
+    },
+    {
+     "text": "Read the charter in the sealed vault.",
+     "if": "sh_walk",
+     "unless": "sh_charter"
+    },
+    {
+     "text": "Give Maren Aldwyn your answer.",
+     "if": "sh_charter",
+     "unless": "sh_end"
+    }
+   ]
+  },
+  {
    "id": "s_net",
    "kind": "side",
    "title": "Pua's Lost Net",
@@ -556,6 +815,110 @@
   "veyra/reya": [
    {
     "unless": "vy_supplies",
+    "mark": "main?"
+   }
+  ],
+  "ashroad/wen": [
+   {
+    "if": "ar_warden",
+    "unless": "ar_spire_done",
+    "mark": "main?"
+   }
+  ],
+  "solgard/odo": [
+   {
+    "unless": "sg_odo",
+    "mark": "main!"
+   }
+  ],
+  "solgard/tomas": [
+   {
+    "if": "sg_overseer",
+    "unless": "sg_tomas2",
+    "mark": "main?"
+   }
+  ],
+  "heart/rhenn": [
+   {
+    "if": "sg_end",
+    "unless": "eh_captain",
+    "mark": "main!"
+   }
+  ],
+  "heart/regent": [
+   {
+    "if": "eh_parley",
+    "unless": "eh_regent",
+    "mark": "main!"
+   }
+  ],
+  "dawn/tomas_d": [
+   {
+    "if": "eh_end",
+    "unless": "dn_tomas",
+    "mark": "main!"
+   }
+  ],
+  "dawn/counsel_d": [
+   {
+    "if": "dn_tomas",
+    "unless": "dn_watch",
+    "mark": "main!"
+   }
+  ],
+  "hushmere/sorrel": [
+   {
+    "if": "eg_leth_go",
+    "unless": "hs_welcome",
+    "mark": "main!"
+   }
+  ],
+  "hushmere/merrow": [
+   {
+    "if": "hs_neris",
+    "unless": "hs_official",
+    "mark": "main!"
+   }
+  ],
+  "hushmere/neris": [
+   {
+    "if": "hs_official",
+    "unless": "hs_end",
+    "mark": "main?"
+   }
+  ],
+  "lowerhush/oriel": [
+   {
+    "if": "lh_woman",
+    "unless": "lh_choice",
+    "mark": "main!"
+   }
+  ],
+  "lowerhush/corrow": [
+   {
+    "if": "lh_warden",
+    "unless": "lh_corrow",
+    "mark": "main!"
+   }
+  ],
+  "songhall/maren_a": [
+   {
+    "if": "sh_speech",
+    "unless": "sh_walk",
+    "mark": "main!"
+   }
+  ],
+  "songhall/maren_b": [
+   {
+    "if": "sh_walk",
+    "unless": "sh_end",
+    "mark": "main!"
+   }
+  ],
+  "ashroad/hesk_b": [
+   {
+    "if": "ar_hesk",
+    "unless": "ar_end",
     "mark": "main?"
    }
   ],

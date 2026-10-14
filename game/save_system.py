@@ -189,6 +189,8 @@ def _migrate_equipment(data: dict) -> tuple:
 
 # Heroes renamed after saves existed (Oct 9): an old save still has the old names.
 RENAMED_HEROES = {"Kael": "Kenji", "Sera": "Miya", "Yulia": "Reya"}
+# Heroes whose class changed after saves existed (Oct 13: Reya went from tank to rogue = melee_dps): old saves still say the old class.
+RECLASSED_HEROES = {"Reya": "melee_dps"}
 
 
 def load_game(path: str = None) -> PlayerState:
@@ -208,7 +210,7 @@ def load_game(path: str = None) -> PlayerState:
         return {slot: equipped_migration.get(val) if val else None for slot, val in raw.items()}
 
     characters = [
-        PlayerCharacter(id=c["id"], name=RENAMED_HEROES.get(c["name"], c["name"]), class_id=c["class_id"], equipped=_equipped_for(c),
+        PlayerCharacter(id=c["id"], name=RENAMED_HEROES.get(c["name"], c["name"]), class_id=RECLASSED_HEROES.get(RENAMED_HEROES.get(c["name"], c["name"]), c["class_id"]), equipped=_equipped_for(c),
                          # level/xp are new as of the level-curve pass -- default to level 1/0 XP so a
                          # save written before this stage still loads (an old file simply won't have
                          # the keys, not a version bump; SAVE_FORMAT_VERSION only tracks breaking changes).
@@ -254,7 +256,7 @@ def load_game(path: str = None) -> PlayerState:
         stash = list(data.get("equipment_stash", []))
     legacy_instances = {
         iid: LegacyItem(instance_id=iid, hero_name=RENAMED_HEROES.get(rec.get("hero_name", ""), rec.get("hero_name", "")),
-                        hero_class_id=rec.get("hero_class_id", ""),
+                        hero_class_id=RECLASSED_HEROES.get(RENAMED_HEROES.get(rec.get("hero_name", ""), rec.get("hero_name", "")), rec.get("hero_class_id", "")),
                         rarity=rec.get("rarity", "common"), bonuses=dict(rec.get("bonuses", {})))
         for iid, rec in data.get("legacy_instances", {}).items()
     }

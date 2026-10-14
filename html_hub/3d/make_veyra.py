@@ -1,8 +1,8 @@
 """Builds html_hub/3d/veyra.json: "Cinder Hollow", the first portal world's outer province (Veyra, the Kingdom of Ash).
 Chapter A of the Veyra storyline (claude/eldergate-veyra-oct-13.md): arrival through the Eldergate ring, Reya's ambush and the medicine she is protecting, the royal garrison
-that confiscated the village's supplies (Captain Voss, an elite fight), the return to the sick house, and Reya joining the party.
+that confiscated the village's supplies (Captain Dorgan, an elite fight), the return to the sick house, and Reya joining the party.
 Layout (x east, z south, the camera looks north): arrival ring (south, z 34), Cinder Hollow village (centre), the sick house (west), the north road, and the garrison compound (north, z -42).
-Flags: vy_arrive (ambush scene seen) vy_quest hg_captain (Voss beaten) vy_supplies (medicine recovered) vy_returned / vy_join (delivered; Reya recruited) vc1.. (chests)
+Flags: vy_arrive (ambush scene seen) vy_quest hg_captain (Dorgan beaten) vy_supplies (medicine recovered) vy_returned / vy_join (delivered; Reya recruited) vc1.. (chests)
 Run:  python make_veyra.py [outdir]   (needs kenhouse.py next to it; re-running overwrites hand edits made in /builder3d)"""
 import json, math, os, random, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -157,7 +157,7 @@ glow(7.4, -42.5, 6, [0.9, 0.9, 1.0, 0.3], show="hg_captain", hide="vy_supplies")
 # Reya (the ambush: she starts here; the arrival scene walks her over)
 npc("reya", "Reya", "Courier", "Yulia", 10.0, 22.0, hide="vy_supplies", tint=[1.15, 0.95, 0.85, 1], actions=[
     SAY("Reya", "You are still here. Do not take it personally. I have just never watched anyone walk toward the garrison on purpose.", **{"if": "vy_arrive", "unless": "vy_supplies"}),
-    SAY("Reya", "North road, past the burnt wagon. Forty men and a captain called Voss. If you are going, go. If you are not, stop standing where I can see you.", **{"if": "vy_arrive", "unless": "vy_supplies"}),
+    SAY("Reya", "North road, past the burnt wagon. Forty men and a captain called Dorgan. If you are going, go. If you are not, stop standing where I can see you.", **{"if": "vy_arrive", "unless": "vy_supplies"}),
 ])
 npc("reya_b", "Reya", "Courier", "Yulia", -18.5, 3.5, show="vy_supplies", hide="vy_join", tint=[1.15, 0.95, 0.85, 1], actions=[
     SAY("Reya", "Take it to Marta. She is in the sick house, west of the well. Go.", **{"unless": "vy_returned"})])
@@ -175,8 +175,8 @@ npc("marta", "Marta", "Village Healer", "Elder", -21.0, 1.5, reach=5.0, actions=
     SAY("Kenji", "I said I would bring it back.", **{"if": "vy_supplies", "unless": "vy_returned"}),
     SAY("Reya", "People say that. Heroes say that. The ones who mean it die, and the ones who do not leave. You are the first I have seen who walked there and walked back.", **{"if": "vy_supplies", "unless": "vy_returned"}),
     SAY("Reya", "There was a ledger in the crate with the sacks. Evacuation lists from this province. I read it twice on the way back.", **{"if": "vy_supplies", "unless": "vy_returned"}),
-    SAY("Reya", "My brother's name is on it. Tomas. Eleven. 'Transferred to Aurelion, royal works.' The soldiers took the children from the outer villages six years ago. They said it was for safety. I have been trying to follow that road ever since.", **{"if": "vy_supplies", "unless": "vy_returned"}),
-    SAY("Lyra", "Aurelion. The capital. The plaque said it was the last city standing.", **{"if": "vy_supplies", "unless": "vy_returned"}),
+    SAY("Reya", "My brother's name is on it. Tomas. Eleven. 'Transferred to Solgard, royal works.' The soldiers took the children from the outer villages six years ago. They said it was for safety. I have been trying to follow that road ever since.", **{"if": "vy_supplies", "unless": "vy_returned"}),
+    SAY("Lyra", "Solgard. The capital. The plaque said it was the last city standing.", **{"if": "vy_supplies", "unless": "vy_returned"}),
     SAY("Kenji", "Then that is where we are going.", **{"if": "vy_supplies", "unless": "vy_returned"}),
     SAY("Reya", "I want to save one person. You want to save everyone you can. I do not know which of us is the fool.", **{"if": "vy_supplies", "unless": "vy_returned"}),
     SAY("Kenji", "Then we have a road in common.", **{"if": "vy_supplies", "unless": "vy_returned"}),
@@ -199,20 +199,20 @@ npc("pip", "Pip", "Child", "Townee", -4.0, 14.5, actions=[
 npc("patient1", "Sick villager", "Cinderlung", "Townee", -22.0, -4.5, actions=[SAY("Sick villager", "...I keep hearing a bell. Is it morning?", **{"unless": "vy_returned"}), SAY("Sick villager", "I can breathe. I can breathe.", **{"if": "vy_returned"})])
 npc("patient2", "Sick villager", "Cinderlung", "Elder", -20.2, -0.5, actions=[SAY("Sick villager", "Cold... so cold... Do not let the fires go out.", **{"unless": "vy_returned"}), SAY("Sick villager", "The warm has come back into my hands.", **{"if": "vy_returned"})])
 # the garrison
-npc("voss", "Captain Voss", "Royal Garrison", "Draven", 0.0, -42.0, tint=[1.15, 0.7, 0.7, 1], h=2.8, reach=5.0, hide="hg_captain", actions=[
-    SAY("Captain Voss", "Halt. By order of Her Majesty's Quartermaster, this road is closed. Supplies requisitioned for the capital's defence. Turn around or add your bones to the road."),
+npc("dorgan", "Captain Dorgan", "Royal Garrison", "Draven", 0.0, -42.0, tint=[1.15, 0.7, 0.7, 1], h=2.8, reach=5.0, hide="hg_captain", actions=[
+    SAY("Captain Dorgan", "Halt. By order of Her Majesty's Quartermaster, this road is closed. Supplies requisitioned for the capital's defence. Turn around or add your bones to the road."),
     SAY("Kenji", "There are children dying of fever in the village down the road. Those supplies are theirs."),
-    SAY("Captain Voss", "There are millions in Aurelion. Do the arithmetic. I did, and it kept me awake for a year. Then I stopped doing it."),
+    SAY("Captain Dorgan", "There are millions in Solgard. Do the arithmetic. I did, and it kept me awake for a year. Then I stopped doing it."),
     dict(type="battle", key="hg_captain", pool=["cursed_knight"], level_rel=[1, 3], elite=1.3)])
-npc("voss_b", "Captain Voss", "Royal Garrison", "Draven", 0.0, -42.0, show="hg_captain", hide="vy_supplies", tint=[1.15, 0.7, 0.7, 1], h=2.8, reach=5.0, actions=[
-    SAY("Captain Voss", "...Take the sacks. The crates behind the table. Orders said every province beyond the third ring is 'beyond saving'. I did not read the orders closely. I read them often."),
-    SAY("Captain Voss", "Tell Reya the soldier who did not shoot her last winter says... never mind. Take them. Go.")])
+npc("dorgan_b", "Captain Dorgan", "Royal Garrison", "Draven", 0.0, -42.0, show="hg_captain", hide="vy_supplies", tint=[1.15, 0.7, 0.7, 1], h=2.8, reach=5.0, actions=[
+    SAY("Captain Dorgan", "...Take the sacks. The crates behind the table. Orders said every province beyond the third ring is 'beyond saving'. I did not read the orders closely. I read them often."),
+    SAY("Captain Dorgan", "Tell Reya the soldier who did not shoot her last winter says... never mind. Take them. Go.")])
 npc("soldier1", "Garrison Soldier", "Royal Garrison", "Warden", -8.0, -41.0, tint=[1.1, 0.75, 0.75, 1], actions=[
-    SAY("Garrison Soldier", "I only carry what I am told to carry. Do not look at me like that. I have a sister in Aurelion.", **{"unless": "hg_captain"}),
+    SAY("Garrison Soldier", "I only carry what I am told to carry. Do not look at me like that. I have a sister in Solgard.", **{"unless": "hg_captain"}),
     SAY("Garrison Soldier", "The Captain has stood down. I will not stop you. I... I will not tell anyone which way you went.", **{"if": "hg_captain"})])
 npc("soldier2", "Garrison Soldier", "Royal Garrison", "Warden", 12.0, -36.5, tint=[1.1, 0.75, 0.75, 1], actions=[
     SAY("Garrison Soldier", "We were told the northern villages were evacuated. Then why does the road have so many footprints going the wrong way?", **{"unless": "hg_captain"}),
-    SAY("Garrison Soldier", "Aurelion has a wall of light, they say. It feeds on the provinces. I only learned that last month.", **{"if": "hg_captain"})])
+    SAY("Garrison Soldier", "Solgard has a wall of light, they say. It feeds on the provinces. I only learned that last month.", **{"if": "hg_captain"})])
 
 # ------------------------------------------------------------------ events
 event("vy_rest", "Cookfire", -17.5, 5.2, [
@@ -220,17 +220,19 @@ event("vy_rest", "Cookfire", -17.5, 5.2, [
     dict(type="rest")], "Rest by the fire", 3.2, 2.4)
 event("vy_crates", "Supply crates", 7.4, -40.0, [
     SAY("", "Behind the table, three crates stamped with the crown's sun and a clerk's scrawl: CINDER HOLLOW. REQUISITIONED. FOR THE CAPITAL.", ),
-    SAY("", "Inside, sacks of grain, bottles of green tincture and a ledger, thick with names. 'EVACUATION PROGRAMME, OUTER PROVINCES. Transferred to Aurelion, royal works.'"),
+    SAY("", "Inside, sacks of grain, bottles of green tincture and a ledger, thick with names. 'EVACUATION PROGRAMME, OUTER PROVINCES. Transferred to Solgard, royal works.'"),
     SAY("Miya", "Take it all. The ledger, too. Someone will want to know where these people were sent."),
     ACT("flag", key="vy_supplies"),
     dict(type="chest", loot=dict(gold=500, shards=8, items={"potion": 3, "antidote": 2}), text="Among the crown's stores you also find")],
     "Search the crates", 3.6, 3.6, show="hg_captain", hide="vy_supplies")
 event("vy_road", "The Road of Ash", 0.0, -55.0, [
-    SAY("", "Beyond the garrison, the north road runs into the ash and vanishes. A bell tolls slowly in the distance. Aurelion is out there, past the abandoned provinces and whatever the failing Emberheart has made of them."),
-    SAY("", "You are not ready to walk it yet. (Chapter B, The Road of Ash, opens in a later part of the story.)")],
+    SAY("", "Beyond the garrison, the north road runs into the ash and does not turn. A bell tolls slowly in the distance. Solgard is out there, past the abandoned provinces and whatever the failing Emberheart has made of them."),
+    dict(type="choice", who="Kenji", text="Take the Road of Ash north?", options=[
+        dict(label="Walk the Road of Ash", actions=[ACT("fade", to="black", t=1.2), ACT("warp", scene="ashroad", x=0, z=62.0, fresh=True)]),
+        dict(label="Not yet", actions=[ACT("end")])])],
     "Look up the road", 10.0, 3.0, show="vy_join")
 event("vy_sign", "Milestone", -3.2, -10.5, [
-    SAY("Milestone", "CINDER HOLLOW. AURELION, 240 LEAGUES. (Someone has scratched out the second line and written beneath it: 'TOO FAR.')")], "Read the milestone", 3.2, 2.4)
+    SAY("Milestone", "CINDER HOLLOW. SOLGARD, 240 LEAGUES. (Someone has scratched out the second line and written beneath it: 'TOO FAR.')")], "Read the milestone", 3.2, 2.4)
 
 # ------------------------------------------------------------------ arrival scene (Reya's ambush)
 ARRIVE = [
@@ -255,7 +257,7 @@ ARRIVE = [
     SAY("Reya", "...Cinder Hollow. Down the road. The fever came with the storms. This morning the garrison took the last of the village's supplies 'for the capital'. This is what I stole back. It will last a day."),
     SAY("Reya", "You walked out of a ruin that has been dead since before I was born. Outsiders. Heroes. I know what heroes are. They arrive too late, promise what they cannot keep, and leave the rest of us to clean up."),
     SAY("Kenji", "I have not promised anything. Where is the garrison?"),
-    SAY("Reya", "North road, an hour's walk. Forty men and a captain called Voss. The last outsider who asked them nicely is buried behind the chapel. Do not."),
+    SAY("Reya", "North road, an hour's walk. Forty men and a captain called Dorgan. The last outsider who asked them nicely is buried behind the chapel. Do not."),
     SAY("Kenji", "Then watch what I do instead of what I say."),
     SAY("Reya", "...Reya. Not that you will need it. Follow the road past the well. The sick house is on the west side. Go and look, before you decide to be brave."),
     ACT("flag", key="vy_arrive"),
@@ -266,7 +268,7 @@ ARRIVE = [
 OBJECTIVES = [
     {"unless": "vy_supplies", "text": "Cinder Hollow's medicine was seized by the royal garrison. Recover it from the checkpoint on the north road."},
     {"unless": "vy_returned", "text": "Take the recovered medicine to Marta in the sick house, west of the well."},
-    {"text": "Reya has joined you. The Road of Ash (Chapter B) opens in a later part of the story. The ring in the south leads back to Eldergate and Dawnwatch."},
+    {"text": "Reya has joined you. Take the north road past the garrison: the Road of Ash leads to Solgard. The ring in the south leads back to Eldergate and Dawnwatch."},
 ]
 
 scene = {

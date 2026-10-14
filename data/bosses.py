@@ -1134,10 +1134,32 @@ HOLLOW_CHAMPION = _guardian(
     {"money": 700, "gems": 20, "xp": 220}, {"money": 180, "gems": 4, "xp": 60}, (110, 70, 160))
 
 
+EMBER_REGENT = _guardian(
+    "ember_regent_boss", "Ember Regent", "Bosses/AncientGuardian/Ancient-Guardian.png", 1.6,
+    Stats(max_hp=250, max_mp=140, atk=26, def_=24, mag=24, res=20, spd=11, luk=10),
+    Stats(max_hp=24, max_mp=0, atk=2, def_=2, mag=3, res=2, spd=1, luk=0), 1.8, 0,
+    ["sunder", "crushing_blow", "firestorm", "warcry", "self_repair"],
+    "The throne's ember-forged guardian, built to keep the Emberheart lit at any cost. Sunder on the hardest-hitting hero, Crushing Blow on the weakest, Firestorm when the Heart surges, Self-Repair when the Heart feeds it.",
+    [{"shake": True}, {"say": ("Ember Regent", "THE HEART IS LIT. THE HEART IS FED. THE HEART IS NOT TO BE TOUCHED.")}, {"announce": "THE EMBER REGENT KINDLES"}],
+    [{"id": "surge", "when": {"every_n_rounds": 4, "from": 3}, "once": False, "steps": [
+        {"announce": "THE HEART SURGES"}, {"log": "The Emberheart pulses and the Regent's seams run white-hot."},
+        {"force_skill": {"skill": "firestorm", "target": "all", "cast": 4.0, "brace": 1.6}}]},
+     {"id": "stoke", "when": {"hp_below": 0.6}, "steps": [
+        {"shake": True}, {"say": ("Ember Regent", "THE WARMTH OF FORTY THOUSAND. IT WILL NOT BE SPENT ON YOU.")},
+        {"apply_status": {"target": "boss", "status": "atk_up", "duration": 4}}]},
+     {"id": "last_ember", "when": {"hp_below": 0.25}, "steps": [
+        {"flash": "#ff9a3c"}, {"say": ("Ember Regent", "SUBJECT PRESENT. THE HEART IS... STILL LIT.")},
+        {"heal_boss_pct": 0.06}, {"apply_status": {"target": "boss", "status": "def_up", "duration": 4}}]}],
+    [{"say": ("Ember Regent", "THE HEART... REMAINS.")}],
+    [{"say": ("Ember Regent", "...LET IT... BURN... FOR ITSELF.")}],
+    {"money": 2400, "gems": 70, "xp": 900}, {"money": 520, "gems": 14, "xp": 200}, (255, 150, 60))
+EMBER_REGENT.escorts = [("flame_imp", 29), ("flame_imp", 29)]
+
+
 WORLD_BOSSES: Dict[str, BossDef] = {BRIARMAW.id: BRIARMAW, ANCIENT_GUARDIAN.id: ANCIENT_GUARDIAN, DROWNED_SOVEREIGN.id: DROWNED_SOVEREIGN, VAULT_WARDEN.id: VAULT_WARDEN,
                                 VAULT_SENTINEL.id: VAULT_SENTINEL, PHASE_STALKER.id: PHASE_STALKER, RIFT_COLOSSUS.id: RIFT_COLOSSUS,
                                 RIFT_HARBINGER.id: RIFT_HARBINGER, SKRAAG.id: SKRAAG, WARMUP_GOBLIN.id: WARMUP_GOBLIN,
-                                HOLLOW_CHAMPION.id: HOLLOW_CHAMPION}
+                                HOLLOW_CHAMPION.id: HOLLOW_CHAMPION, EMBER_REGENT.id: EMBER_REGENT}
 
 
 # Every boss fights at a SET level, whatever the party's level (Andrew: "bosses should be a set level"). This overrides
@@ -1158,6 +1180,7 @@ BOSS_FIXED_LEVELS: Dict[str, int] = {
     "vault_warden_boss": 19,        # Shard Vault, final
     "unbroken_pair_boss": 20,       # Colosseum rank 2 gate
     "rift_harbinger_boss": 24,      # Shattered Reach
+    "ember_regent_boss": 31,        # Solgard, the Emberheart
 }
 
 

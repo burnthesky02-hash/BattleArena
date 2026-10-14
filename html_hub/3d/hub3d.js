@@ -1017,6 +1017,13 @@ void main(){
     strange:  { scene: "strange",   x: 6,     z: 28.5,  text: "You come to beside the camp crystal at Dawnwatch, healed, with the mason muttering that somebody should really mind the road." },
     eldergate: { to: "strange" },
     veyra:    { scene: "veyra",    x: -15.4, z: 5.2,   text: "You wake on a cot by the cookfire in Cinder Hollow. Marta has dressed every wound and Reya, arms folded, pretends she was not worried." },
+    ashroad:  { scene: "ashroad",  x: 7.0,   z: 26.5,  text: "You come to by the Wayfarers' Rest fire. Old Maud has stitched what she could and charged nothing, which she says is a first." },
+    solgard:  { scene: "solgard",  x: -17.0, z: -46.5, text: "You wake in a clean bed at the Sun and Hearth, warm to the bone. Someone has left bread on the sill and neither asked nor looked at you." },
+    heart:    { scene: "heart",    x: -16.0, z: -22.0, text: "You come to by the kindlers' brazier, wrapped in a blanket that smells of woodsmoke. Somebody small has left a tin cup of something hot beside your hand." },
+    dawn:     { to: "solgard" },
+    hushmere: { scene: "hushmere", x: -16.0, z: -36.5, text: "You wake in a soft bed at the Guest House. Someone has left fruit on the sill and a card on the pillow that says WE HOPE YOU FEEL EXACTLY AS YOU SHOULD." },
+    lowerhush: { to: "hushmere" },
+    songhall: { to: "lowerhush" },
   };
   function cpFlag(name, def) { return ((def && def.restart) || "") + "cp" + ((def && def.restart) ? "" : "_" + name); }
   function cpAll() { try { return JSON.parse(localStorage.getItem(CP_KEY) || "{}") || {}; } catch (e) { return {}; } }

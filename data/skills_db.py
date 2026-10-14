@@ -294,6 +294,37 @@ SKILLS = {
         id="titans_judgment", name="Titan's Judgment", mp_cost=11, power=2.1, kind="physical",
         target=TargetType.ALL_ENEMIES, description="Reya brings down a devastating blow across every enemy at once.",
     ),
+    # Neris the archivist-tank (Lethenia)
+    "held_memory": Skill(
+        id="held_memory", name="Held Memory", mp_cost=9, power=0.0, kind="status",
+        target=TargetType.SELF, status_to_apply="def_up", status_chance=1.0,
+        description="Neris holds a remembered grief like a shield, raising her own defense.",
+    ),
+    "remembered_weight": Skill(
+        id="remembered_weight", name="Remembered Weight", mp_cost=11, power=2.1, kind="physical",
+        target=TargetType.ALL_ENEMIES, description="Neris swings every loss she refuses to forget across the whole line of enemies.",
+    ),
+    "grief_ward": Skill(
+        id="grief_ward", name="Grief Ward", mp_cost=10, power=1.6, kind="physical",
+        target=TargetType.SINGLE_ENEMY, status_to_apply="def_down", status_chance=0.4, lifesteal=0.2,
+        description="Neris drives through the target's guard and mends her own wounds with the impact.",
+    ),
+    # Reya the rogue (the three skills above are the old tank kit, now unused)
+    "ash_needles": Skill(
+        id="ash_needles", name="Ash Needles", mp_cost=6, power=1.3, kind="physical",
+        target=TargetType.SINGLE_ENEMY, status_to_apply="poison", status_chance=0.4,
+        description="Reya flicks a fan of ash-blackened needles; each one carries a little poison.",
+    ),
+    "cutpurse": Skill(
+        id="cutpurse", name="Cutpurse", mp_cost=8, power=1.7, kind="physical",
+        target=TargetType.SINGLE_ENEMY, status_to_apply="def_down", status_chance=0.35,
+        description="Reya slips inside the target's guard and cuts the straps off its armor.",
+    ),
+    "smoke_and_knives": Skill(
+        id="smoke_and_knives", name="Smoke and Knives", mp_cost=11, power=1.6, kind="physical",
+        target=TargetType.ALL_ENEMIES, status_to_apply="stun", status_chance=0.2,
+        description="Reya drops a smoke pellet and strikes through the cloud, slashing every enemy at once.",
+    ),
 
     # melee_dps (replace the shared "cleave" and "crushing_blow" slots)
     "flurry": Skill(

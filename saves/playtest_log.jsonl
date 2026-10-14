@@ -69,3 +69,12 @@
 {"n": 16, "t": 318209, "kind": "scene", "msg": "entered island", "ctx": "hub", "scene": "island"}
 {"n": 17, "t": 318209, "kind": "flag", "msg": "sq_pg_q, sq_pg1, sq_pg2, sq_fence_q, sq_c1, sq_c3, sq_net_q", "ctx": "hub", "scene": "island"}
 {"n": 18, "t": 318209, "kind": "fire", "msg": "island/event:forest_path", "ctx": "hub", "scene": "island"}
+{"n": 19, "t": 466242, "kind": "warn", "msg": "console.warn: [Hub3D] could not build the plaza: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404", "ctx": "hub", "scene": "dungeon"}
+{"n": 20, "t": 466268, "kind": "warn", "msg": "console.warn: [Hub3D] could not build the plaza: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404", "ctx": "hub", "scene": "dungeon"}
+{"n": 21, "t": 466280, "kind": "warn", "msg": "console.warn: [Hub3D] could not build the plaza: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404", "ctx": "hub", "scene": "dungeon"}
+{"n": 22, "t": 466399, "kind": "warn", "msg": "console.warn: [Hub3D] could not build the plaza: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404", "ctx": "hub", "scene": "dungeon"}
+{"n": 23, "t": 466641, "kind": "warn", "msg": "console.warn: [Hub3D] could not build the plaza: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404", "ctx": "hub", "scene": "dungeon"}
+{"n": 24, "t": 466649, "kind": "warn", "msg": "console.warn: [Hub3D] could not build the plaza: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404", "ctx": "hub", "scene": "dungeon"}
+{"n": 25, "t": 466667, "kind": "warn", "msg": "console.warn: [Hub3D] could not build the plaza: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404", "ctx": "hub", "scene": "dungeon"}
+{"n": 26, "t": 466816, "kind": "warn", "msg": "console.warn: [Hub3D] warp failed: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404", "ctx": "hub", "scene": "island"}
+{"n": 27, "t": 466847, "kind": "warn", "msg": "console.warn: [Hub3D] could not build the plaza: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404", "ctx": "hub", "scene": "dungeon"}

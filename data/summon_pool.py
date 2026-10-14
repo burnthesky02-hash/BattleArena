@@ -118,6 +118,8 @@ RECRUITABLE_ROSTER: List[RecruitableHero] = [
     RecruitableHero("Thorne", "melee_dps", "epic"),
     RecruitableHero("Rhea", "melee_dps", "legendary"),
     RecruitableHero("Kenji", "melee_dps", "mythic"),
+    # Reya is the second story hero in this class: the Veyra courier, a rogue (dagger and buckler). Mythic is never summoned.
+    RecruitableHero("Reya", "melee_dps", "mythic"),
     # ranged_dps -- Rook's kit; Rook is the mythic pull.
     RecruitableHero("Sylas", "ranged_dps", "common"),
     RecruitableHero("Nadia", "ranged_dps", "rare"),
@@ -136,12 +138,13 @@ RECRUITABLE_ROSTER: List[RecruitableHero] = [
     RecruitableHero("Mira", "support", "epic"),
     RecruitableHero("Osric", "support", "legendary"),
     RecruitableHero("Miya", "support", "mythic"),
-    # tank -- no original-party counterpart, so just common..mythic in order.
+    # tank -- no original-party counterpart, so just common..legendary in order (no story tank).
     RecruitableHero("Gareth", "tank", "common"),
     RecruitableHero("Brutus", "tank", "rare"),
     RecruitableHero("Petra", "tank", "epic"),
     RecruitableHero("Draven", "tank", "legendary"),
-    RecruitableHero("Reya", "tank", "mythic"),
+    # Neris is the story tank (Lethenia, an archivist who remembers everything). Mythic is never summoned.
+    RecruitableHero("Neris", "tank", "mythic"),
 ]
 
 # Precomputed rarity -> [RecruitableHero, ...] (one per class, 5 total) so

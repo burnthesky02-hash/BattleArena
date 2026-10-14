@@ -13,7 +13,7 @@ except ImportError:
 # The only 3D scenes the demo can enter: Paradise Island, the Whispering Wood and the two fishing spots.
 DEMO_SCENES = ("island", "forest", "fish_pier", "fish_pond")
 # Everything past the Hollow Cave (kept out of the demo pack, and refused by the server).
-LATE_SCENES = ("dungeon", "prison", "olympus", "outside", "plaza", "asteroid", "vault", "reach", "strange", "eldergate", "veyra")
+LATE_SCENES = ("dungeon", "prison", "olympus", "outside", "plaza", "asteroid", "vault", "reach", "strange", "eldergate", "veyra", "ashroad", "solgard", "heart", "dawn", "hushmere", "lowerhush", "songhall")
 DEMO_END_TEXT = ("That is the end of the demo. Thanks for playing Skyborne Saga! "
                  "The Hollow Cave stays sealed for now, but you are welcome to keep exploring the island and the "
                  "Whispering Wood, fish, hunt for treasure and fight on.")

@@ -49,13 +49,14 @@ HERO_SKILLS: Dict[str, List[str]] = {
     "Brutus": ["grit_teeth", "heavy_slam", "ground_slam"],
     "Petra": ["fortify", "overpower", "crushing_counter"],
     "Draven": ["iron_resolve", "colossus_blow", "dravens_fury"],
-    "Reya": ["unbreakable", "titans_judgment", "aegis_wall"],
+    "Neris": ["held_memory", "remembered_weight", "grief_ward"],
     # melee_dps
     "Bran": ["flurry", "overhead_chop", "reckless_swing"],
     "Vex": ["twin_fangs", "savage_cut", "rending_strike"],
     "Thorne": ["whirling_blades", "brutal_combo", "blood_for_power"],
     "Rhea": ["storm_of_blades", "dragon_fang", "executioners_edge"],
     "Kenji": ["blade_dance", "ascendant_strike", "skyfall_slash"],
+    "Reya": ["ash_needles", "cutpurse", "smoke_and_knives"],
     # ranged_dps
     "Sylas": ["sting_shot", "snipe", "quick_shot"],
     "Nadia": ["crippling_arrow", "double_tap", "venom_volley"],

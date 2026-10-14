@@ -7,23 +7,6 @@ Story flags set: 59   Dialogue lines read: 6   Rests: 0   Arena fights: 0
 
 ## Quests
 
-- [x] main: The Thorn Barrier
-- [ ] main: Escort Through the Hollow Cave (accepted, not finished)
-- [ ] main: Slave of the Colosseum (not started)
-- [ ] main: The Infirmary (not started)
-- [ ] main: The Way Home (not started)
-- [ ] main: Defend the Colosseum (not started)
-- [ ] main: Outpost Kestrel (not started)
-- [ ] main: The Shard Vault (not started)
-- [ ] main: The Shattered Reach (not started)
-- [ ] side: Pua's Lost Net (accepted, not finished)
-- [ ] side: The Goblin Brute (accepted, not finished)
-- [ ] side: Torn Glyph Pages (accepted, not finished)
-- [x] side: The Spirit Spring
-- [ ] side: The Silver Locket (accepted, not finished)
-- [ ] side: The Runaway Knight (not started)
-- [ ] side: Loose Salvage (not started)
-- [ ] side: The Rogue Drone (not started)
 
 ## Battles
 
@@ -43,9 +26,10 @@ Story flags set: 59   Dialogue lines read: 6   Rests: 0   Arena fights: 0
 
 - [island @1s] STUCK: no story heroes in the party
 
-## Warnings (0)
+## Warnings (2)
 
-- none
+- [dungeon @466242s] console.warn: [Hub3D] could not build the plaza: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404 (x8)
+- [island @466816s] console.warn: [Hub3D] warp failed: Error: /assets/3D/CaveCamp/SM_dg_block.glb: HTTP 404
 
 ## Not reachable on foot (informational: the bot teleports, so doors that open later and scripted jumps also show up here) (0)
 

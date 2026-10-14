@@ -15,7 +15,8 @@ HERO_LORE: Dict[str, str] = {
     "Brutus": "Built like the arena wall he trains against. Brutus doesn't dodge -- he plants his feet, lets the hit land, and answers it with a slam that cracks the stone underfoot.",
     "Petra": "A former siege-engineer who decided armor was a more interesting problem than architecture. She studies an opponent's swing before the fight even starts, and punishes it the moment it repeats.",
     "Draven": "Exiled from a northern legion for refusing to fall back. Draven treats every match as the last stand he was never allowed to make, and by the finish, he usually means it.",
-    "Reya": "A royal courier from the outer villages of Veyra, until the soldiers evacuated the rich and forgot her home. She runs supplies through the ash, trusts no hero, and holds her ground behind a wall of light because she has already lost someone to arriving too late.",
+    "Reya": "A courier from the outer villages of Veyra, who smuggles medicine and bread through the ash roads under the garrison's nose. She trusts no hero, fights with a knife in each hand and a smoke pellet in her sleeve, and is never where the blow lands, because she once arrived too late for someone and does not intend to again.",
+    "Neris": "A junior archivist from Hushmere, in Lethenia, one of the few whose mind will not take the Stillheart's quiet. She keeps every grief she has ever felt and stands in front of other people's, a shield of someone who remembers and will not set it down. She holds the line the way she keeps records: nothing lost, nothing softened.",
     # melee_dps
     "Bran": "A farmhand who found out the hard way that his swing could put a bandit through a fence post. He fights the same way he worked the fields -- flat out, no half measures.",
     "Vex": "Grew up picking locks and pockets before picking fights paid better. Twin blades, twin openings -- Vex is already gone before an opponent finishes reacting to the first cut.",
