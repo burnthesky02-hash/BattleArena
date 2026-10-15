@@ -588,6 +588,9 @@ let dragState = null, marq = null;
 const snapv = (v, free) => (grid > 0 && !free) ? Math.round(v / grid) * grid : v;
 function mouse(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
 function groundPt(e, y) { const [sx, sy] = mouse(e); return onPlane(rayAt(sx, sy), y || 0); }
+/* Point under the cursor on the ground SURFACE: the sculpted terrain heights when the scene has terrain (otherwise the y=0 plane). Used by the placement tools, the hover ghost and click-to-walk;
+   a flat y=0 plane misses hills, so pieces landed far from the cursor wherever the ground is not at y 0. */
+function surfPt(e) { const [sx, sy] = mouse(e); const t = typeof terrRay === "function" && TERR ? terrRay(sx, sy) : null; return t || onPlane(rayAt(sx, sy), 0); }
 function uniqueId(base, arr) { let i = 1, id; do { id = base + "_" + i++; } while (arr.some((a) => a.id === id)); return id; }
 function setTool(t) {
   tool = t; document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === t)); ghostRect = null; if (tool !== "line" && typeof lineCancel === "function") lineCancel(); if (typeof syncLineOpts === "function") syncLineOpts(); if (typeof syncHouseOpts === "function") syncHouseOpts(); { const gm = $("#gizModes"); if (gm) gm.style.display = tool === "select" ? "" : "none"; } if (typeof syncTerrOpts === "function") syncTerrOpts(); terrBrush = null; folBrush = null; if (typeof syncFolOpts === "function") syncFolOpts(); scheduleDraw();
@@ -600,7 +603,7 @@ cv.addEventListener("pointerdown", (e) => {
   if (e.button !== 0) return;
   if (pickMode && !play) { const t = terrRay(sx, sy), pm = pickMode; endPick(); if (t) pm.cb(r3(t[0]), r3(t[2])); return; }      // "Pick spot on ground" for cutscene steps
   if (play) { dragState = { mode: "pclick", x: e.clientX, y: e.clientY }; return; }
-  const free = e.altKey, gp = groundPt(e, 0);
+  const free = e.altKey, gp = surfPt(e);
   if (tool === "select") {
     const gz = gizHit(sx, sy); if (gz >= 0) { gizStart(gz, sx, sy); scheduleDraw(); return; }
     const p = pick(sx, sy, e.altKey), add = e.shiftKey || e.ctrlKey || e.metaKey;
@@ -641,7 +644,7 @@ cv.addEventListener("pointerdown", (e) => {
 });
 cv.addEventListener("pointermove", (e) => {
   if (!scene) return;
-  const hg = groundPt(e, 0); hoverG = hg;
+  const hg = surfPt(e); hoverG = hg;
   if (tool === "terrain" && !play && !(dragState && dragState.mode !== "terr")) { const [tx, ty] = mouse(e), t = terrRay(tx, ty); terrBrush = t ? { x: t[0], z: t[2] } : null; }
   if (tool === "foliage" && !play && !(dragState && dragState.mode !== "fol")) { const [tx, ty] = mouse(e), t = terrRay(tx, ty); folBrush = t ? { x: t[0], z: t[2] } : null; }
   if (tool === "select" && !play && !dragState) { const [tx, ty] = mouse(e), gz = gizHit(tx, ty); if (gz !== gizHover) { gizHover = gz; cv.style.cursor = gz >= 0 ? "grab" : ""; } }
@@ -668,7 +671,7 @@ cv.addEventListener("pointerup", (e) => {
   if (d.mode === "terr") terrEnd();
   if (d.mode === "ramp") rampEnd(d);
   if (d.mode === "fol") folEnd();
-  if (d.mode === "pclick") { if (play && !play.script && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) { const g = groundPt(e, 0), b = scene.bounds; if (g) play.p.target = { x: clamp(g[0], b.minX + 1, b.maxX - 1), z: clamp(g[2], b.minZ + 1, b.maxZ - 1) }; } return; }
+  if (d.mode === "pclick") { if (play && !play.script && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) { const g = surfPt(e), b = scene.bounds; if (g) play.p.target = { x: clamp(g[0], b.minX + 1, b.maxX - 1), z: clamp(g[2], b.minZ + 1, b.maxZ - 1) }; } return; }
   if (d.mode === "move") { if (d.moved) refreshOutliner(); else if (d.grp) selectItem(d.pk.type, d.pk.uid); }
   if (d.mode === "line") lineUp(e, d);
   if (d.mode === "marq" && marq) {
