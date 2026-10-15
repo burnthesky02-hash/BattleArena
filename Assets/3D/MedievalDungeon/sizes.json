@@ -1,0 +1,617 @@
+{
+"SM_Crypt_Ceiling": [
+5.0,
+1.927,
+5.0
+],
+"SM_Crypt_Ceiling_Arch_A": [
+0.375,
+1.588,
+4.881
+],
+"SM_Crypt_Ceiling_Flat": [
+5.0,
+0.0,
+5.0
+],
+"SM_Crypt_Ceiling_Half": [
+5.0,
+1.927,
+2.5
+],
+"SM_Crypt_Ceiling_Half_B": [
+5.0,
+1.927,
+2.5
+],
+"SM_Crypt_Doorway": [
+5.0,
+4.73,
+0.879
+],
+"SM_Crypt_Floor": [
+5.0,
+0.0,
+5.0
+],
+"SM_Crypt_Floor_Concave": [
+5.0,
+0.138,
+5.0
+],
+"SM_Crypt_Floor_Concave_End_A": [
+5.0,
+0.138,
+5.0
+],
+"SM_Crypt_Floor_Concave_End_B": [
+5.0,
+0.138,
+5.0
+],
+"SM_Crypt_Pillar": [
+1.248,
+3.308,
+1.248
+],
+"SM_Crypt_Wall": [
+5.0,
+4.5,
+0.5
+],
+"SM_Crypt_Wall_Decorative_A": [
+5.014,
+4.5,
+1.163
+],
+"SM_Crypt_Wall_Decorative_B": [
+5.0,
+4.515,
+1.525
+],
+"SM_Crypt_Wall_Decorative_C": [
+5.0,
+4.5,
+1.223
+],
+"SM_Crypt_Wall_Decorative_D": [
+5.014,
+4.5,
+1.151
+],
+"SM_Crypt_Wall_Floor_Trim": [
+5.0,
+0.409,
+0.248
+],
+"SM_Crypt_Wall_Half": [
+2.5,
+4.5,
+0.5
+],
+"SM_Crypt_Wall_Plaster": [
+5.0,
+4.5,
+0.5
+],
+"SM_Crypt_Wall_Stop_Gap": [
+6.202,
+1.825,
+0.062
+],
+"SM_Mausoleum": [
+15.173,
+4.504,
+5.432
+],
+"SM_Mausoleum_Ceiling": [
+15.0,
+4.511,
+5.755
+],
+"SM_Mausoleum_Lid_A": [
+0.922,
+0.734,
+0.084
+],
+"SM_Mausoleum_Lid_B": [
+0.922,
+0.734,
+0.084
+],
+"SM_Mausoleum_Lid_C": [
+0.922,
+0.734,
+0.084
+],
+"SM_Ceiling": [
+6.0,
+1.927,
+6.0
+],
+"SM_Ceiling_Arch_A": [
+0.5,
+2.117,
+6.248
+],
+"SM_Ceiling_Arch_B": [
+0.5,
+2.117,
+6.248
+],
+"SM_Ceiling_Flat": [
+6.0,
+0.0,
+6.0
+],
+"SM_Ceiling_Flat_Half": [
+3.0,
+0.0,
+6.0
+],
+"SM_Ceiling_Half": [
+3.0,
+1.927,
+6.0
+],
+"SM_Ceiling_Piece": [
+3.0,
+1.927,
+3.0
+],
+"SM_Ceiling_Piece_B": [
+3.0,
+1.927,
+3.0
+],
+"SM_Ceiling_Third": [
+6.0,
+1.927,
+6.0
+],
+"SM_Ceiling_Third_Reverse": [
+6.0,
+1.927,
+6.0
+],
+"SM_Cell_Door": [
+0.132,
+2.145,
+1.541
+],
+"SM_Cell_Front": [
+0.132,
+3.685,
+6.0
+],
+"SM_Cell_Side": [
+0.083,
+3.685,
+5.704
+],
+"SM_Decorative_Arches": [
+0.684,
+6.0,
+6.085
+],
+"SM_DoorWay": [
+0.879,
+6.23,
+6.0
+],
+"SM_DoorWay_Large_Door_Left": [
+0.324,
+2.756,
+1.33
+],
+"SM_DoorWay_Large_Door_Right": [
+0.324,
+2.756,
+1.33
+],
+"SM_Dungeon_Wall": [
+0.5,
+6.0,
+6.0
+],
+"SM_Dungeon_Wall_Decorative_A": [
+1.163,
+6.0,
+6.018
+],
+"SM_Dungeon_Wall_Decorative_D": [
+1.151,
+6.0,
+6.017
+],
+"SM_Dungeon_Wall_Half": [
+0.5,
+6.0,
+3.0
+],
+"SM_Edge_Stones": [
+5.985,
+0.656,
+0.659
+],
+"SM_Fire_Pit": [
+6.0,
+0.616,
+6.0
+],
+"SM_Floor": [
+6.0,
+0.0,
+6.0
+],
+"SM_Half_Arch": [
+3.317,
+6.029,
+1.48
+],
+"SM_Large_Window_Half": [
+0.551,
+4.0,
+6.0
+],
+"SM_Pillar": [
+1.248,
+4.5,
+1.248
+],
+"SM_Small_Window_Half": [
+0.49,
+2.003,
+6.0
+],
+"SM_Stairs_10": [
+6.25,
+2.0,
+3.0
+],
+"SM_Stairs_5": [
+6.25,
+1.0,
+1.5
+],
+"SM_Wall_Floor_Trim": [
+0.248,
+0.409,
+6.0
+],
+"Wall_Short": [
+0.062,
+0.872,
+6.0
+],
+"SM_Alter": [
+1.503,
+0.691,
+2.807
+],
+"SM_Ball_And_Chain": [
+0.385,
+0.347,
+0.843
+],
+"SM_Bed": [
+1.015,
+0.947,
+2.613
+],
+"SM_Candle": [
+0.033,
+0.187,
+0.034
+],
+"SM_CandleHolder_Bronze": [
+0.182,
+0.082,
+0.182
+],
+"SM_CandleHolder_Iron": [
+0.182,
+0.082,
+0.182
+],
+"SM_CandleStick_Iron": [
+0.164,
+0.321,
+0.164
+],
+"SM_Candle_Holder": [
+1.32,
+2.126,
+1.32
+],
+"SM_Candle_Used_A": [
+0.098,
+0.177,
+0.095
+],
+"SM_Candle_Used_B": [
+0.105,
+0.089,
+0.091
+],
+"SM_Candle_Used_C": [
+0.107,
+0.033,
+0.096
+],
+"SM_Chandelier": [
+1.32,
+1.426,
+1.32
+],
+"SM_Coffin": [
+0.795,
+0.469,
+1.964
+],
+"SM_Coffin_Lid": [
+0.78,
+0.049,
+1.964
+],
+"SM_Coffin_No_Lid": [
+0.795,
+0.441,
+1.959
+],
+"SM_Decor_Chains_A": [
+4.378,
+2.065,
+0.094
+],
+"SM_Decor_Chains_B": [
+0.378,
+1.365,
+0.094
+],
+"SM_Decor_Ring": [
+0.277,
+0.444,
+0.112
+],
+"SM_Dirt_Mound_A": [
+1.741,
+0.265,
+2.077
+],
+"SM_Dirt_Mound_B": [
+1.315,
+0.206,
+1.528
+],
+"SM_Dirt_Mound_C": [
+1.123,
+0.18,
+0.758
+],
+"SM_Dirt_Mound_D": [
+0.712,
+0.168,
+1.069
+],
+"SM_Gargoyle_Statue": [
+0.469,
+0.713,
+0.402
+],
+"SM_Gargoyle_Statue_On_Stand": [
+0.594,
+1.714,
+0.594
+],
+"SM_Gargoyle_Statue_Stand": [
+0.594,
+1.005,
+0.594
+],
+"SM_Gibbet_Cage": [
+0.87,
+2.251,
+0.915
+],
+"SM_Gibbet_Cage_Open": [
+1.108,
+2.251,
+0.99
+],
+"SM_Gibbet_Cage_Wall_Mount": [
+0.161,
+1.529,
+1.369
+],
+"SM_Handcuff": [
+0.165,
+0.06,
+0.241
+],
+"SM_Lock_Closed": [
+0.197,
+0.04,
+0.305
+],
+"SM_Lock_Key": [
+0.064,
+0.02,
+0.145
+],
+"SM_Lock_Open": [
+0.201,
+0.04,
+0.355
+],
+"SM_Pot_A_Body": [
+0.337,
+0.435,
+0.337
+],
+"SM_Pot_A_Complete": [
+0.337,
+0.481,
+0.337
+],
+"SM_Pot_A_Lid": [
+0.283,
+0.059,
+0.283
+],
+"SM_Pot_B_Body": [
+0.295,
+0.241,
+0.295
+],
+"SM_Pot_B_Complete": [
+0.295,
+0.275,
+0.295
+],
+"SM_Pot_B_Lid": [
+0.219,
+0.046,
+0.219
+],
+"SM_Pot_C_Body": [
+0.295,
+0.329,
+0.295
+],
+"SM_Pot_C_Complete": [
+0.295,
+0.364,
+0.295
+],
+"SM_Pot_C_Lid": [
+0.219,
+0.046,
+0.219
+],
+"SM_SplitLog": [
+0.812,
+0.271,
+0.189
+],
+"SM_Statue_Hooded": [
+1.189,
+1.996,
+0.622
+],
+"SM_Statue_Hooded_Metal": [
+0.119,
+0.2,
+0.062
+],
+"SM_Statue_Stand": [
+0.911,
+0.52,
+0.911
+],
+"SM_Stocks_Game_Ready": [
+1.685,
+1.585,
+1.352
+],
+"SM_Stone_Coffin": [
+0.857,
+0.539,
+2.009
+],
+"SM_Stone_Coffin_Body": [
+0.857,
+0.479,
+2.009
+],
+"SM_Stone_Coffin_Lid": [
+0.857,
+0.131,
+2.009
+],
+"SM_Table": [
+1.992,
+0.779,
+1.992
+],
+"SM_Torch": [
+0.463,
+0.986,
+0.742
+],
+"SM_Torture_Chair": [
+0.935,
+1.099,
+1.011
+],
+"SM_Wood_A": [
+0.252,
+0.065,
+3.0
+],
+"SM_Wood_B": [
+0.252,
+0.059,
+2.0
+],
+"SM_Wood_C": [
+0.129,
+0.057,
+2.02
+],
+"SM_Wood_D": [
+0.131,
+0.176,
+2.012
+],
+"SM_Wood_E": [
+0.129,
+0.173,
+3.042
+],
+"SM_Wood_F": [
+0.25,
+0.334,
+3.047
+],
+"SM_Wood_G": [
+0.256,
+0.34,
+4.039
+],
+"SM_Skeleton_01": [
+0.771,
+0.275,
+2.331
+],
+"SM_Skeleton_02": [
+0.843,
+0.244,
+2.665
+],
+"SM_Skeleton_03": [
+1.915,
+0.384,
+1.213
+],
+"SM_Skeleton_04": [
+0.92,
+0.387,
+1.05
+],
+"SM_Skeleton_05": [
+1.228,
+0.406,
+0.931
+],
+"SM_Skeleton_06": [
+0.778,
+0.763,
+0.821
+],
+"SM_Skeleton_07": [
+0.851,
+0.671,
+0.902
+]
+}
